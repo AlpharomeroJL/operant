@@ -1,0 +1,15 @@
+{
+  "name": "operant-mock-oauth",
+  "version": "1.0.0",
+  "description": "Standalone mock OAuth provider for the X16 broker's e2e tests (authorize/token/refresh/revoke per contracts/fixtures/oauth/config.json)",
+  "type": "module",
+  "private": true,
+  "main": "server.mjs",
+  "scripts": {
+    "start": "node server.mjs",
+    "smoke": "node smoke-test.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

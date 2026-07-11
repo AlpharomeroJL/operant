@@ -14,10 +14,17 @@
 //! exposes every compiled workflow as a `workflow_<slug>` tool over stdio,
 //! and a client that registers an external MCP server's tools as `mcp`
 //! namespace adapters. See `mcp`'s own module doc and `docs/specs/mcp.md`.
+//!
+//! [`oauth`] (X16, FR-M1): the subscription sign-in broker -- "Sign in
+//! with ChatGPT" and "Sign in with Claude" -- PKCE S256 loopback flows,
+//! tokens in the OS credential vault only, silent refresh, revocation. See
+//! `oauth`'s own module doc and `docs/specs/backends.md`'s OAuth broker
+//! section.
 
 pub mod backends;
 pub mod explore;
 pub mod mcp;
+pub mod oauth;
 
 pub use backends::ModelBackend;
 pub use explore::ExploreLoop;
