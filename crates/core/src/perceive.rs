@@ -35,11 +35,19 @@ pub trait Perceiver: Send + Sync {
     fn snapshot(&self, window_process: &str) -> Result<Snapshot, PerceptionError>;
 
     /// Resolve a selector chain to a fresh clickable point at execution time.
-    fn resolve(&self, snapshot: &Snapshot, selectors: &[Selector]) -> Result<Resolved, PerceptionError>;
+    fn resolve(
+        &self,
+        snapshot: &Snapshot,
+        selectors: &[Selector],
+    ) -> Result<Resolved, PerceptionError>;
 
     /// Block until the scope's digest changes or `timeout_ms` elapses.
-    fn wait_until_changed(&self, window_process: &str, prev_digest: &str, timeout_ms: u64)
-        -> Result<Snapshot, PerceptionError>;
+    fn wait_until_changed(
+        &self,
+        window_process: &str,
+        prev_digest: &str,
+        timeout_ms: u64,
+    ) -> Result<Snapshot, PerceptionError>;
 }
 
 /// A keyed structural diff between two snapshots.
