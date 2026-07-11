@@ -49,6 +49,7 @@ mod runs;
 mod schema;
 mod steps;
 mod store;
+pub mod undo;
 
 #[cfg(test)]
 mod tests;
