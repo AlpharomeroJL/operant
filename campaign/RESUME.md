@@ -36,3 +36,21 @@ Nothing else is required from the user. No re-planning, no re-approval.
 `node campaign/gen_state.mjs` rewrites `state.json` from the packet table, preserving any
 existing per-packet status. Safe to run any time; it never loses merged status (that lives
 in the `.ok` markers).
+
+## CI and deployment: NO GitHub Actions (owner directive)
+
+- There are NO GitHub Actions or workflow files in this repo. Do not add `.github/workflows/`.
+  If a lane creates one, delete it at the gate.
+- CI is on-device only: `just ci` (build, tests, JSON validation, em-dash grep, microcopy
+  lint, air-gap check). That is the merge gate. Nothing runs on GitHub.
+- The docs site deploys WITHOUT Actions, from the `gh-pages` branch (Pages source is
+  branch `gh-pages`, path `/`). To (re)deploy the site after `site/` changes:
+
+  ```
+  git subtree split --prefix site -b gh-pages
+  git push -f origin gh-pages
+  ```
+
+  This is the on-device deploy V3 uses. Live at https://alpharomerojl.github.io/operant/.
+- Remotes are SSH (`git@github.com:...`). The OAuth token lacks the `workflow` scope, so
+  HTTPS pushes that touch `.github/workflows/` are rejected anyway; SSH is the durable choice.
