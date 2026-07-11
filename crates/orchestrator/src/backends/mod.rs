@@ -18,6 +18,10 @@
 //! - [`grounder`]: [`grounder::FixtureGrounderBackend`], the `mock_grounder`
 //!   fixture-mode vision grounder (deterministic coordinates plus a cropped
 //!   anchor capture, no GPU).
+//! - [`live_config`]: environment-driven [`live_config::LiveBackendConfig`]
+//!   resolution for the flagged real-endpoint tests in `live_endpoint_tests`
+//!   (test-only; opt-in via `OPERANT_LIVE_BACKEND`, see `docs/models.md`)
+//!   and any future caller that wants a live backend without a config file.
 //! - [`mock_backends`]: [`mock_backends::MockPlannerBackend`], the
 //!   `mock_planner` scripted backend.
 //! - [`redact`]: secrets redaction for logs and errors (hard rule #2).
@@ -29,6 +33,7 @@ mod client;
 mod dialect;
 mod error;
 mod grounder;
+mod live_config;
 mod mock_backends;
 mod probe;
 mod quirks;
@@ -40,12 +45,22 @@ mod types;
 #[cfg(feature = "real-transport")]
 mod transport_reqwest;
 
+// Flagged real-endpoint tests (FR-M1/M2): test-only, and only meaningfully
+// exercised with `--features real-transport` plus `OPERANT_LIVE_BACKEND`
+// set; see the module doc for how it skips cleanly without either.
+#[cfg(test)]
+mod live_endpoint_tests;
+
 use futures::future::BoxFuture;
 use futures::stream::BoxStream;
 
 pub use client::{BackendConfig, HttpBackend};
 pub use error::{BackendError, TransportError};
 pub use grounder::{ground_fixture, CropRegion, FixtureGrounderBackend, GroundResult};
+pub use live_config::{
+    LiveBackendConfig, LiveConfigError, API_KEY_ENV, BASE_URL_ENV, LIVE_BACKEND_ENV, MODEL_ENV,
+    PROVIDER_ENV,
+};
 pub use mock_backends::MockPlannerBackend;
 pub use probe::{context_length_for, now_rfc3339, DEFAULT_CONTEXT_LENGTH};
 pub use quirks::{
