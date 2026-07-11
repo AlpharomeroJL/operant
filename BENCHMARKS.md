@@ -4,7 +4,7 @@
 |---|---|---|
 |drift_repaired | 5/5 | p50: 0ms, p95: 0ms | calls: 0, tokens: 0 | 5/5 | p50: 6ms, p95: 6ms | calls: 15, tokens: 2700 |
 |notepad | 5/5 | p50: 1ms, p95: 1ms | calls: 0, tokens: 0 | 5/5 | p50: 7ms, p95: 7ms | calls: 25, tokens: 4500 |
-|web | 5/5 | p50: 1ms, p95: 1ms | calls: 0, tokens: 0 | 5/5 | p50: 7ms, p95: 7ms | calls: 25, tokens: 4500 |
+|web | 5/5 | p50: 0ms, p95: 0ms | calls: 0, tokens: 0 | 5/5 | p50: 6ms, p95: 6ms | calls: 25, tokens: 4500 |
 
 ## Methods
 
