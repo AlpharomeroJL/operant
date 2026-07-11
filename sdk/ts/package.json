@@ -10,11 +10,16 @@
     ".": {
       "types": "./index.d.ts",
       "import": "./index.js"
+    },
+    "./render": {
+      "types": "./src/render/index.d.ts",
+      "import": "./src/render/index.js"
     }
   },
   "files": [
     "index.js",
-    "index.d.ts"
+    "index.d.ts",
+    "src"
   ],
   "scripts": {
     "test": "node --test",
