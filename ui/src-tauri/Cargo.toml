@@ -1,0 +1,28 @@
+# Deliberately its own workspace (the [workspace] table below), not a member
+# of the repo-root Cargo workspace: U1A's owned path is ui/ only, and this
+# keeps the shell's heavy GUI dependency tree (wry, tao, webview2) out of
+# every other lane's `cargo build --workspace`.
+[workspace]
+
+[package]
+name = "operant-shell"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.90"
+license = "Apache-2.0"
+authors = ["Josef Long"]
+description = "Operant C13 shell UI: Tauri v2 host for the tray, command palette, and run viewer."
+repository = "https://github.com/AlpharomeroJL/operant"
+publish = false
+
+[build-dependencies]
+tauri-build = "2"
+
+[dependencies]
+tauri = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[profile.release]
+lto = "thin"
+strip = true
