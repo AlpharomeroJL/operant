@@ -24,6 +24,6 @@ For customer service and support teams who need to send the same response to mul
 | Custom fields | Information unique to each person | Their name, order number, or issue type |
 | Recipient list | How many people need this reply | 5-10 similar emails in the inbox |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./reply-canned-customer-email/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.

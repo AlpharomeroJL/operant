@@ -25,6 +25,6 @@ For accounting teams who need to move invoice data from a vendor or customer por
 | Spreadsheet file | Excel file open and ready to receive data | 2024-Q3-invoices.xlsx |
 | Start cell | Row and column where you want data to begin | A5 (row 5, column A) |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./copy-invoice-rows-web-to-spreadsheet/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`. This workflow also feeds the `crates/bench` suite (see `docs/specs/bench.md` and `cookbook/bench-workflows.json`).

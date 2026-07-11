@@ -24,6 +24,6 @@ For anyone who downloads lots of PDFs and needs to organize them into dated fold
 | Folder structure | How to organize by time | By month (2024-01, 2024-02, etc.) |
 | Naming pattern | How to rename files | [Date]-[Description].pdf |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./rename-file-pdfs-by-date/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`. This workflow also feeds the `crates/bench` suite (see `docs/specs/bench.md` and `cookbook/bench-workflows.json`).
