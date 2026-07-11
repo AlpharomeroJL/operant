@@ -26,6 +26,6 @@ For teams who create tables in Word documents and need to send the table content
 | Email recipients | Who should receive the email | manager@company.com, team@company.com |
 | Email subject | Message subject line | Q1 2024 Sales Summary |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./convert-table-to-email/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.
