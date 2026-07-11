@@ -5,7 +5,9 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "soak:ci": "node soak.mjs --ci",
     "soak:dry": "node soak.mjs --dry",
+    "soak:release": "node soak.mjs --minutes 30",
     "soak:full": "node soak.mjs"
   },
   "engines": {
