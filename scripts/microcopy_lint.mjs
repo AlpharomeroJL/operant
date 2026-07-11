@@ -15,6 +15,7 @@ const matchers = terms.map((t) => ({
 }));
 
 const SCAN_DIRS = ["ui/src", "ui/src-tauri/locales"];
+const LOCALE_DIRS = ["ui/src/locales"];
 const STRING_EXT = /\.(ts|tsx|js|jsx|json|svelte|vue|html)$/i;
 
 function walk(dir, out = []) {
