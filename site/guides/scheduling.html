@@ -22,30 +22,43 @@
   <main>
     <section class="guide-header">
       <h1>Scheduling Workflows</h1>
-      <p>Automate your workflows with cron, file watches, and event triggers.</p>
+      <p>Automate your workflows with schedules, file watches, and event triggers.</p>
     </section>
 
     <section class="guide-content">
-      <h2>Trigger Types</h2>
-      <p>Operant supports multiple ways to trigger compiled workflows:</p>
+      <h2>When Workflows Can Run By Themselves</h2>
+      <p>Once you have saved a workflow, you can set it up to run automatically on a schedule. Operant will do the task for you without you lifting a finger. Here are your options:</p>
+
+      <h2>Time-Based Scheduling (Every Day, Week, or Month)</h2>
+      <p>You can set a workflow to run at a specific time:</p>
       <ul>
-        <li><strong>Cron:</strong> Schedule recurring runs at specific times or intervals</li>
-        <li><strong>File Watch:</strong> Trigger when a file in a directory changes</li>
-        <li><strong>Window Appears:</strong> Trigger when a specific application window opens</li>
-        <li><strong>Email Arrives:</strong> Trigger when a new email lands in your inbox</li>
-        <li><strong>Manual:</strong> Run on demand from the tray or CLI</li>
+        <li>Every weekday at 9 AM</li>
+        <li>Every Monday</li>
+        <li>The first day of every month at 5 PM</li>
+        <li>Every two hours</li>
       </ul>
+      <p>When you click "Schedule", Operant will show you plain language options. Pick the one that matches your task. Operant handles all the complicated schedule stuff behind the scenes.</p>
 
-      <h2>Setting Up Cron Triggers</h2>
-      <p>Open the workflow and select "Schedule". Enter a cron expression like 0 9 * * MON to run every Monday at 9 AM.</p>
+      <h2>File Watching</h2>
+      <p>If your workflow processes files (like invoices or receipts), you can tell Operant to run it automatically whenever a new file shows up in a specific folder. For example, "Run this workflow every time a PDF arrives in my Downloads folder".</p>
 
-      <h2>Safety Limits</h2>
-      <p>Unattended triggers may only run compiled workflows. Exploratory runs always require manual approval.</p>
+      <h2>Email Triggers</h2>
+      <p>Workflows can run when a new email arrives with certain words in the subject line. For example, "Run my invoice workflow every time I get an email from accounting@vendor.com with 'Invoice' in the subject".</p>
 
-      <h2>Monitoring Scheduled Runs</h2>
-      <p>View execution history, logs, and any failures in the Operant dashboard.</p>
+      <h2>Window Appears</h2>
+      <p>You can run a workflow whenever you open a specific app. For example, "Run this workflow every time I open Excel".</p>
 
-      <p>Detailed scheduling guide coming soon. This is a placeholder.</p>
+      <h2>Manual On Demand</h2>
+      <p>You can also just click a button whenever you feel like it and Operant will run the workflow immediately.</p>
+
+      <h2>Safety: Operant Asks Before Running</h2>
+      <p>The first time you set up a schedule, Operant will ask you to approve it. You will see a clear list of what the workflow will do and which apps or files it needs to access. You approve it, and then it runs on schedule automatically.</p>
+
+      <h2>See What Happened</h2>
+      <p>After each run, you can see what Operant did: when it ran, if it succeeded, how long it took, and what changed. Click the Operant tray icon and look for "Recent Runs" or "Activity". If something went wrong, you will see what the problem was and how to fix it.</p>
+
+      <h2>Stop or Edit a Scheduled Workflow</h2>
+      <p>Change your mind? Click on any scheduled workflow and select "Edit Schedule" to change when it runs, or "Turn Off" to stop it from running automatically. You can turn it back on anytime.</p>
     </section>
 
     <nav style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
