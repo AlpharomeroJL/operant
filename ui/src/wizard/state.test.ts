@@ -3,12 +3,22 @@
 // real setup path reaches completion and publishes a workflow the library
 // (ui/src/library/state.ts) can pick up, plus coverage of the trickier
 // branches (local download's disk/compatibility gates and pause/resume,
-// access-key provider detection wiring, schedule gating). No DOM: runs
-// under plain `node --test`, same split as every other state module in
-// ui/src.
+// access-key provider detection wiring, schedule gating). Also covers the
+// guided-teach-to-schedule hand-off this lane's own brief names directly
+// (C19, FR-U1): wizard completion through guided teach, Save as workflow,
+// and schedule, checked against the real glossary
+// (contracts/microcopy_glossary.json) at run time. That check matters here
+// specifically because the guided task's narrated sentences are rendered
+// from Action IR through the real renderer (ui/src/runViewer/sdkRender.ts)
+// and never exist as source literals, so scripts/microcopy_lint.mjs's
+// static scan cannot see them; only a runtime check can. No DOM: runs under
+// plain `node --test`, same split as every other state module in ui/src.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createMockBusClient } from "../bus/mockClient.ts";
 import type { BusEvent } from "../bus/types.ts";
 import { createWizard } from "./state.ts";
@@ -23,6 +33,24 @@ function waitUntil(subscribe: (fn: () => void) => () => void, predicate: () => b
       }
     });
   });
+}
+
+// The real glossary, not a copy: same file scripts/microcopy_lint.mjs reads,
+// same word-boundary/case-insensitive matching it uses, so this test and CI
+// can never quietly drift apart on what counts as jargon.
+const GLOSSARY_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "contracts", "microcopy_glossary.json");
+const GLOSSARY_TERMS: readonly string[] = (
+  JSON.parse(readFileSync(GLOSSARY_PATH, "utf8")) as { terms: { internal: string }[] }
+).terms.map((t) => t.internal);
+
+/** Fails naming the exact string and term if any visible/audible string leaks glossary-internal vocabulary. */
+function assertNoInternalJargon(strings: readonly string[]): void {
+  for (const s of strings) {
+    for (const term of GLOSSARY_TERMS) {
+      const re = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+      assert.ok(!re.test(s), `visible string "${s}" leaks internal term "${term}"`);
+    }
+  }
 }
 
 test("welcome is the first screen, with real visible content, in default mode", () => {
@@ -168,6 +196,82 @@ test("the full real setup path reaches completion and publishes a workflow the l
 
   wizard.finishSchedule();
   assert.equal(wizard.getSnapshot().complete, true);
+
+  wizard.dispose();
+});
+
+test("BAR: wizard completion -> guided teach -> Save as workflow -> schedule produces a saved, scheduled workflow, entirely in default mode with plain-English narration and no glossary jargon", async () => {
+  const bus = createMockBusClient();
+  const compiled: BusEvent[] = [];
+  bus.subscribe("workflow.compiled", (e) => compiled.push(e));
+
+  const wizard = createWizard(bus, { guidedTaskStepDelayMs: 3 });
+  const seen: string[] = [];
+  function collectVisible(): void {
+    const content = wizard.getSnapshot().mediaContent;
+    seen.push(...content.visible);
+    if (content.audible) seen.push(content.audible.cueLabel);
+  }
+
+  // Wizard completion: welcome through setup to the mic check.
+  collectVisible();
+  wizard.continueWelcome();
+  collectVisible();
+  wizard.chooseChatGPT();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+  collectVisible();
+  wizard.continueMicCheck();
+
+  // Guided teach: explore mode with training wheels, against the fixture web
+  // app (contracts/fixtures/webapp/index.html), narrated as it runs.
+  let snap = wizard.getSnapshot();
+  assert.equal(snap.screen, "guided_task");
+  assert.equal(snap.guidedTask.demo, false, "a real teach run, not the quiet demo");
+
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().guidedTask.done);
+  snap = wizard.getSnapshot();
+  collectVisible();
+
+  // Narrated steps: plain English from the real renderer, not a hand-rolled
+  // sentence and never a raw Action IR dump.
+  assert.deepEqual(
+    snap.guidedTask.steps.map((s) => s.sentence),
+    ['Type "Acme Co" into "Customer"', 'Type "420.00" into "Amount"', 'Type "2026-01-15" into "Date"', 'Click "Save invoice"'],
+  );
+  for (const step of snap.guidedTask.steps) {
+    assert.ok(!/[{}]/.test(step.sentence), "a narrated step must never leak a raw template or JSON");
+  }
+
+  // Ends on exactly one button: Save as workflow.
+  assert.equal(snap.guidedTask.canSave, true);
+  assert.equal(snap.guidedTask.saveButton, "Save as workflow");
+  seen.push(snap.guidedTask.saveButton, snap.guidedTask.doneLabel);
+
+  wizard.saveAsWorkflow();
+  assert.equal(compiled.length, 1, "Save as workflow saves the workflow");
+  const savedName = (compiled[0].payload as unknown as { name: string }).name;
+  seen.push(wizard.getSnapshot().guidedTask.savedHint);
+
+  // The schedule step: plain choices, gated on picking one, producing a
+  // scheduled workflow.
+  snap = wizard.getSnapshot();
+  assert.equal(snap.screen, "schedule");
+  assert.equal(snap.schedule.heading, "Want this to run by itself?");
+  collectVisible();
+  assert.equal(snap.schedule.canContinue, false, "nothing chosen yet");
+
+  wizard.chooseSchedule("daily");
+  seen.push(wizard.getSnapshot().schedule.continueButton);
+  wizard.finishSchedule();
+
+  snap = wizard.getSnapshot();
+  assert.equal(snap.complete, true, "the guided teach handed off into a completed workflow");
+  assert.equal(snap.schedule.selected, "daily", "the chosen schedule is what the flow produced");
+  assert.equal(savedName, "first-task", "the same workflow that was saved is the one that got scheduled");
+
+  // Entirely default mode: every visible or audible string this run actually
+  // showed uses only user-facing vocabulary.
+  assertNoInternalJargon(seen);
 
   wizard.dispose();
 });
