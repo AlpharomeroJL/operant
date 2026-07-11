@@ -1,6 +1,19 @@
 //! Benchmark harness (C17): compiled replay vs re-inference-mock, emits BENCHMARKS.md. B1A scaffolds the renderer; L9B builds the real suite and the CI regression threshold.
 //!
 //! Provides BenchResult type mirroring contracts/bench_result.schema.json and a markdown renderer.
+//!
+//! - [`suite`]: the real suite runner. Builds the fixture Notepad, web, and
+//!   drift-repaired tasks and drives each through `operant_replay::Replayer`
+//!   for 5 repetitions per task per mode (`replay`, `reinfer_mock`).
+//! - [`threshold`]: the CI regression check `docs/specs/bench.md` names
+//!   ("replay success 5/5 on unchanged fixtures and p50 step under 150 ms,
+//!   else fail"), as a pure function over `BenchResult` rows.
+//! - [`cookbook`]: references the three cookbook workflows
+//!   `docs/specs/bench.md` lists as part of the suite's scope.
+
+pub mod cookbook;
+pub mod suite;
+pub mod threshold;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -63,7 +76,7 @@ pub fn render_benchmarks_md(results: &[BenchResult]) -> String {
     for result in results {
         by_task_mode
             .entry(result.task.clone())
-            .or_insert_with(BTreeMap::new)
+            .or_default()
             .insert(result.mode, result);
     }
 
@@ -114,7 +127,8 @@ pub fn render_benchmarks_md(results: &[BenchResult]) -> String {
                     "p50: {:.0}ms, p95: {:.0}ms",
                     result.p50_step_ms, result.p95_step_ms
                 );
-                let calls_tokens = format!("calls: {}, tokens: {}", result.model_calls, result.tokens);
+                let calls_tokens =
+                    format!("calls: {}, tokens: {}", result.model_calls, result.tokens);
                 output.push_str(&success_rate);
                 output.push_str(" | ");
                 output.push_str(&latency);
@@ -128,11 +142,39 @@ pub fn render_benchmarks_md(results: &[BenchResult]) -> String {
     }
 
     output.push_str("\n## Methods\n\n");
-    output.push_str("Measurements capture per-step latency, total wall time, model calls, and token usage.\n\n");
+    output.push_str(
+        "Measurements capture per-step latency, total wall time, model calls, and token usage.\n\n",
+    );
     output.push_str(
         "**Honesty note:** reinfer_mock uses recorded latencies from the actual replay,\n\
          simulating agent-at-every-step cost without hitting a real backend.\n",
     );
+
+    output
+}
+
+/// Extends [`render_benchmarks_md`] (B1A's renderer) with a section listing
+/// the cookbook workflows `docs/specs/bench.md` names as part of the suite's
+/// scope but that this run did not execute (see `cookbook` module doc for
+/// why). Composes over the original function rather than changing it, so
+/// every existing headline-table and methods-section guarantee still holds
+/// verbatim; this only appends.
+pub fn render_benchmarks_md_with_cookbook(
+    results: &[BenchResult],
+    cookbook: &[cookbook::CookbookWorkflowRef],
+) -> String {
+    let mut output = render_benchmarks_md(results);
+
+    if !cookbook.is_empty() {
+        output.push_str("\n## Cookbook workflows referenced\n\n");
+        output.push_str(&cookbook::reference_note());
+        output.push_str("\n\n");
+        output.push_str("| Slug | Workflow | Prose |\n");
+        output.push_str("|---|---|---|\n");
+        for w in cookbook {
+            output.push_str(&format!("| {} | {} | {} |\n", w.slug, w.workflow, w.prose));
+        }
+    }
 
     output
 }
@@ -231,7 +273,8 @@ mod tests {
     fn test_bench_result_serde_json_array_round_trip() {
         let original = fixture_results();
         let json = serde_json::to_string(&original).expect("serialize array");
-        let deserialized: Vec<BenchResult> = serde_json::from_str(&json).expect("deserialize array");
+        let deserialized: Vec<BenchResult> =
+            serde_json::from_str(&json).expect("deserialize array");
         assert_eq!(original, deserialized);
     }
 
@@ -256,10 +299,7 @@ mod tests {
             markdown.contains("| reinfer_mock |"),
             "should have reinfer_mock mode column"
         );
-        assert!(
-            markdown.contains("notepad"),
-            "should have notepad task row"
-        );
+        assert!(markdown.contains("notepad"), "should have notepad task row");
         assert!(markdown.contains("web"), "should have web task row");
     }
 
