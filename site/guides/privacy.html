@@ -26,34 +26,44 @@
     </section>
 
     <section class="guide-content">
-      <h2>Local-First Architecture</h2>
-      <p>Operant runs entirely on your machine by default. Screen data never leaves your device unless you explicitly configure cloud models with an API key.</p>
+      <h2>Your Data Stays on Your Machine</h2>
+      <p>Operant is built on a simple principle: nothing leaves your computer unless you choose it. When Operant watches your screen and learns your workflows, that information is stored on your device only. No screenshots, no recordings, no activity logs are sent anywhere else.</p>
 
-      <h2>Air-Gap Mode</h2>
-      <p>Run Operant completely offline: use a local language model (via Ollama or llama.cpp), no internet connectivity required after initial setup.</p>
-
-      <h2>Data Security</h2>
+      <h2>Choose Your Brain (Model)</h2>
+      <p>When you set up Operant, you choose how it thinks:</p>
       <ul>
-        <li>Compiled workflows are plain TypeScript files, inspectable and auditable</li>
-        <li>Credentials stored only in the OS credential vault, never in workflow files</li>
-        <li>Anchor redaction automatically removes sensitive regions from stored screenshots</li>
-        <li>Audit log is cryptographically signed and append-only</li>
+        <li>Download a free, local model that runs on your computer with no internet needed (once it is downloaded).</li>
+        <li>Use a model you already pay for (like ChatGPT or Claude if you have an account).</li>
+        <li>Paste an access key if you want a different service.</li>
       </ul>
+      <p>If you choose a local model, nothing ever goes to the internet. If you use a cloud model, only the information needed for that one task is sent, and only when you teach Operant something new. Saved workflows run completely offline.</p>
 
-      <h2>Capability Grants</h2>
-      <p>Each workflow declares what it needs: which apps it can control, which paths it can access, what risk classes of actions it can perform. You approve these grants before the workflow runs.</p>
+      <h2>Run Completely Offline</h2>
+      <p>After you have saved a workflow, it runs without the internet and without sending any information anywhere. Operant knows exactly what to do, so it does not need to think or reach out to anyone.</p>
 
-      <h2>Safety Guarantees</h2>
-      <ul>
-        <li>No workflow can type into a credential field without explicit approval</li>
-        <li>No workflow can confirm a payment or deletion without manual intervention</li>
-        <li>The kill switch hotkey instantly freezes all input synthesis (under 100 ms)</li>
-      </ul>
+      <h2>Passwords and Secrets Are Safe</h2>
+      <p>Passwords, credit card numbers, and other secrets are never saved in your workflows. Operant stores them securely in your system's credential safe. If you teach a workflow that types a password, Operant will ask you to confirm it is okay each time before it runs. A workflow will never type into a password field without your approval, no matter what.</p>
 
-      <h2>Transparency</h2>
-      <p>View the plain-English step-by-step execution plan before any workflow runs. Dry-run mode shows what will happen without side effects.</p>
+      <h2>Sensitive Screens Are Hidden</h2>
+      <p>If Operant takes a screenshot of your password dialog or a sensitive area, it automatically redacts that part before saving it. Your private information is never stored.</p>
 
-      <p>Complete privacy documentation coming soon. This is a placeholder guide.</p>
+      <h2>Activity Record: See Everything</h2>
+      <p>Operant keeps a signed record of every workflow run. You can see when it ran, what it did, whether it succeeded, and what changed on your computer. This record cannot be changed or hidden; it is tamper-proof. Read it anytime to know exactly what your workflows have done.</p>
+
+      <h2>Permissions: You Decide What Each Workflow Can Do</h2>
+      <p>Before a workflow runs, you see a list of what it needs: which apps it can control, which files and folders it can access, and what types of actions it can perform. You approve these permissions. A workflow can never do more than what you approved.</p>
+
+      <h2>Dangerous Actions Need Your Permission</h2>
+      <p>Some actions are too risky to run automatically. If a workflow needs to delete a file, submit a form, or send money, Operant will stop and ask you in person. You see what is about to happen and you click "Yes" or "No". A workflow can never delete, send, or submit anything without your say-so.</p>
+
+      <h2>The Kill Switch: Stop Everything Now</h2>
+      <p>If something goes wrong, press a hotkey and Operant stops immediately. All mouse and keyboard input freezes in under 100 milliseconds. This is your panic button.</p>
+
+      <h2>Undo: Go Back in Time</h2>
+      <p>If a workflow did something you did not want, you can undo it. Operant remembers every file it moved, every clipboard it changed, every action it took. Click "Undo Last Run" and everything goes back to how it was.</p>
+
+      <h2>See the Plan Before It Happens</h2>
+      <p>Before any workflow runs, you can click "Preview" to see exactly what will happen. A numbered list shows every step. It is the same thing you will see after it runs, just before it actually happens. You can approve it, cancel it, or change the inputs.</p>
     </section>
 
     <nav style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
