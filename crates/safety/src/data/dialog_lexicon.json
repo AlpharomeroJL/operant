@@ -1,0 +1,64 @@
+{
+  "_note": "Runtime-owned FR-S4 classifier vocabulary. Data, not code: extend the term lists without touching the evaluator. Matching is case-insensitive substring over the foreground window title and its button element names.",
+  "credential_terms": [
+    "password",
+    "passcode",
+    "passphrase",
+    "pin",
+    "cvv",
+    "cvc",
+    "card number",
+    "security code",
+    "secret",
+    "one-time code",
+    "one time code",
+    "otp",
+    "verification code"
+  ],
+  "payment": {
+    "title_terms": [
+      "payment",
+      "checkout",
+      "purchase",
+      "billing",
+      "confirm payment",
+      "complete purchase",
+      "place your order",
+      "place order",
+      "pay now"
+    ],
+    "button_terms": [
+      "pay",
+      "pay now",
+      "place order",
+      "buy now",
+      "buy",
+      "confirm payment",
+      "submit payment",
+      "complete purchase"
+    ]
+  },
+  "deletion": {
+    "title_terms": [
+      "delete",
+      "remove",
+      "erase",
+      "permanently delete",
+      "confirm deletion",
+      "confirm delete",
+      "move to trash",
+      "empty trash",
+      "empty recycle bin"
+    ],
+    "button_terms": [
+      "delete",
+      "delete permanently",
+      "delete forever",
+      "remove",
+      "erase",
+      "empty trash",
+      "yes, delete",
+      "confirm delete"
+    ]
+  }
+}
