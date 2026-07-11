@@ -33,11 +33,12 @@ export const trayStrings = {
   savedTimeTooltip: (minutes: number) => `Saved about ${minutes} minutes this week`,
 };
 
-export const paletteStrings = {
-  placeholder: "Tell it what to do",
-  submit: "Teach it",
-  hint: "Press Enter to start teaching it from what's on screen right now",
-};
+// Palette strings are now in the locale catalog; import from there.
+// This is re-exported here for backward compatibility with code that imports
+// from ui/src/strings/default.ts.
+import { getLocaleCatalog } from "../locales/index.ts";
+
+export const paletteStrings = getLocaleCatalog().paletteStrings;
 
 export const runViewerStrings = {
   title: "What it's doing",
