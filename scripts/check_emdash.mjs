@@ -3,8 +3,9 @@
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const EM = "—";
-const BAR = "―";
+// Defined by code point so this checker contains no literal em dash of its own.
+const EM = String.fromCharCode(0x2014); // em dash
+const BAR = String.fromCharCode(0x2015); // horizontal bar
 const BINARY = /\.(png|pdf|bin|ico|gif|mp4|woff2|jpg|jpeg|zip|exe)$/i;
 
 let files;
