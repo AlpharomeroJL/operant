@@ -4,11 +4,16 @@
 //! workflow install, drift merge) is appended as a JSONL record whose `hash`
 //! chains the previous record's hash with the record's own contents (BLAKE3).
 //! [`AuditLog::verify`] walks the chain and detects any tampering; the log
-//! exports as JSONL. (Human-readable PDF export is L6B, not here.)
+//! exports as JSONL, and as a human-readable PDF via [`AuditLog::export_pdf`]
+//! (see [`pdf`]).
 
 use serde::{Deserialize, Serialize};
 
 use crate::error::AuditError;
+
+/// Human-readable PDF export of the chain (L6B). Adds the [`AuditLog::export_pdf`]
+/// and [`AuditLog::write_pdf`] methods; pulls in no new dependency.
+mod pdf;
 
 /// The genesis `prev_hash`: 64 hex zeros. The first event chains from this.
 pub const GENESIS: &str =
