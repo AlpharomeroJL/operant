@@ -1,0 +1,21 @@
+{
+  "description": "Cookbook workflows that feed crates/bench (see docs/specs/bench.md, 'plus three cookbook workflows'). Generated for L9B (bench-suite) to consume without needing to run Node or parse comments. Source of truth cross-checked by cookbook/doctest.mjs against each workflow module's `benchmark` export and the prose file's Benchmark tag.",
+  "count": 3,
+  "workflows": [
+    {
+      "slug": "copy-invoice-rows-web-to-spreadsheet",
+      "workflow": "cookbook/copy-invoice-rows-web-to-spreadsheet/workflow.ts",
+      "prose": "cookbook/copy-invoice-rows-web-to-spreadsheet.md"
+    },
+    {
+      "slug": "rename-file-pdfs-by-date",
+      "workflow": "cookbook/rename-file-pdfs-by-date/workflow.ts",
+      "prose": "cookbook/rename-file-pdfs-by-date.md"
+    },
+    {
+      "slug": "extract-text-from-images",
+      "workflow": "cookbook/extract-text-from-images/workflow.ts",
+      "prose": "cookbook/extract-text-from-images.md"
+    }
+  ]
+}

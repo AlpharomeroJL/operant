@@ -26,6 +26,6 @@ For marketing, HR, and sales teams who need to send similar emails to multiple p
 | Personalization fields | Which columns from the spreadsheet to use | Name, Department, Project, Start Date |
 | Email subject | Subject line (same for all or with personalization) | "Project Approval: [ProjectName]" |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./send-personalized-emails/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.

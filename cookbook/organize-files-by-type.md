@@ -22,6 +22,6 @@ For anyone with a messy folder full of mixed file types who needs to sort them i
 | Folder names | Names for the new subfolders | PDFs, Spreadsheets, Documents, Images |
 | Action on conflict | What to do if a file type folder already exists | Merge files into existing folder |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./organize-files-by-type/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.

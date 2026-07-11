@@ -23,6 +23,6 @@ For bookkeepers and expense managers who need to pull dollar amounts and dates f
 | Spreadsheet file | Excel or Google Sheets file for expenses | Expenses-2024.xlsx |
 | Category field | Optional: how to categorize the expense | Travel, Meals, Office, etc. |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./extract-receipt-totals/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.

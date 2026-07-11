@@ -25,6 +25,6 @@ For researchers, students, and professionals who need to copy text out of images
 | Text type | How the text is organized | Bullet points, sentences, table, notes |
 | Output location | Where to save the final document | C:\Users\Name\Documents\Extracted-Text |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./extract-text-from-images/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`. This workflow also feeds the `crates/bench` suite (see `docs/specs/bench.md` and `cookbook/bench-workflows.json`).
