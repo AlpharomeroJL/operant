@@ -22,6 +22,8 @@ import type { BackupPayload } from "./settings/mockStore.ts";
 import { createTray } from "./tray/state.ts";
 import { mountTray } from "./tray/view.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
+import { createWizard } from "./wizard/state.ts";
+import { mountWizard } from "./wizard/view.ts";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -91,6 +93,9 @@ root.innerHTML = `
     <div class="op-modal-backdrop" id="op-grant-backdrop" hidden>
       <div id="op-grant-mount"></div>
     </div>
+    <div class="op-modal-backdrop" id="op-wizard-backdrop" hidden>
+      <div id="op-wizard-mount"></div>
+    </div>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
       <h2 class="op-panel__title" id="op-advanced-heading"></h2>
       <div class="op-advanced-panel__grid">
@@ -150,6 +155,8 @@ const explainClose = byId<HTMLButtonElement>("op-explain-close");
 const explainMount = byId<HTMLElement>("op-explain-mount");
 const grantBackdrop = byId<HTMLElement>("op-grant-backdrop");
 const grantMount = byId<HTMLElement>("op-grant-mount");
+const wizardBackdrop = byId<HTMLElement>("op-wizard-backdrop");
+const wizardMount = byId<HTMLElement>("op-wizard-mount");
 
 appTitle.textContent = commonStrings.appName;
 paletteHeading.textContent = paletteStrings.placeholder;
@@ -182,6 +189,29 @@ const library = createLibrary(bus, {
 });
 const settings = createSettings(bus);
 const tray = createTray(bus);
+
+// First-run onboarding (C19, FR-U1/FR-U4). Shown until the wizard reports
+// complete, then never again on this device. Same localStorage-with-
+// in-memory-fallback pattern as ui/src/state/mode.ts and
+// ui/src/settings/mockStore.ts, so a sandboxed webview with no storage just
+// falls back to "show it again next launch" instead of throwing.
+const WIZARD_DONE_KEY = "operant.wizard.completed";
+function wizardAlreadyDone(): boolean {
+  try {
+    return typeof localStorage !== "undefined" && localStorage.getItem(WIZARD_DONE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function markWizardDone(): void {
+  try {
+    if (typeof localStorage !== "undefined") localStorage.setItem(WIZARD_DONE_KEY, "1");
+  } catch {
+    // Storage unavailable: the wizard just shows again next launch.
+  }
+}
+const wizard = createWizard(bus);
+let wizardDismissed = wizardAlreadyDone();
 
 // The currently streaming canned demo, if any: cancels the timers behind a
 // run so Stop (and Pause, which freezes progress until resumed) do not let
@@ -396,6 +426,45 @@ function renderTrayPanel(): void {
   });
 }
 
+/**
+ * The onboarding wizard renders as a modal overlay in front of everything
+ * else until it reports complete, then hides for good on this device
+ * (WIZARD_DONE_KEY above). Every screen it shows comes straight from
+ * wizard.getSnapshot(); this function owns none of that copy, same split as
+ * every other render* function here.
+ */
+function renderWizardPanel(): void {
+  const snap = wizard.getSnapshot();
+  if (snap.complete && !wizardDismissed) {
+    wizardDismissed = true;
+    markWizardDone();
+  }
+  wizardBackdrop.hidden = wizardDismissed;
+  if (wizardDismissed) return;
+
+  mountWizard(wizardMount, snap, {
+    onContinueWelcome: () => wizard.continueWelcome(),
+    onChooseChatGPT: () => wizard.chooseChatGPT(),
+    onChooseClaude: () => wizard.chooseClaude(),
+    onStartLocalDownload: () => wizard.startLocalDownload(),
+    onPauseLocalDownload: () => wizard.pauseLocalDownload(),
+    onResumeLocalDownload: () => wizard.resumeLocalDownload(),
+    onCancelLocalDownload: () => wizard.cancelLocalDownload(),
+    onContinueAfterLocalDownload: () => wizard.continueAfterLocalDownload(),
+    onAccessKeyTextChange: (text) => wizard.setAccessKeyText(text),
+    onChooseProviderManually: (provider) => wizard.chooseProviderManually(provider),
+    onContinueWithAccessKey: () => wizard.continueWithAccessKey(),
+    onStartDemo: () => wizard.startDemo(),
+    onPlayMicSample: () => wizard.playMicSample(),
+    onSkipMicCheck: () => wizard.skipMicCheck(),
+    onContinueMicCheck: () => wizard.continueMicCheck(),
+    onSaveAsWorkflow: () => wizard.saveAsWorkflow(),
+    onContinueAfterDemo: () => wizard.continueAfterDemo(),
+    onChooseSchedule: (id) => wizard.chooseSchedule(id),
+    onFinishSchedule: () => wizard.finishSchedule(),
+  });
+}
+
 bus.subscribe("*", (event) => {
   lastEvents.push(event);
   if (modeStore.get() === "advanced") renderAdvancedAudit();
@@ -407,6 +476,7 @@ runViewer.subscribe(renderRunViewer);
 library.subscribe(renderLibraryPanel);
 settings.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
+wizard.subscribe(renderWizardPanel);
 
 navRun.addEventListener("click", () => showScreen("run"));
 navLibrary.addEventListener("click", () => showScreen("library"));
@@ -424,6 +494,7 @@ renderRunViewer();
 renderLibraryPanel();
 renderSettingsPanel();
 renderTrayPanel();
+renderWizardPanel();
 
 paletteForm.addEventListener("submit", (event) => {
   event.preventDefault();
