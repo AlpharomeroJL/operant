@@ -9,6 +9,15 @@ license.workspace = true
 operant-ir.workspace = true
 operant-action.workspace = true
 operant-gates.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+
+[dev-dependencies]
+# The compiler produces the CompiledWorkflow the replay executor consumes; the
+# integration test compiles the frozen fixture and replays it end to end. This
+# is a TEST-ONLY edge: the shipped replay crate links only ir, action, and
+# gates, so zero-model replay stays enforced by the crate graph.
+operant-compiler.workspace = true
