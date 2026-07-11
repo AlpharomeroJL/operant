@@ -25,6 +25,6 @@ For data entry teams who need to take information from an Excel or Google Sheets
 | Field mapping | How spreadsheet columns match form fields | Column A = Name field, Column B = Email field |
 | Data range | Which rows of data to process | Rows 2 through 50 |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./fill-form-from-spreadsheet/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.

@@ -26,6 +26,6 @@ For managers and analysts who need to collect daily reports from a website and m
 | Report format | File type that downloads | CSV, Excel (.xlsx), or PDF |
 | Output file | Where to save the combined report | C:\Users\Name\Documents\Weekly-Reports |
 
-## The workflow file goes here
+## The workflow file
 
-Once the workflow is captured, the file will be saved as a workflow file that you can run again without retyping these steps.
+The compiled steps live in [`workflow.ts`](./combine-daily-reports/workflow.ts), written against `@operant/sdk`. Validated by `node cookbook/doctest.mjs`.
