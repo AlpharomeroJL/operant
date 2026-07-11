@@ -1,0 +1,33 @@
+{
+  "generatedAt": "2026-07-11T23:16:11.735Z",
+  "tool": "release/scripts/generate-sbom.mjs",
+  "versions": {
+    "node": "v24.14.0",
+    "npm": "11.9.0",
+    "cargo": "cargo 1.94.1 (29ea6fb6a 2026-03-24)",
+    "cargoAuditable": "cargo 1.94.1 (29ea6fb6a 2026-03-24)"
+  },
+  "components": [
+    {
+      "name": "rust workspace (root)",
+      "cwd": ".",
+      "method": "cargo tree (cargo-auditable is installed; also embed with `cargo auditable build --release`)",
+      "ok": true,
+      "file": "cargo-tree-root.txt"
+    },
+    {
+      "name": "rust sub-workspace (ui/src-tauri)",
+      "cwd": "ui\\src-tauri",
+      "method": "cargo tree (cargo-auditable is installed; also embed with `cargo auditable build --release`)",
+      "ok": true,
+      "file": "cargo-tree-ui-src-tauri.txt"
+    },
+    {
+      "name": "npm workspace (ui)",
+      "cwd": "ui",
+      "method": "npm ls --all --package-lock-only",
+      "ok": true,
+      "file": "npm-ls-ui.json"
+    }
+  ]
+}
