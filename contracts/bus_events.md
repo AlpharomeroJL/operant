@@ -106,6 +106,12 @@ Subscribers match on exact topic or prefix (`run.*`). Delivery is in-process ord
 |---|---|---|
 | config.changed | key, value, old_value? | published by the config store on every set when a bus is attached |
 
+### Voice
+
+| Topic | Payload | Notes |
+|---|---|---|
+| voice.intent | source, text | recognized speech intent from the voice sidecar, routed to the palette |
+
 ## Versioning rules
 
 1. The envelope `v` bumps only on envelope shape change (never during the campaign).
