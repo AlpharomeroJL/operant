@@ -100,6 +100,12 @@ Subscribers match on exact topic or prefix (`run.*`). Delivery is in-process ord
 | suggestion.accepted | suggestion_id | seeds a supervised explore run |
 | suggestion.dismissed | suggestion_id | |
 
+### Config
+
+| Topic | Payload | Notes |
+|---|---|---|
+| config.changed | key, value, old_value? | published by the config store on every set when a bus is attached |
+
 ## Versioning rules
 
 1. The envelope `v` bumps only on envelope shape change (never during the campaign).
