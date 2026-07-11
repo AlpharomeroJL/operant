@@ -9,9 +9,15 @@
 //! safety gate -> execute -> observe -> record -> repeat until the planner
 //! signals done, with HITL pause/redirect/resume as bus events. See
 //! `explore`'s own module doc for the full surface.
+//!
+//! [`mcp`] (L13A): MCP both directions (C14, FR-O3) -- a server that
+//! exposes every compiled workflow as a `workflow_<slug>` tool over stdio,
+//! and a client that registers an external MCP server's tools as `mcp`
+//! namespace adapters. See `mcp`'s own module doc and `docs/specs/mcp.md`.
 
 pub mod backends;
 pub mod explore;
+pub mod mcp;
 
 pub use backends::ModelBackend;
 pub use explore::ExploreLoop;
