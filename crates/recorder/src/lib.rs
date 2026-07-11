@@ -46,6 +46,7 @@ pub mod backup;
 mod error;
 mod ids;
 mod misc;
+pub mod redact;
 mod runs;
 mod schema;
 mod steps;
