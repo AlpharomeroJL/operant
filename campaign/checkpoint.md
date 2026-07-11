@@ -5,13 +5,19 @@ See `campaign/RESUME.md` for the one-move continue procedure.
 
 ## Status
 
-- Phase: **Wave 1 in progress** (core spine complete)
-- Merged (10 lanes + PHASE0): C1A, B1A, D1A, X10, S1A, L6A, L1A, L5A, L3A, M1A.
-  The full deterministic + safety foundation is real and tested: ir, core (bus/config/
-  supervisor), action (executor/synth/adapters), recorder (SQLite WAL/blobs/GC), gates
-  (evaluator), safety (grants/dry-run/audit/FR-S4). Plus cookbook, bench renderer, docs
-  site, community kit, soak runner, launch drafts.
-- In flight: L2A (perception-uia), L4A (model-backends), L8A (compiler + replay, the moat).
+- Phase: **Wave 1 done; Wave 2 + backlog in progress** (27 lanes + PHASE0 merged)
+- Merged: the full deterministic + safety + moat foundation is real and tested:
+  ir, core, action (+native adapters fs/email/OCR/Office), recorder (+undo journal +backup),
+  gates, safety (+audit PDF export), compiler + model-free replay (+composition), perception
+  (fixture + UIA), model backends (16-provider quirk table + mock transport), scheduler,
+  registry (client verify + signed index repo), voice sidecar, doctor (+diagnostics bundle),
+  model downloader, Tauri UI foundation, cookbook, bench renderer, docs site + guides,
+  community kit, soak runner, launch drafts.
+- In flight: L7A (explore loop), X4 (anchor-redaction), X1 (kill-switch).
+- Not yet dispatched (remaining): E1A/E1B/E1C (e2e + first-timer), L9A (browser-adapter),
+  L4B (backend-integration), L12A (shell-complete), L13A (cli-sdk-mcp), L14A (release),
+  L8B (drift-repair), L7B (registry-surface), L9B (bench-suite), L10B (soak-run), U1B, U2B,
+  U2C, U3B, U4A (renderer), U5A, C1B, M1C, V1-V5, X3, X5, X8, X9, X11, X12, X14, X15, X16.
 - Repos: `AlpharomeroJL/operant` (public), `AlpharomeroJL/operant-registry` (public). SSH remotes.
 - Build tree: `D:/dev/operant`  (off OneDrive; `CARGO_TARGET_DIR=D:/dev/operant-target`)
 - Identity: all commits `Josef Long <Josefdean@protonmail.com>`, zero AI attribution
