@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scheduling - Operant</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="../index.html" class="logo">Operant</a>
+      <ul class="nav-links">
+        <li><a href="../index.html#guides">Guides</a></li>
+        <li><a href="../index.html#cookbook">Cookbook</a></li>
+        <li><a href="../index.html#benchmarks">Benchmarks</a></li>
+        <li><a href="../index.html#architecture">Architecture</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="guide-header">
+      <h1>Scheduling Workflows</h1>
+      <p>Automate your workflows with cron, file watches, and event triggers.</p>
+    </section>
+
+    <section class="guide-content">
+      <h2>Trigger Types</h2>
+      <p>Operant supports multiple ways to trigger compiled workflows:</p>
+      <ul>
+        <li><strong>Cron:</strong> Schedule recurring runs at specific times or intervals</li>
+        <li><strong>File Watch:</strong> Trigger when a file in a directory changes</li>
+        <li><strong>Window Appears:</strong> Trigger when a specific application window opens</li>
+        <li><strong>Email Arrives:</strong> Trigger when a new email lands in your inbox</li>
+        <li><strong>Manual:</strong> Run on demand from the tray or CLI</li>
+      </ul>
+
+      <h2>Setting Up Cron Triggers</h2>
+      <p>Open the workflow and select "Schedule". Enter a cron expression like 0 9 * * MON to run every Monday at 9 AM.</p>
+
+      <h2>Safety Limits</h2>
+      <p>Unattended triggers may only run compiled workflows. Exploratory runs always require manual approval.</p>
+
+      <h2>Monitoring Scheduled Runs</h2>
+      <p>View execution history, logs, and any failures in the Operant dashboard.</p>
+
+      <p>Detailed scheduling guide coming soon. This is a placeholder.</p>
+    </section>
+
+    <nav style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+      <a href="first-workflow.html">Previous: First Workflow</a> | <a href="privacy.html">Next: Privacy &amp; Security</a>
+    </nav>
+  </main>
+
+  <footer>
+    <p>Operant is open source under the Apache 2.0 license.</p>
+  </footer>
+</body>
+</html>
