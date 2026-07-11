@@ -34,13 +34,32 @@ export const runViewerStrings = {
   modelOff: "Running from memory, no thinking needed",
   stop: "Stop",
   pause: "Pause",
+  resume: "Resume",
   intervenePlaceholder: "Tell it what to do differently",
+  interveneSubmit: "Send",
+  // Shown for a step row the shell cannot describe yet (for example, one
+  // that arrived without the detail the plain-English renderer needs). n is
+  // the step's 1-based position in the list.
+  stepFallback: (n: number) => `Step ${n}`,
   stepStatus: {
     pending: "Waiting",
     ok: "Done",
     failed: "Did not work",
     retried: "Trying again",
   },
+};
+
+// The run viewer's own human-language run states. idle and running and
+// halted mirror the tray glyph (trayStrings); done and paused are specific
+// to this screen, since the tray spec (docs/specs/ui.md) does not need
+// them. Kept as one small catalog so every place that shows a run's state
+// reads from the same five words.
+export const runStateStrings = {
+  idle: trayStrings.idle,
+  running: trayStrings.running,
+  paused: "Paused, waiting for you",
+  halted: trayStrings.halted,
+  done: "Done",
 };
 
 export const workflowLibraryStrings = {

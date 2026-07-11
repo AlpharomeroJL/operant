@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMockBusClient, simulateDemoRun } from "./mockClient.ts";
-import type { BusEvent } from "./types.ts";
+import { RUN_MODE_REPLAY, type BusEvent } from "./types.ts";
 
 test("publish delivers a versioned, sequenced envelope to matching subscribers", () => {
   const bus = createMockBusClient();
@@ -108,6 +108,39 @@ test("simulateDemoRun starts immediately, streams steps, completes, and can be c
   assert.ok(topics.includes("run.step.executed"));
   assert.equal(topics[topics.length - 1], "run.completed");
 
+  stop();
+});
+
+test("simulateDemoRun carries a custom goal and run id", () => {
+  const bus = createMockBusClient();
+  const received: BusEvent[] = [];
+  bus.subscribe("run.started", (e) => received.push(e));
+
+  const stop = simulateDemoRun(bus, { goal: "Custom goal text", runId: "custom-1", stepDelayMs: 2 });
+
+  assert.equal(received.length, 1);
+  const [first] = received;
+  if (first.topic === "run.started") {
+    assert.equal(first.payload.goal, "Custom goal text");
+    assert.equal(first.payload.run_id, "custom-1");
+  } else {
+    assert.fail("expected a run.started event");
+  }
+  stop();
+});
+
+test("simulateDemoRun skips the proposed step outside teach mode", async () => {
+  // Per contracts/bus_events.md, run.step.proposed only fires while teaching, before the checkpoint.
+  const bus = createMockBusClient();
+  const topics: string[] = [];
+  bus.subscribe("run", (e) => topics.push(e.topic));
+
+  const stop = simulateDemoRun(bus, { mode: RUN_MODE_REPLAY, stepDelayMs: 2 });
+  await new Promise((resolve) => setTimeout(resolve, 60));
+
+  assert.ok(!topics.includes("run.step.proposed"));
+  assert.ok(topics.includes("run.step.executed"));
+  assert.equal(topics[topics.length - 1], "run.completed");
   stop();
 });
 
