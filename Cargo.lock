@@ -1201,11 +1201,13 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "crossbeam-channel",
  "futures",
  "operant-action",
  "operant-core",
  "operant-gates",
  "operant-ir",
+ "operant-perception-uia",
  "operant-recorder",
  "operant-safety",
  "reqwest",

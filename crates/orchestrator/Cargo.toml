@@ -24,11 +24,23 @@ blake3.workspace = true
 # contract (contracts/model_backend.md). Pure-Rust, no I/O of its own.
 futures = "0.3"
 
+# The explore loop's HITL control surface (`explore::control::BusControl`)
+# subscribes to the operant-core bus, whose `Subscription::rx` is a
+# `crossbeam_channel::Receiver`; that type has to be nameable here too.
+# Already a workspace dependency (operant-core's own bus is built on it).
+crossbeam-channel.workspace = true
+
 # Real network transport for the backends::HttpTransport seam. Optional so
 # the default build (and every lane that only needs the trait/mock) never
 # has to compile it; see operant-action's `real-input` feature for the same
 # pattern.
 reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"], optional = true }
+
+[dev-dependencies]
+# FixturePerceiver for the explore-loop tests (`docs/ARCHITECTURE.md` C6
+# test bar). Default features only: no `real-uia`, so no `windows` crate
+# in the test build.
+operant-perception-uia.workspace = true
 
 [features]
 real-transport = ["dep:reqwest"]
