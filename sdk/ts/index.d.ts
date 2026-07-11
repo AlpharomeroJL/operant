@@ -130,3 +130,29 @@ export interface WorkflowConfig {
 }
 
 export declare function defineWorkflow(config: WorkflowConfig): WorkflowConfig;
+
+// ---- render (C19, FR-U2/FR-U11) --------------------------------------------
+// The plain-English renderer surface. See src/render/index.d.ts.
+export {
+  ActionIrKind,
+  ACTION_IR_KINDS,
+  RenderPart,
+  RenderedStep,
+  RenderableStep,
+  RenderContext,
+  renderStep,
+  renderStepParts,
+  renderCondition,
+  sentenceOf,
+  Capabilities,
+  renderGrant,
+  DriftOfferInput,
+  DriftOffer,
+  renderDriftOffer,
+  InputField,
+  renderInputs,
+  applyInputEdits,
+  validateManifestShape,
+  RenderedWorkflow,
+  renderWorkflow,
+} from "./src/render/index";
