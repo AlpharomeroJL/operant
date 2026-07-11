@@ -251,9 +251,27 @@ class SoakRunner {
 
 async function main() {
   const args = process.argv.slice(2);
-  const dryRun = args.includes('--dry');
 
-  const runner = new SoakRunner({ dryRun });
+  let options = {};
+
+  if (args.includes('--dry')) {
+    options.dryRun = true;
+  }
+
+  if (args.includes('--ci')) {
+    options.durationMs = 10000;
+    options.intervalMs = 2000;
+  }
+
+  const minutesIdx = args.indexOf('--minutes');
+  if (minutesIdx !== -1 && minutesIdx + 1 < args.length) {
+    const minutes = parseInt(args[minutesIdx + 1], 10);
+    if (!isNaN(minutes) && minutes > 0) {
+      options.durationMs = minutes * 60 * 1000;
+    }
+  }
+
+  const runner = new SoakRunner(options);
 
   try {
     await runner.run();
