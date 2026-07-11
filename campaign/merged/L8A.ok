@@ -1,0 +1,1 @@
+L8A compiler + replay merged (24 tests: 5-pass compile, model-free replay, @operant/sdk). ADR: compiler emits its own DSL and dsl.hash; fixture is a shape reference, not a byte-identical target.
