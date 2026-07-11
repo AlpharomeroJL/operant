@@ -34,11 +34,13 @@
 //! ```
 
 pub mod bus;
+pub mod bundle;
 pub mod catalog;
 pub mod checks;
 pub mod cli;
 pub mod finding;
 
+pub use bundle::{build_bundle, BundleError, BundleInputs};
 pub use catalog::{CatalogEntry, ErrorKind};
 pub use checks::{
     probes, AccessibilityPermissionCheck, AudioDevicesPresentCheck, DiskFreeCheck,
