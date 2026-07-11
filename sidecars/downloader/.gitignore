@@ -1,0 +1,6 @@
+# In-progress download artifacts. Never committed; downloadFile() writes
+# these next to the destination path while a transfer is incomplete.
+*.part
+
+# Scratch output from manual local runs of cli.mjs against a real dest.
+/tmp/
