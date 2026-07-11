@@ -46,3 +46,20 @@ export const step = {
   wait: (opts) => ({ kind: "wait", ...opts }),
   assert: (opts) => ({ kind: "assert", ...opts }),
 };
+
+// Plain-English renderer (C19, FR-U2/FR-U11): turn a compiled workflow's details
+// and steps into numbered plain-English steps with form-field parameters. Pure,
+// no I/O. See src/render/.
+export {
+  ACTION_IR_KINDS,
+  renderStep,
+  renderStepParts,
+  renderCondition,
+  renderGrant,
+  renderDriftOffer,
+  renderInputs,
+  applyInputEdits,
+  validateManifestShape,
+  renderWorkflow,
+  sentenceOf,
+} from "./src/render/index.js";
