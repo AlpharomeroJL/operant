@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions or ideas?
+    url: https://github.com/operantai/operant/discussions
+    about: Ask questions, brainstorm features, or share feedback in Discussions.
