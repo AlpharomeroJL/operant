@@ -20,11 +20,19 @@
 //! tokens in the OS credential vault only, silent refresh, revocation. See
 //! `oauth`'s own module doc and `docs/specs/backends.md`'s OAuth broker
 //! section.
+//!
+//! [`watch`] (X5): watch-and-suggest, an opt-in (OFF by default) local
+//! repetition detector. N-gram matching over normalized, redacted Action IR
+//! digests of manual user events; when a short task repeats it offers to
+//! learn it, and acceptance seeds a supervised [`explore::ExploreLoop`] run.
+//! The buffer is local-only, capped, purgeable, and provably never written
+//! to while the feature is off. See `watch`'s own module doc.
 
 pub mod backends;
 pub mod explore;
 pub mod mcp;
 pub mod oauth;
+pub mod watch;
 
 pub use backends::ModelBackend;
 pub use explore::ExploreLoop;
