@@ -16,6 +16,15 @@ tracing.workspace = true
 jsonschema.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
+# Already workspace-pinned, used elsewhere in the tree; adopted here for
+# the email adapter's search patterns and fs's binary-safe read/write.
+regex.workspace = true
+base64.workspace = true
+
+# Pure-Rust zlib inflate for the ocr adapter's PNG decoder (IDAT is always
+# zlib-compressed per the PNG spec). No C toolchain, no transitive deps.
+# Optional and behind the `ocr` feature per this crate's dependency policy.
+miniz_oxide = { version = "0.8", optional = true }
 
 # Real Windows input synthesis. Optional so the default build (and every
 # lane that just needs the trait/mock) never has to compile it.
@@ -30,4 +39,13 @@ windows = { version = "0.58", optional = true, features = [
 ] }
 
 [features]
+default = ["ocr"]
 real-input = ["dep:windows"]
+# On-device PDF/PNG text extraction (crate::adapters::ocr). Default-on: it
+# has no platform dependency, just the pure-Rust inflate above.
+ocr = ["dep:miniz_oxide"]
+# Office COM automation (crate::adapters::office). Optional: pulls in the
+# `windows` crate's COM/Automation surface, Windows-only and meaningless
+# without Office installed. Tests run against the mock backend regardless
+# of this feature; see `adapters::office`.
+office-com = ["dep:windows", "windows/Win32_System_Com", "windows/Win32_System_Ole", "windows/Win32_System_Variant"]
