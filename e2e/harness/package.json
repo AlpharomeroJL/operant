@@ -1,0 +1,17 @@
+{
+  "name": "operant-e2e-harness",
+  "version": "1.0.0",
+  "description": "Shared capture rig: Playwright serves contracts/fixtures/webapp for browser-driven PNG/GIF capture; an OS-level fallback drives a native window (Notepad) through ffmpeg gdigrab for screenshots outside the browser. Reused by other packets and V1 for README assets.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
