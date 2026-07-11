@@ -1230,6 +1230,8 @@ name = "operant-bench"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "operant-compiler",
+ "operant-gates",
  "operant-ir",
  "operant-replay",
  "serde",
