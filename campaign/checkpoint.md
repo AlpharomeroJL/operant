@@ -51,6 +51,19 @@ See `campaign/RESUME.md` for the one-move continue procedure.
 - FG-002 (ci): defined em-dash sentinels by code point so the checker does not match itself.
 - FG-003 (S1A): relocated a stray root `package.json` into `e2e/soak/` with relative paths.
 - FG-004 (contract): documented the new `config.changed` topic in `bus_events.md` (L1A followup).
+- FG-005 (build): `operant-action`, `operant-bench`, `operant-perception-uia`, `operant-safety`
+  all resolve test fixtures via `env!("CARGO_MANIFEST_DIR")`-relative paths baked in at compile
+  time. Because `CARGO_TARGET_DIR` is shared across every lane worktree, cargo's fingerprint
+  reuses a cached test binary across worktrees whenever crate source content is byte-identical
+  (i.e. the crate wasn't touched by either lane), even though the two worktrees live at different
+  absolute paths. The cached binary's baked-in fixture path then points at a worktree that may
+  already have been removed post-merge, so a bar-passing lane's own gate can fail with spurious
+  `NotFound` I/O errors that have nothing to do with that lane's change. Not corruption; a real
+  cross-worktree cache collision. Orchestrator workaround, applied at every gate from this point
+  on: `cargo clean -p operant-action -p operant-bench -p operant-perception-uia -p operant-safety`
+  immediately before every `just ci` gate run (lane and post-merge main alike). A real fix would
+  make those crates resolve fixtures relative to the workspace root at runtime instead, or stop
+  sharing `CARGO_TARGET_DIR` across worktrees; parked as a followup, not worth a lane on its own.
 
 ## Packet ledger
 
