@@ -36,3 +36,6 @@ ui/src-tauri/gen/
 
 # generated soak reports
 e2e/soak/soak-report-*
+
+# auto-continue log
+campaign/auto-continue.log
