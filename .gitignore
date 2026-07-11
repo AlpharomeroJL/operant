@@ -33,3 +33,6 @@ soak-report-local/
 
 # tauri
 ui/src-tauri/gen/
+
+# generated soak reports
+e2e/soak/soak-report-*
