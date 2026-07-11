@@ -1135,10 +1135,13 @@ name = "operant-perception-uia"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "blake3",
  "operant-core",
  "operant-ir",
+ "serde_json",
  "thiserror",
  "tracing",
+ "windows",
 ]
 
 [[package]]
