@@ -102,13 +102,24 @@ pub enum ActionError {
         #[source]
         source: Box<ActionError>,
     },
+
+    /// The kill switch (C20 / FR-S5, `docs/specs/guardian.md`) was
+    /// engaged when this dispatch attempt reached the executor. No
+    /// window was focused, no synthesizer call was made beyond the
+    /// mandatory modifier release-all sweep, and the target was not
+    /// touched.
+    #[error("action `{action_id}` refused: the kill switch is engaged")]
+    Frozen { action_id: String },
 }
 
 impl ActionError {
     /// Only a transient synthesizer failure is worth retrying. Approval
     /// refusals, unsupported kinds, missing params, and schema violations
     /// are all permanent for the given Action IR and retrying wastes the
-    /// backoff window without changing the outcome.
+    /// backoff window without changing the outcome. A kill-switch freeze
+    /// is the same story for this attempt: retrying it just burns the
+    /// backoff window until a human calls `killswitch::reset`, which is
+    /// an explicit act this loop should never do on its own.
     fn is_retryable(&self) -> bool {
         matches!(self, ActionError::Synthesizer(_))
     }
@@ -249,6 +260,21 @@ impl<S: Synthesizer> Executor<S> {
         action: &Action,
         resolved: Option<&ResolvedPoint>,
     ) -> Result<Option<serde_json::Value>, ActionError> {
+        // The kill switch (C20 / FR-S5, docs/specs/guardian.md) is
+        // checked before anything else in this method, on every attempt:
+        // a frozen dispatch must not focus a window, click, type, scroll,
+        // or start an adapter call. The one synthesizer call still made
+        // here is the release-all-modifiers sweep, which is the
+        // documented response to a freeze, not a continuation of the
+        // action, so it runs even though everything else below is
+        // refused untouched.
+        if crate::killswitch::is_engaged() {
+            let _ = self.synth.release_all_modifiers();
+            return Err(ActionError::Frozen {
+                action_id: action.id.clone(),
+            });
+        }
+
         // Kinds this layer does not own get refused before any side
         // effect: `assert` is evaluated against a perception snapshot by
         // the gate engine (C9, operant-gates); `drag` needs a second
