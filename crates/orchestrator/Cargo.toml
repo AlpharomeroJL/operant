@@ -12,6 +12,11 @@ operant-action.workspace = true
 operant-recorder.workspace = true
 operant-gates.workspace = true
 operant-safety.workspace = true
+# oauth's refresh-failure path returns a typed `operant_doctor::Finding`
+# ("return the typed finding; the doctor/UI wires it" -- X16 handoff);
+# operant-doctor depends only on operant-ir/operant-core, so this does not
+# create a cycle.
+operant-doctor.workspace = true
 # The MCP server (`mcp`) replays a compiled workflow headless on every
 # `tools/call`, the same `operant-replay` seam the CLI's `run` verb uses;
 # `operant-replay` itself stays backend-free (see its own crate doc), so
@@ -24,6 +29,11 @@ thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 blake3.workspace = true
+# oauth::pkce (code_verifier/state/nonce generation) and
+# oauth::vault::vault_key. Already workspace-pinned, used elsewhere in the
+# tree (action, compiler, registry, ...).
+rand.workspace = true
+base64.workspace = true
 
 # `BoxFuture`/`BoxStream`: `ModelBackend::complete`/`probe` return these by
 # contract (contracts/model_backend.md). Pure-Rust, no I/O of its own.
@@ -41,6 +51,22 @@ crossbeam-channel.workspace = true
 # pattern.
 reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"], optional = true }
 
+# PKCE S256 (RFC 7636): BASE64URL-ENCODE(SHA256(ASCII(verifier))). Small,
+# pure-Rust, no transitive platform deps -- not gated behind a feature
+# because PKCE is not optional (oauth::pkce never offers a `plain` path).
+sha2 = "0.10"
+
+# Real Windows Credential Manager (oauth::vault::WindowsCredentialVault).
+# Optional so the default build (and every test in this crate, which only
+# ever constructs oauth::MockVault) never has to compile it. Mirrors
+# operant-action's `real-input` feature and this crate's own
+# `real-transport` above (campaign/checkpoint.md: "Heavy platform deps
+# (`windows` crate) are added per-crate behind a feature").
+windows = { version = "0.58", optional = true, features = [
+  "Win32_Foundation",
+  "Win32_Security_Credentials",
+] }
+
 [dev-dependencies]
 # FixturePerceiver for the explore-loop tests (`docs/ARCHITECTURE.md` C6
 # test bar). Default features only: no `real-uia`, so no `windows` crate
@@ -50,6 +76,12 @@ operant-perception-uia.workspace = true
 # trajectory into a real CompiledWorkflow to serve over MCP, rather than a
 # hand-rolled stub. Not a runtime dependency of the `mcp` module itself.
 operant-compiler.workspace = true
+# oauth::redact's grep-log test bar (X16 TESTS: "tokens NEVER appear in
+# logs... a grep test over captured log output") needs a real `tracing`
+# subscriber to capture into a buffer. Already workspace-pinned (see root
+# Cargo.toml); dev-only, so it never reaches a release build.
+tracing-subscriber.workspace = true
 
 [features]
 real-transport = ["dep:reqwest"]
+real-vault = ["dep:windows"]

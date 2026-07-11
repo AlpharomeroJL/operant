@@ -1334,24 +1334,30 @@ name = "operant-orchestrator"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "base64",
  "blake3",
  "crossbeam-channel",
  "futures",
  "operant-action",
  "operant-compiler",
  "operant-core",
+ "operant-doctor",
  "operant-gates",
  "operant-ir",
  "operant-perception-uia",
  "operant-recorder",
  "operant-replay",
  "operant-safety",
+ "rand 0.8.7",
  "reqwest",
  "serde",
  "serde_json",
+ "sha2",
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "tracing-subscriber",
+ "windows",
 ]
 
 [[package]]
