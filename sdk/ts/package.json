@@ -1,0 +1,23 @@
+{
+  "name": "@operant/sdk",
+  "version": "1.0.0",
+  "description": "The declarative TypeScript surface the Operant compiler emits workflows against: defineWorkflow, step.*, and input.*.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  }
+}

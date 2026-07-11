@@ -1,0 +1,22 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "node",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": ".",
+    "paths": {
+      "@operant/sdk": ["./index.d.ts"]
+    },
+    "types": []
+  },
+  "//": "Type-checks the canonical compiler output against the SDK types. Run: npx tsc --noEmit -p tsconfig.json (requires a local typescript; skipped offline).",
+  "include": [
+    "index.d.ts",
+    "../../contracts/fixtures/workflow_notepad/workflow.ts"
+  ]
+}
