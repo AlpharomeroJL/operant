@@ -16,10 +16,15 @@
 //! - [`adapters`]: L2B's native adapter implementations (filesystem,
 //!   email, OCR/PDF, Office COM) registering through the [`adapter`]
 //!   framework above.
+//! - [`killswitch`]: the C20 / FR-S5 kill switch (`docs/specs/guardian.md`):
+//!   a process-wide freeze [`executor::Executor`] checks before every
+//!   dispatch attempt, plus the Windows-only WH_KEYBOARD_LL panic-chord
+//!   watcher behind the `real-input` feature.
 
 pub mod adapter;
 pub mod adapters;
 pub mod executor;
+pub mod killswitch;
 pub mod synth;
 
 #[cfg(feature = "real-input")]
