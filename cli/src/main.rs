@@ -1,16 +1,54 @@
-//! Operant CLI (C14): run | compile | dry-run | list | install | bench | doctor | explain.
-//! L13A implements the verbs. Scaffold prints usage and exits 0 so the workspace links a binary.
+//! Operant CLI (C14, FR-O4): run | compile | dry-run | list | install |
+//! bench | doctor | explain.
+//!
+//! L13A wires `run`, `compile`, `dry-run`, `list`, `doctor`, and `explain`
+//! against the already-merged crates (`operant-compiler`, `operant-replay`,
+//! `operant-doctor`; `operant-recorder`/`operant-registry`/`operant-bench`
+//! are read-only surfaces this lane does not need). `install` (R1B/L7B) and
+//! `bench` (L9B) are later lanes' verbs and stay unimplemented here.
+//!
+//! Every verb is headless and deterministic: no verb prompts, polls, or
+//! blocks on anything but the filesystem and (for `explain` only) a local
+//! `node` subprocess running the existing `@operant/sdk/render` renderer.
 
-fn main() {
+mod commands;
+mod snapshot;
+
+use std::process::ExitCode;
+
+fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
-        Some("--version") | Some("-V") => println!("operant 1.0.0"),
+        Some("--version") | Some("-V") => {
+            println!("operant 1.0.0");
+            ExitCode::SUCCESS
+        }
+        Some("run") => finish(commands::run::run(&args[1..])),
+        Some("compile") => finish(commands::compile::run(&args[1..])),
+        Some("dry-run") => finish(commands::dry_run::run(&args[1..])),
+        Some("list") => finish(commands::list::run(&args[1..])),
+        Some("doctor") => finish(commands::doctor::run(&args[1..])),
+        Some("explain") => finish(commands::explain::run(&args[1..])),
         Some(verb) => {
             eprintln!("operant: verb '{verb}' not yet implemented in this build");
+            ExitCode::FAILURE
         }
         None => {
             println!("operant 1.0.0");
-            println!("usage: operant <run|compile|dry-run|list|install|bench|doctor|explain> [args]");
+            println!(
+                "usage: operant <run|compile|dry-run|list|install|bench|doctor|explain> [args]"
+            );
+            ExitCode::SUCCESS
+        }
+    }
+}
+
+fn finish(result: anyhow::Result<()>) -> ExitCode {
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("operant: {e:#}");
+            ExitCode::FAILURE
         }
     }
 }
