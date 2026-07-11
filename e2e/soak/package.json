@@ -5,8 +5,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "soak:dry": "node e2e/soak/soak.mjs --dry",
-    "soak:full": "node e2e/soak/soak.mjs"
+    "soak:dry": "node soak.mjs --dry",
+    "soak:full": "node soak.mjs"
   },
   "engines": {
     "node": ">=18.0.0"

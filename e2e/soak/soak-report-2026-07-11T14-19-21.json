@@ -1,0 +1,71 @@
+{
+  "metadata": {
+    "type": "soak-run",
+    "timestamp": "2026-07-11T14:19:11.439Z",
+    "dryRun": true,
+    "durationMs": 10000,
+    "intervalMs": 2000
+  },
+  "results": {
+    "runCount": 5,
+    "totalDurationMs": 10009,
+    "verdict": "PASS",
+    "memoryTrend": {
+      "slope": 47104,
+      "slopePerHour": 16957440,
+      "r2": 0.9358194169261251,
+      "flat": true
+    },
+    "memory": {
+      "samples": [
+        {
+          "timestamp": 1783779551486,
+          "rss": 41680896,
+          "heapUsed": 5233880,
+          "external": 1991290
+        },
+        {
+          "timestamp": 1783779553488,
+          "rss": 41734144,
+          "heapUsed": 5262736,
+          "external": 1991330
+        },
+        {
+          "timestamp": 1783779555491,
+          "rss": 41820160,
+          "heapUsed": 5291112,
+          "external": 1991330
+        },
+        {
+          "timestamp": 1783779557488,
+          "rss": 41820160,
+          "heapUsed": 5300920,
+          "external": 1991330
+        },
+        {
+          "timestamp": 1783779559503,
+          "rss": 41873408,
+          "heapUsed": 5320376,
+          "external": 1991330
+        }
+      ],
+      "avgMb": 39.85,
+      "maxMb": 39.93359375,
+      "minMb": 39.75
+    },
+    "handles": {
+      "samples": [
+        2,
+        2,
+        2,
+        2,
+        2
+      ],
+      "avg": 2,
+      "max": 2
+    },
+    "errors": [],
+    "errorCount": 0,
+    "silentFailures": true
+  }
+}
