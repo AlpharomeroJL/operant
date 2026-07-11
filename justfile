@@ -48,6 +48,10 @@ lane id:
 gate id:
     @if (Test-Path "scratch/lanes/{{id}}/gate.ps1") { powershell -NoProfile -File "scratch/lanes/{{id}}/gate.ps1" } else { just ci }
 
+# Golden path: the standalone e2e crate proving explore -> compile -> replay with zero model calls.
+golden:
+    cd e2e/golden-path; cargo test
+
 # Regenerate signed/binary fixtures (deterministic; keypair guarded).
 fixtures:
     cd contracts/fixtures; node generate.mjs
