@@ -16,10 +16,10 @@ repository = "https://github.com/AlpharomeroJL/operant"
 publish = false
 
 [build-dependencies]
-tauri-build = "2"
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = "2"
+tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 
