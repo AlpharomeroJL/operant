@@ -18,3 +18,17 @@ anyhow.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
+blake3.workspace = true
+
+# `BoxFuture`/`BoxStream`: `ModelBackend::complete`/`probe` return these by
+# contract (contracts/model_backend.md). Pure-Rust, no I/O of its own.
+futures = "0.3"
+
+# Real network transport for the backends::HttpTransport seam. Optional so
+# the default build (and every lane that only needs the trait/mock) never
+# has to compile it; see operant-action's `real-input` feature for the same
+# pattern.
+reqwest = { version = "0.12", default-features = false, features = ["stream", "rustls-tls"], optional = true }
+
+[features]
+real-transport = ["dep:reqwest"]
