@@ -58,6 +58,21 @@ See `campaign/state.json`. Waves 1-4 plus backlog X1-X16. Depth-first: the core 
 (core, action, recorder, safety+gates, compiler+replay, scheduler, registry, bench) go
 green before UI/marketing/registry breadth merges to main.
 
+## Known integration issues (flagged by E1B golden path; fix before "live-perfect")
+
+- KI-1 (replay selector resolution): `ExploreLoop` records the proposed action but does not
+  backfill `target.coords_last_known` with the point perception actually resolved, and the
+  replay executor currently leans on `coords_last_known` rather than re-resolving the selector
+  chain against a live perceiver (action.md wants fresh resolution at execution time). A real
+  (non-scripted) planner using selectors alone would compile a click replay cannot resolve on
+  live Windows. Fix: either enrich the recorded step in L7A, or have replay resolve selectors
+  via a `Perceiver` at run time (a perceiver is not a model backend, so this keeps replay
+  model-free). Fixture/mock path is green; live path needs this.
+- KI-2 (correction field mismatch): explore records `human_correction: {instruction, at_seq}`
+  but the compiler collapses on `human_correction.supersedes_seq`. A live HITL redirect will
+  not collapse the superseded step the way the hand-authored fixture does. Fix: reconcile the
+  field name across L7A explore/control and the compiler normalize pass.
+
 ## Resume drill
 
 - [ ] Not yet run. Scheduled after the first Wave 1 merges (validates frontier reconciliation).
