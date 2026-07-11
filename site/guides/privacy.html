@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Privacy and Security - Operant</title>
+  <link rel="stylesheet" href="../style.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="../index.html" class="logo">Operant</a>
+      <ul class="nav-links">
+        <li><a href="../index.html#guides">Guides</a></li>
+        <li><a href="../index.html#cookbook">Cookbook</a></li>
+        <li><a href="../index.html#benchmarks">Benchmarks</a></li>
+        <li><a href="../index.html#architecture">Architecture</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="guide-header">
+      <h1>Privacy and Security</h1>
+      <p>How Operant keeps your data local and your workflows auditable.</p>
+    </section>
+
+    <section class="guide-content">
+      <h2>Local-First Architecture</h2>
+      <p>Operant runs entirely on your machine by default. Screen data never leaves your device unless you explicitly configure cloud models with an API key.</p>
+
+      <h2>Air-Gap Mode</h2>
+      <p>Run Operant completely offline: use a local language model (via Ollama or llama.cpp), no internet connectivity required after initial setup.</p>
+
+      <h2>Data Security</h2>
+      <ul>
+        <li>Compiled workflows are plain TypeScript files, inspectable and auditable</li>
+        <li>Credentials stored only in the OS credential vault, never in workflow files</li>
+        <li>Anchor redaction automatically removes sensitive regions from stored screenshots</li>
+        <li>Audit log is cryptographically signed and append-only</li>
+      </ul>
+
+      <h2>Capability Grants</h2>
+      <p>Each workflow declares what it needs: which apps it can control, which paths it can access, what risk classes of actions it can perform. You approve these grants before the workflow runs.</p>
+
+      <h2>Safety Guarantees</h2>
+      <ul>
+        <li>No workflow can type into a credential field without explicit approval</li>
+        <li>No workflow can confirm a payment or deletion without manual intervention</li>
+        <li>The kill switch hotkey instantly freezes all input synthesis (under 100 ms)</li>
+      </ul>
+
+      <h2>Transparency</h2>
+      <p>View the plain-English step-by-step execution plan before any workflow runs. Dry-run mode shows what will happen without side effects.</p>
+
+      <p>Complete privacy documentation coming soon. This is a placeholder guide.</p>
+    </section>
+
+    <nav style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+      <a href="scheduling.html">Previous: Scheduling</a>
+    </nav>
+  </main>
+
+  <footer>
+    <p>Operant is open source under the Apache 2.0 license.</p>
+  </footer>
+</body>
+</html>
