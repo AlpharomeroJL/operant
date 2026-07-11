@@ -13,8 +13,12 @@
 //!   [`Approval`] safety seam that refuses destructive-risk actions.
 //! - [`adapter`]: the [`Adapter`] registration framework and JSON Schema
 //!   param validation for `adapter_call`, plus [`resolve_strategy`].
+//! - [`adapters`]: L2B's native adapter implementations (filesystem,
+//!   email, OCR/PDF, Office COM) registering through the [`adapter`]
+//!   framework above.
 
 pub mod adapter;
+pub mod adapters;
 pub mod executor;
 pub mod synth;
 

@@ -1210,11 +1210,14 @@ name = "operant-action"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "base64",
  "jsonschema",
+ "miniz_oxide",
  "operant-core",
  "operant-ir",
  "parking_lot",
  "rand 0.8.7",
+ "regex",
  "serde",
  "serde_json",
  "thiserror 1.0.69",
