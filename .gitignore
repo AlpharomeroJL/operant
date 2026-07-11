@@ -1,0 +1,35 @@
+# build artifacts
+target/
+node_modules/
+dist/
+build/
+*.wasm.map
+
+# campaign working areas (never committed)
+lanes/
+scratch/
+.worktrees/
+
+# secrets and keys (fixture keys under contracts/fixtures/ are intentionally committed test keys)
+*.pem
+*.key
+!contracts/fixtures/**/*.key
+!contracts/fixtures/**/*.pem
+release/private/
+
+# OS cruft
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# editor
+.vscode/
+.idea/
+
+# logs and temp
+*.log
+*.tmp
+soak-report-local/
+
+# tauri
+ui/src-tauri/gen/

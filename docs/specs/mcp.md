@@ -1,0 +1,3 @@
+# Spec: mcp
+
+Server: stdio and HTTP transports; every compiled workflow exposes as a tool named workflow_<slug> with the manifest inputs schema as the tool schema and the plain-English summary as the description; invoking runs replay mode headless and returns the outcome plus postcondition results; destructive-capable workflows are exposed only if the user enabled "allow tools to run risky workflows" (off by default). Client: external MCP servers configured in settings register their tools as adapters under the mcp: namespace with risk class write by default (user-adjustable per tool); tool schemas map directly to adapter_call schemas. Both directions covered by a scripted handshake test in CI.

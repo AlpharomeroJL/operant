@@ -1,0 +1,3 @@
+# Spec: voice
+
+STT: whisper.cpp small-en quantized as default, sample rate 16 kHz mono, push-to-talk key held-to-record with 300 ms tail, streaming partials to the palette; VAD trim before inference. TTS: Kokoro-class local model, one default voice, speaking rate configurable; every spoken escalation also renders as text (voice is additive, never the only channel). Wake word optional and OFF by default (ledger candidate). Sidecar protocol: load on first use, report VRAM footprint to the C1 broker, yield (unload) within 2 s when the grounder requests headroom, reload lazily after. All audio processing on device; a CI test asserts the voice sidecar opens zero network sockets.
