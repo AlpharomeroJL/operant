@@ -30,6 +30,7 @@ export type RiskClass = "read" | "write" | "destructive";
 // internal-vocabulary string literals for the lint to (correctly) flag,
 // even though the values themselves are wire data, not UI text.
 export const RUN_MODE_EXPLORE: RunMode = "explore";
+export const RUN_MODE_REPLAY: RunMode = "replay";
 export const GROUNDING_UIA: Grounding = "uia";
 
 export interface ActionIR {
