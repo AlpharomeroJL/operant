@@ -20,11 +20,25 @@ rand.workspace = true
 # the email adapter's search patterns and fs's binary-safe read/write.
 regex.workspace = true
 base64.workspace = true
+# Already workspace-pinned (perception-uia, compiler, gates, orchestrator,
+# recorder, registry, safety all use it already). Adopted here for the
+# browser adapter's snapshot digest (crate::adapters::browser::digest),
+# BLAKE3 over the normalized element list minus bounds per
+# `contracts/perception_snapshot.schema.json`, same algorithm as
+# `operant-perception-uia::digest` for UIA snapshots.
+blake3.workspace = true
 
 # Pure-Rust zlib inflate for the ocr adapter's PNG decoder (IDAT is always
 # zlib-compressed per the PNG spec). No C toolchain, no transitive deps.
 # Optional and behind the `ocr` feature per this crate's dependency policy.
 miniz_oxide = { version = "0.8", optional = true }
+
+# Minimal real C5 backend (crate::adapters::browser::cdp): a DevTools
+# Protocol WebSocket session (attach only; see that module's doc comment).
+# Sync client, no async runtime required. Optional and behind the `cdp`
+# feature so the default build (and every lane that only needs
+# FixtureBrowser) never compiles a WebSocket client.
+tungstenite = { version = "0.24", default-features = false, features = ["handshake"], optional = true }
 
 # Real Windows input synthesis. Optional so the default build (and every
 # lane that just needs the trait/mock) never has to compile it.
@@ -49,3 +63,8 @@ ocr = ["dep:miniz_oxide"]
 # without Office installed. Tests run against the mock backend regardless
 # of this feature; see `adapters::office`.
 office-com = ["dep:windows", "windows/Win32_System_Com", "windows/Win32_System_Ole", "windows/Win32_System_Variant"]
+# Real browser backend (crate::adapters::browser::cdp): CDP attach to a
+# live Chrome/Edge DevTools target. Optional: meaningless without a real
+# browser running with --remote-debugging-port. Tests run against
+# FixtureBrowser regardless of this feature; see `adapters::browser`.
+cdp = ["dep:tungstenite"]
