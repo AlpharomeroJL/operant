@@ -129,6 +129,12 @@ button {
 .op-status__dot[data-state="retried"] {
   background: var(--op-color-status-warning);
 }
+.op-status__dot[data-state="paused"] {
+  background: var(--op-color-status-warning);
+}
+.op-status__dot[data-state="done"] {
+  background: var(--op-color-status-running);
+}
 
 .op-palette {
   display: flex;
@@ -188,6 +194,10 @@ button {
 }
 
 .op-advanced-panel[hidden] {
+  display: none;
+}
+
+.op-intervene[hidden] {
   display: none;
 }
 

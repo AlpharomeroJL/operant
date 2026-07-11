@@ -1,8 +1,10 @@
 import "./styles/base.css";
 import { modeStore, type UiMode } from "./state/mode.ts";
-import { createMockBusClient, simulateDemoRun, DEMO_STEP_SENTENCES } from "./bus/mockClient.ts";
-import { RUN_MODE_EXPLORE, type BusEvent } from "./bus/types.ts";
-import { trayStrings, paletteStrings, runViewerStrings, commonStrings } from "./strings/default.ts";
+import { createMockBusClient } from "./bus/mockClient.ts";
+import type { BusEvent } from "./bus/types.ts";
+import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
+import { createRunViewer } from "./runViewer/state.ts";
+import { paletteStrings, runViewerStrings, commonStrings } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
 
 const root = document.querySelector<HTMLDivElement>("#app");
@@ -43,6 +45,11 @@ root.innerHTML = `
           <button type="button" class="op-button" id="op-stop-button"></button>
           <button type="button" class="op-button" id="op-pause-button"></button>
         </div>
+        <form class="op-palette op-intervene" id="op-intervene-form" hidden>
+          <label class="op-visually-hidden" id="op-intervene-label" for="op-intervene-input"></label>
+          <input class="op-palette__input" id="op-intervene-input" type="text" autocomplete="off" />
+          <button type="submit" class="op-button" id="op-intervene-submit"></button>
+        </form>
       </section>
     </main>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
@@ -73,6 +80,10 @@ const modelIndicator = byId<HTMLSpanElement>("op-model-indicator");
 const stepList = byId<HTMLOListElement>("op-step-list");
 const stopButton = byId<HTMLButtonElement>("op-stop-button");
 const pauseButton = byId<HTMLButtonElement>("op-pause-button");
+const interveneForm = byId<HTMLFormElement>("op-intervene-form");
+const interveneLabel = byId<HTMLLabelElement>("op-intervene-label");
+const interveneInput = byId<HTMLInputElement>("op-intervene-input");
+const interveneSubmit = byId<HTMLButtonElement>("op-intervene-submit");
 const advancedPanel = byId<HTMLElement>("op-advanced-panel");
 const advancedHeading = byId<HTMLHeadingElement>("op-advanced-heading");
 const advancedLog = byId<HTMLPreElement>("op-advanced-log");
@@ -81,25 +92,26 @@ appTitle.textContent = commonStrings.appName;
 paletteHeading.textContent = paletteStrings.placeholder;
 paletteLabel.textContent = paletteStrings.placeholder;
 paletteInput.placeholder = paletteStrings.placeholder;
+paletteInput.title = paletteStrings.hint;
 paletteSubmit.textContent = paletteStrings.submit;
 runViewerHeading.textContent = runViewerStrings.title;
 stopButton.textContent = runViewerStrings.stop;
-pauseButton.textContent = runViewerStrings.pause;
+interveneLabel.textContent = runViewerStrings.intervenePlaceholder;
+interveneInput.placeholder = runViewerStrings.intervenePlaceholder;
+interveneSubmit.textContent = runViewerStrings.interveneSubmit;
 advancedHeading.textContent = advancedStrings.navAuditBrowser;
 advancedLog.textContent = advancedStrings.auditEmpty;
 
 const bus = createMockBusClient();
+const runViewer = createRunViewer(bus);
 
-interface StepRow {
-  id: string;
-  sentence: string;
-  status: "pending" | "ok" | "failed" | "retried";
-}
-
-let steps: StepRow[] = [];
-let runState: "idle" | "running" | "halted" = "idle";
-let lastEvents: BusEvent[] = [];
+// The currently streaming canned demo, if any: cancels the timers behind a
+// run so Stop (and Pause, which freezes progress until resumed) do not let
+// steps that were already scheduled keep arriving after the button is
+// pressed. The run's own state (running/paused/halted/done) lives in
+// runViewer, not here; this only tracks the demo's own timers.
 let stopDemo: (() => void) | null = null;
+let lastEvents: BusEvent[] = [];
 
 function renderMode(mode: UiMode): void {
   const isAdvanced = mode === "advanced";
@@ -108,9 +120,21 @@ function renderMode(mode: UiMode): void {
   advancedPanel.hidden = !isAdvanced;
 }
 
-function renderSteps(): void {
+function renderAdvancedLog(): void {
+  advancedLog.textContent = lastEvents.length
+    ? JSON.stringify(lastEvents.slice(-20), null, 2)
+    : advancedStrings.auditEmpty;
+}
+
+function renderRunViewer(): void {
+  const snapshot = runViewer.getSnapshot();
+
+  runStatusDot.dataset.state = snapshot.runState;
+  runStatusLabel.textContent = snapshot.runStateLabel;
+  modelIndicator.textContent = snapshot.modelIndicatorLabel;
+
   stepList.textContent = "";
-  for (const step of steps) {
+  for (const step of snapshot.steps) {
     const li = document.createElement("li");
     li.className = "op-step";
 
@@ -130,83 +154,66 @@ function renderSteps(): void {
     li.append(dot, statusText, label);
     stepList.append(li);
   }
-}
 
-function renderRunStatus(): void {
-  runStatusDot.dataset.state = runState;
-  runStatusLabel.textContent =
-    runState === "running" ? trayStrings.running : runState === "halted" ? trayStrings.halted : trayStrings.idle;
-}
+  stopButton.disabled = !snapshot.canStop;
+  pauseButton.disabled = !snapshot.canPause;
+  pauseButton.textContent = snapshot.pauseButtonLabel;
 
-function renderAdvancedLog(): void {
-  advancedLog.textContent = lastEvents.length
-    ? JSON.stringify(lastEvents.slice(-20), null, 2)
-    : advancedStrings.auditEmpty;
-}
-
-function upsertStep(id: string, status: StepRow["status"]): void {
-  const sentence = DEMO_STEP_SENTENCES[id] ?? id;
-  const existing = steps.find((s) => s.id === id);
-  if (existing) {
-    existing.status = status;
-  } else {
-    steps.push({ id, sentence, status });
+  interveneForm.hidden = !snapshot.showIntervene;
+  if (!snapshot.showIntervene) {
+    interveneInput.value = "";
   }
-  renderSteps();
 }
 
 bus.subscribe("*", (event) => {
   lastEvents.push(event);
   renderAdvancedLog();
-
-  switch (event.topic) {
-    case "run.started":
-      steps = [];
-      runState = "running";
-      modelIndicator.textContent =
-        event.payload.mode === RUN_MODE_EXPLORE ? runViewerStrings.modelOn : runViewerStrings.modelOff;
-      renderRunStatus();
-      renderSteps();
-      break;
-    case "run.step.proposed":
-      upsertStep(event.payload.step.id, "pending");
-      break;
-    case "run.step.executed":
-      upsertStep(event.payload.step_id, event.payload.outcome);
-      break;
-    case "run.step.failed":
-      upsertStep(event.payload.step_id, "failed");
-      break;
-    case "run.completed":
-      runState = "idle";
-      renderRunStatus();
-      break;
-    case "run.halted":
-      runState = "halted";
-      renderRunStatus();
-      break;
-    default:
-      break;
-  }
 });
+runViewer.subscribe(renderRunViewer);
 
 modeToggleButton.addEventListener("click", () => {
   modeStore.toggle();
 });
 modeStore.subscribe(renderMode);
 renderMode(modeStore.get());
-renderRunStatus();
+renderRunViewer();
 
 paletteForm.addEventListener("submit", (event) => {
   event.preventDefault();
-  stopDemo?.();
-  stopDemo = simulateDemoRun(bus, { stepDelayMs: 450 });
-  paletteInput.value = "";
+  const stop = submitGoal(bus, paletteInput.value);
+  if (stop) {
+    stopDemo?.();
+    stopDemo = stop;
+    paletteInput.value = "";
+  }
 });
 
 stopButton.addEventListener("click", () => {
   stopDemo?.();
   stopDemo = null;
-  runState = "idle";
-  renderRunStatus();
+  runViewer.stop();
+});
+
+pauseButton.addEventListener("click", () => {
+  if (runViewer.getSnapshot().runState === "running") {
+    // A paused run must not keep quietly finishing in the background: freeze
+    // the demo's own timers so nothing more streams in until resumed.
+    stopDemo?.();
+  }
+  runViewer.togglePause();
+});
+
+interveneForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  if (runViewer.intervene(interveneInput.value)) {
+    interveneInput.value = "";
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (isGlobalPaletteHotkey(event)) {
+    event.preventDefault();
+    paletteInput.focus();
+    paletteInput.select();
+  }
 });

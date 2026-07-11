@@ -1,4 +1,12 @@
-import { RUN_MODE_EXPLORE, GROUNDING_UIA, type BusEvent, type BusTopic, type BusTopicPayloadMap } from "./types.ts";
+import {
+  RUN_MODE_EXPLORE,
+  GROUNDING_UIA,
+  type ActionIR,
+  type BusEvent,
+  type BusTopic,
+  type BusTopicPayloadMap,
+  type RunMode,
+} from "./types.ts";
 
 type Listener = (event: BusEvent) => void;
 
@@ -49,26 +57,53 @@ export function createMockBusClient(): BusClient {
   return { subscribe, publish, close };
 }
 
-const DEMO_STEPS: ReadonlyArray<{ id: string; sentence: string }> = [
-  { id: "s1", sentence: "Open Downloads folder" },
-  { id: "s2", sentence: "Find the newest invoice PDF" },
-  { id: "s3", sentence: "Copy the total to the clipboard" },
-  { id: "s4", sentence: "Paste the total into the spreadsheet" },
+const DEFAULT_DEMO_GOAL = "Copy the invoice total into the spreadsheet";
+
+/**
+ * Canned demo steps as Action IR fragments (contracts/action_ir.schema.json
+ * shape: kind plus target/params), not hand-written sentences. simulateDemoRun
+ * hands each one to the real plain-English renderer (U4A, ui/src/runViewer/
+ * sdkRender.ts) so the run viewer shows exactly what that renderer produces,
+ * the same as it would for a live run. v and id are filled in at publish time.
+ */
+const DEMO_STEPS: ReadonlyArray<Pick<ActionIR, "kind" | "target" | "params">> = [
+  {
+    kind: "click",
+    target: { selectors: [{ kind: "name_role_path", path: [{ role: "treeitem", name: "Downloads" }] }] },
+  },
+  {
+    kind: "click",
+    target: { selectors: [{ kind: "name_role_path", path: [{ role: "listitem", name: "Invoice.pdf" }] }] },
+  },
+  { kind: "key", params: { combo: "ctrl+c" } },
+  { kind: "key", params: { combo: "ctrl+v" } },
 ];
 
-/** Sentence lookup for the canned demo steps; the real plain-English renderer (C19) replaces this later. */
-export const DEMO_STEP_SENTENCES: Readonly<Record<string, string>> = Object.fromEntries(
-  DEMO_STEPS.map((s) => [s.id, s.sentence]),
-);
+export interface SimulateDemoRunOptions {
+  /** The goal text carried on run.started; defaults to a canned sample goal. */
+  goal?: string;
+  /** Override the generated run id (tests want a stable id to assert against). */
+  runId?: string;
+  /**
+   * run.step.proposed carries the Action IR and, per contracts/bus_events.md,
+   * is only published while teaching, before the checkpoint; any other mode
+   * goes straight to gated/executed, the same as a real run would. Defaults
+   * to explore (teach).
+   */
+  mode?: RunMode;
+  stepDelayMs?: number;
+}
 
 /**
  * Feeds a small canned run through a bus client on a timer so the run viewer
  * has something real to stream without a backend. Returns a stop function
  * that cancels any steps not yet published.
  */
-export function simulateDemoRun(bus: BusClient, opts: { stepDelayMs?: number } = {}): () => void {
+export function simulateDemoRun(bus: BusClient, opts: SimulateDemoRunOptions = {}): () => void {
   const delay = opts.stepDelayMs ?? 500;
-  const runId = `demo-${Date.now()}`;
+  const mode = opts.mode ?? RUN_MODE_EXPLORE;
+  const runId = opts.runId ?? `demo-${Date.now()}`;
+  const goal = opts.goal ?? DEFAULT_DEMO_GOAL;
   let cancelled = false;
   const timers: ReturnType<typeof setTimeout>[] = [];
 
@@ -80,27 +115,26 @@ export function simulateDemoRun(bus: BusClient, opts: { stepDelayMs?: number } =
     );
   }
 
-  bus.publish("run.started", {
-    run_id: runId,
-    goal: "Copy the invoice total into the spreadsheet",
-    mode: RUN_MODE_EXPLORE,
-  });
+  bus.publish("run.started", { run_id: runId, goal, mode });
 
   DEMO_STEPS.forEach((step, i) => {
+    const stepId = `s${i + 1}`;
     schedule(() => {
-      bus.publish("run.step.proposed", {
-        run_id: runId,
-        step: { v: 1, id: step.id, kind: "click" },
-      });
+      if (mode === RUN_MODE_EXPLORE) {
+        bus.publish("run.step.proposed", {
+          run_id: runId,
+          step: { v: 1, id: stepId, ...step },
+        });
+      }
       bus.publish("run.step.gated", {
         run_id: runId,
-        step_id: step.id,
+        step_id: stepId,
         gate_kind: "pre",
         result: "pass",
       });
       bus.publish("run.step.executed", {
         run_id: runId,
-        step_id: step.id,
+        step_id: stepId,
         outcome: "ok",
         ms: 120 + i * 10,
         grounding: GROUNDING_UIA,
