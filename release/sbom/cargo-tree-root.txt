@@ -1,0 +1,604 @@
+operant-action v1.0.0 (D:\dev\operant\lanes\L14A\crates\action)
+├── anyhow v1.0.103
+├── base64 v0.22.1
+├── blake3 v1.8.5
+│   ├── arrayref v0.3.9
+│   ├── arrayvec v0.7.8
+│   ├── cfg-if v1.0.4
+│   ├── constant_time_eq v0.4.2
+│   └── cpufeatures v0.3.0
+│   [build-dependencies]
+│   └── cc v1.2.67
+│       ├── find-msvc-tools v0.1.9
+│       ├── jobserver v0.1.35
+│       │   └── getrandom v0.4.3
+│       │       └── cfg-if v1.0.4
+│       └── shlex v2.0.1
+├── jsonschema v0.18.3
+│   ├── ahash v0.8.12
+│   │   ├── cfg-if v1.0.4
+│   │   ├── getrandom v0.3.4
+│   │   │   └── cfg-if v1.0.4
+│   │   ├── once_cell v1.21.4
+│   │   ├── serde v1.0.228
+│   │   │   ├── serde_core v1.0.228
+│   │   │   └── serde_derive v1.0.228 (proc-macro)
+│   │   │       ├── proc-macro2 v1.0.106
+│   │   │       │   └── unicode-ident v1.0.24
+│   │   │       ├── quote v1.0.46
+│   │   │       │   └── proc-macro2 v1.0.106 (*)
+│   │   │       └── syn v2.0.118
+│   │   │           ├── proc-macro2 v1.0.106 (*)
+│   │   │           ├── quote v1.0.46 (*)
+│   │   │           └── unicode-ident v1.0.24
+│   │   └── zerocopy v0.8.54
+│   │   [build-dependencies]
+│   │   └── version_check v0.9.5
+│   ├── anyhow v1.0.103
+│   ├── base64 v0.22.1
+│   ├── bytecount v0.6.9
+│   ├── clap v4.6.1
+│   │   ├── clap_builder v4.6.0
+│   │   │   ├── anstream v1.0.0
+│   │   │   │   ├── anstyle v1.0.14
+│   │   │   │   ├── anstyle-parse v1.0.0
+│   │   │   │   │   └── utf8parse v0.2.2
+│   │   │   │   ├── anstyle-query v1.1.5
+│   │   │   │   │   └── windows-sys v0.61.2
+│   │   │   │   │       └── windows-link v0.2.1
+│   │   │   │   ├── anstyle-wincon v3.0.11
+│   │   │   │   │   ├── anstyle v1.0.14
+│   │   │   │   │   ├── once_cell_polyfill v1.70.2
+│   │   │   │   │   └── windows-sys v0.61.2 (*)
+│   │   │   │   ├── colorchoice v1.0.5
+│   │   │   │   ├── is_terminal_polyfill v1.70.2
+│   │   │   │   └── utf8parse v0.2.2
+│   │   │   ├── anstyle v1.0.14
+│   │   │   ├── clap_lex v1.1.0
+│   │   │   └── strsim v0.11.1
+│   │   └── clap_derive v4.6.1 (proc-macro)
+│   │       ├── heck v0.5.0
+│   │       ├── proc-macro2 v1.0.106 (*)
+│   │       ├── quote v1.0.46 (*)
+│   │       └── syn v2.0.118 (*)
+│   ├── fancy-regex v0.13.0
+│   │   ├── bit-set v0.5.3
+│   │   │   └── bit-vec v0.6.3
+│   │   ├── regex-automata v0.4.15
+│   │   │   ├── aho-corasick v1.1.4
+│   │   │   │   └── memchr v2.8.3
+│   │   │   ├── memchr v2.8.3
+│   │   │   └── regex-syntax v0.8.11
+│   │   └── regex-syntax v0.8.11
+│   ├── fraction v0.15.4
+│   │   ├── lazy_static v1.5.0
+│   │   └── num v0.4.3
+│   │       ├── num-bigint v0.4.8
+│   │       │   ├── num-integer v0.1.46
+│   │       │   │   └── num-traits v0.2.19
+│   │       │   │       [build-dependencies]
+│   │       │   │       └── autocfg v1.5.1
+│   │       │   └── num-traits v0.2.19 (*)
+│   │       ├── num-complex v0.4.6
+│   │       │   └── num-traits v0.2.19 (*)
+│   │       ├── num-integer v0.1.46 (*)
+│   │       ├── num-iter v0.1.46
+│   │       │   ├── num-integer v0.1.46 (*)
+│   │       │   └── num-traits v0.2.19 (*)
+│   │       ├── num-rational v0.4.2
+│   │       │   ├── num-bigint v0.4.8 (*)
+│   │       │   ├── num-integer v0.1.46 (*)
+│   │       │   └── num-traits v0.2.19 (*)
+│   │       └── num-traits v0.2.19 (*)
+│   ├── iso8601 v0.6.3
+│   │   └── nom v8.0.0
+│   │       └── memchr v2.8.3
+│   ├── itoa v1.0.18
+│   ├── memchr v2.8.3
+│   ├── num-cmp v0.1.0
+│   ├── once_cell v1.21.4
+│   ├── parking_lot v0.12.5
+│   │   ├── lock_api v0.4.14
+│   │   │   └── scopeguard v1.2.0
+│   │   └── parking_lot_core v0.9.12
+│   │       ├── cfg-if v1.0.4
+│   │       ├── smallvec v1.15.2
+│   │       └── windows-link v0.2.1
+│   ├── percent-encoding v2.3.2
+│   ├── regex v1.13.0
+│   │   ├── aho-corasick v1.1.4 (*)
+│   │   ├── memchr v2.8.3
+│   │   ├── regex-automata v0.4.15 (*)
+│   │   └── regex-syntax v0.8.11
+│   ├── reqwest v0.12.28
+│   │   ├── base64 v0.22.1
+│   │   ├── bytes v1.12.1
+│   │   ├── futures-channel v0.3.32
+│   │   │   ├── futures-core v0.3.32
+│   │   │   └── futures-sink v0.3.32
+│   │   ├── futures-core v0.3.32
+│   │   ├── futures-util v0.3.32
+│   │   │   ├── futures-channel v0.3.32 (*)
+│   │   │   ├── futures-core v0.3.32
+│   │   │   ├── futures-io v0.3.32
+│   │   │   ├── futures-macro v0.3.32 (proc-macro)
+│   │   │   │   ├── proc-macro2 v1.0.106 (*)
+│   │   │   │   ├── quote v1.0.46 (*)
+│   │   │   │   └── syn v2.0.118 (*)
+│   │   │   ├── futures-sink v0.3.32
+│   │   │   ├── futures-task v0.3.32
+│   │   │   ├── memchr v2.8.3
+│   │   │   ├── pin-project-lite v0.2.17
+│   │   │   └── slab v0.4.12
+│   │   ├── http v1.4.2
+│   │   │   ├── bytes v1.12.1
+│   │   │   └── itoa v1.0.18
+│   │   ├── http-body v1.0.1
+│   │   │   ├── bytes v1.12.1
+│   │   │   └── http v1.4.2 (*)
+│   │   ├── http-body-util v0.1.3
+│   │   │   ├── bytes v1.12.1
+│   │   │   ├── futures-core v0.3.32
+│   │   │   ├── http v1.4.2 (*)
+│   │   │   ├── http-body v1.0.1 (*)
+│   │   │   └── pin-project-lite v0.2.17
+│   │   ├── hyper v1.10.1
+│   │   │   ├── atomic-waker v1.1.2
+│   │   │   ├── bytes v1.12.1
+│   │   │   ├── futures-channel v0.3.32 (*)
+│   │   │   ├── futures-core v0.3.32
+│   │   │   ├── http v1.4.2 (*)
+│   │   │   ├── http-body v1.0.1 (*)
+│   │   │   ├── httparse v1.10.1
+│   │   │   ├── itoa v1.0.18
+│   │   │   ├── pin-project-lite v0.2.17
+│   │   │   ├── smallvec v1.15.2
+│   │   │   ├── tokio v1.52.3
+│   │   │   │   ├── bytes v1.12.1
+│   │   │   │   ├── mio v1.2.1
+│   │   │   │   │   └── windows-sys v0.61.2 (*)
+│   │   │   │   ├── pin-project-lite v0.2.17
+│   │   │   │   ├── socket2 v0.6.4
+│   │   │   │   │   └── windows-sys v0.61.2 (*)
+│   │   │   │   ├── tokio-macros v2.7.0 (proc-macro)
+│   │   │   │   │   ├── proc-macro2 v1.0.106 (*)
+│   │   │   │   │   ├── quote v1.0.46 (*)
+│   │   │   │   │   └── syn v2.0.118 (*)
+│   │   │   │   └── windows-sys v0.61.2 (*)
+│   │   │   └── want v0.3.1
+│   │   │       └── try-lock v0.2.5
+│   │   ├── hyper-util v0.1.20
+│   │   │   ├── base64 v0.22.1
+│   │   │   ├── bytes v1.12.1
+│   │   │   ├── futures-channel v0.3.32 (*)
+│   │   │   ├── futures-util v0.3.32 (*)
+│   │   │   ├── http v1.4.2 (*)
+│   │   │   ├── http-body v1.0.1 (*)
+│   │   │   ├── hyper v1.10.1 (*)
+│   │   │   ├── ipnet v2.12.0
+│   │   │   ├── libc v0.2.186
+│   │   │   ├── percent-encoding v2.3.2
+│   │   │   ├── pin-project-lite v0.2.17
+│   │   │   ├── socket2 v0.6.4 (*)
+│   │   │   ├── tokio v1.52.3 (*)
+│   │   │   ├── tower-service v0.3.3
+│   │   │   └── tracing v0.1.44
+│   │   │       ├── pin-project-lite v0.2.17
+│   │   │       ├── tracing-attributes v0.1.31 (proc-macro)
+│   │   │       │   ├── proc-macro2 v1.0.106 (*)
+│   │   │       │   ├── quote v1.0.46 (*)
+│   │   │       │   └── syn v2.0.118 (*)
+│   │   │       └── tracing-core v0.1.36
+│   │   │           └── once_cell v1.21.4
+│   │   ├── log v0.4.33
+│   │   ├── percent-encoding v2.3.2
+│   │   ├── pin-project-lite v0.2.17
+│   │   ├── serde v1.0.228 (*)
+│   │   ├── serde_json v1.0.150
+│   │   │   ├── itoa v1.0.18
+│   │   │   ├── memchr v2.8.3
+│   │   │   ├── serde_core v1.0.228
+│   │   │   └── zmij v1.0.21
+│   │   ├── serde_urlencoded v0.7.1
+│   │   │   ├── form_urlencoded v1.2.2
+│   │   │   │   └── percent-encoding v2.3.2
+│   │   │   ├── itoa v1.0.18
+│   │   │   ├── ryu v1.0.23
+│   │   │   └── serde v1.0.228 (*)
+│   │   ├── sync_wrapper v1.0.2
+│   │   │   └── futures-core v0.3.32
+│   │   ├── tokio v1.52.3 (*)
+│   │   ├── tower v0.5.3
+│   │   │   ├── futures-core v0.3.32
+│   │   │   ├── futures-util v0.3.32 (*)
+│   │   │   ├── pin-project-lite v0.2.17
+│   │   │   ├── sync_wrapper v1.0.2 (*)
+│   │   │   ├── tokio v1.52.3 (*)
+│   │   │   ├── tower-layer v0.3.3
+│   │   │   └── tower-service v0.3.3
+│   │   ├── tower-http v0.6.11
+│   │   │   ├── bitflags v2.13.0
+│   │   │   ├── bytes v1.12.1
+│   │   │   ├── futures-util v0.3.32 (*)
+│   │   │   ├── http v1.4.2 (*)
+│   │   │   ├── http-body v1.0.1 (*)
+│   │   │   ├── pin-project-lite v0.2.17
+│   │   │   ├── tower v0.5.3 (*)
+│   │   │   ├── tower-layer v0.3.3
+│   │   │   ├── tower-service v0.3.3
+│   │   │   └── url v2.5.8
+│   │   │       ├── form_urlencoded v1.2.2 (*)
+│   │   │       ├── idna v1.1.0
+│   │   │       │   ├── idna_adapter v1.2.2
+│   │   │       │   │   ├── icu_normalizer v2.2.0
+│   │   │       │   │   │   ├── icu_collections v2.2.0
+│   │   │       │   │   │   │   ├── displaydoc v0.2.6 (proc-macro)
+│   │   │       │   │   │   │   │   ├── proc-macro2 v1.0.106 (*)
+│   │   │       │   │   │   │   │   ├── quote v1.0.46 (*)
+│   │   │       │   │   │   │   │   └── syn v2.0.118 (*)
+│   │   │       │   │   │   │   ├── potential_utf v0.1.5
+│   │   │       │   │   │   │   │   └── zerovec v0.11.6
+│   │   │       │   │   │   │   │       ├── yoke v0.8.3
+│   │   │       │   │   │   │   │       │   ├── stable_deref_trait v1.2.1
+│   │   │       │   │   │   │   │       │   ├── yoke-derive v0.8.2 (proc-macro)
+│   │   │       │   │   │   │   │       │   │   ├── proc-macro2 v1.0.106 (*)
+│   │   │       │   │   │   │   │       │   │   ├── quote v1.0.46 (*)
+│   │   │       │   │   │   │   │       │   │   ├── syn v2.0.118 (*)
+│   │   │       │   │   │   │   │       │   │   └── synstructure v0.13.2
+│   │   │       │   │   │   │   │       │   │       ├── proc-macro2 v1.0.106 (*)
+│   │   │       │   │   │   │   │       │   │       ├── quote v1.0.46 (*)
+│   │   │       │   │   │   │   │       │   │       └── syn v2.0.118 (*)
+│   │   │       │   │   │   │   │       │   └── zerofrom v0.1.8
+│   │   │       │   │   │   │   │       │       └── zerofrom-derive v0.1.7 (proc-macro)
+│   │   │       │   │   │   │   │       │           ├── proc-macro2 v1.0.106 (*)
+│   │   │       │   │   │   │   │       │           ├── quote v1.0.46 (*)
+│   │   │       │   │   │   │   │       │           ├── syn v2.0.118 (*)
+│   │   │       │   │   │   │   │       │           └── synstructure v0.13.2 (*)
+│   │   │       │   │   │   │   │       ├── zerofrom v0.1.8 (*)
+│   │   │       │   │   │   │   │       └── zerovec-derive v0.11.3 (proc-macro)
+│   │   │       │   │   │   │   │           ├── proc-macro2 v1.0.106 (*)
+│   │   │       │   │   │   │   │           ├── quote v1.0.46 (*)
+│   │   │       │   │   │   │   │           └── syn v2.0.118 (*)
+│   │   │       │   │   │   │   ├── utf8_iter v1.0.4
+│   │   │       │   │   │   │   ├── yoke v0.8.3 (*)
+│   │   │       │   │   │   │   ├── zerofrom v0.1.8 (*)
+│   │   │       │   │   │   │   └── zerovec v0.11.6 (*)
+│   │   │       │   │   │   ├── icu_normalizer_data v2.2.0
+│   │   │       │   │   │   ├── icu_provider v2.2.0
+│   │   │       │   │   │   │   ├── displaydoc v0.2.6 (proc-macro) (*)
+│   │   │       │   │   │   │   ├── icu_locale_core v2.2.0
+│   │   │       │   │   │   │   │   ├── displaydoc v0.2.6 (proc-macro) (*)
+│   │   │       │   │   │   │   │   ├── litemap v0.8.2
+│   │   │       │   │   │   │   │   ├── tinystr v0.8.3
+│   │   │       │   │   │   │   │   │   ├── displaydoc v0.2.6 (proc-macro) (*)
+│   │   │       │   │   │   │   │   │   └── zerovec v0.11.6 (*)
+│   │   │       │   │   │   │   │   ├── writeable v0.6.3
+│   │   │       │   │   │   │   │   └── zerovec v0.11.6 (*)
+│   │   │       │   │   │   │   ├── writeable v0.6.3
+│   │   │       │   │   │   │   ├── yoke v0.8.3 (*)
+│   │   │       │   │   │   │   ├── zerofrom v0.1.8 (*)
+│   │   │       │   │   │   │   ├── zerotrie v0.2.4
+│   │   │       │   │   │   │   │   ├── displaydoc v0.2.6 (proc-macro) (*)
+│   │   │       │   │   │   │   │   ├── yoke v0.8.3 (*)
+│   │   │       │   │   │   │   │   └── zerofrom v0.1.8 (*)
+│   │   │       │   │   │   │   └── zerovec v0.11.6 (*)
+│   │   │       │   │   │   ├── smallvec v1.15.2
+│   │   │       │   │   │   └── zerovec v0.11.6 (*)
+│   │   │       │   │   └── icu_properties v2.2.0
+│   │   │       │   │       ├── icu_collections v2.2.0 (*)
+│   │   │       │   │       ├── icu_locale_core v2.2.0 (*)
+│   │   │       │   │       ├── icu_properties_data v2.2.0
+│   │   │       │   │       ├── icu_provider v2.2.0 (*)
+│   │   │       │   │       ├── zerotrie v0.2.4 (*)
+│   │   │       │   │       └── zerovec v0.11.6 (*)
+│   │   │       │   ├── smallvec v1.15.2
+│   │   │       │   └── utf8_iter v1.0.4
+│   │   │       └── percent-encoding v2.3.2
+│   │   ├── tower-service v0.3.3
+│   │   └── url v2.5.8 (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   ├── time v0.3.53
+│   │   ├── deranged v0.5.8
+│   │   ├── num-conv v0.2.2
+│   │   ├── powerfmt v0.2.0
+│   │   ├── time-core v0.1.9
+│   │   └── time-macros v0.2.31 (proc-macro)
+│   │       ├── num-conv v0.2.2
+│   │       └── time-core v0.1.9
+│   ├── url v2.5.8 (*)
+│   └── uuid v1.23.4
+├── miniz_oxide v0.8.9
+│   ├── adler2 v2.0.1
+│   └── simd-adler32 v0.3.9
+├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core)
+│   ├── anyhow v1.0.103
+│   ├── crossbeam-channel v0.5.16
+│   │   └── crossbeam-utils v0.8.22
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir)
+│   │   ├── serde v1.0.228 (*)
+│   │   ├── serde_json v1.0.150 (*)
+│   │   └── thiserror v1.0.69
+│   │       └── thiserror-impl v1.0.69 (proc-macro)
+│   │           ├── proc-macro2 v1.0.106 (*)
+│   │           ├── quote v1.0.46 (*)
+│   │           └── syn v2.0.118 (*)
+│   ├── parking_lot v0.12.5 (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   ├── thiserror v1.0.69 (*)
+│   ├── tracing v0.1.44 (*)
+│   └── tracing-subscriber v0.3.23
+│       ├── matchers v0.2.0
+│       │   └── regex-automata v0.4.15 (*)
+│       ├── nu-ansi-term v0.50.3
+│       │   └── windows-sys v0.61.2 (*)
+│       ├── once_cell v1.21.4
+│       ├── regex-automata v0.4.15 (*)
+│       ├── sharded-slab v0.1.7
+│       │   └── lazy_static v1.5.0
+│       ├── smallvec v1.15.2
+│       ├── thread_local v1.1.10
+│       │   └── cfg-if v1.0.4
+│       ├── tracing v0.1.44 (*)
+│       ├── tracing-core v0.1.36 (*)
+│       └── tracing-log v0.2.0
+│           ├── log v0.4.33
+│           ├── once_cell v1.21.4
+│           └── tracing-core v0.1.36 (*)
+├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+├── parking_lot v0.12.5 (*)
+├── rand v0.8.7
+│   ├── rand_chacha v0.3.1
+│   │   ├── ppv-lite86 v0.2.21
+│   │   │   └── zerocopy v0.8.54
+│   │   └── rand_core v0.6.4
+│   │       └── getrandom v0.2.17
+│   │           └── cfg-if v1.0.4
+│   └── rand_core v0.6.4 (*)
+├── regex v1.13.0 (*)
+├── serde v1.0.228 (*)
+├── serde_json v1.0.150 (*)
+├── thiserror v1.0.69 (*)
+└── tracing v0.1.44 (*)
+
+operant-bench v1.0.0 (D:\dev\operant\lanes\L14A\crates\bench)
+├── anyhow v1.0.103
+├── operant-compiler v1.0.0 (D:\dev\operant\lanes\L14A\crates\compiler)
+│   ├── anyhow v1.0.103
+│   ├── blake3 v1.8.5 (*)
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   ├── operant-recorder v1.0.0 (D:\dev\operant\lanes\L14A\crates\recorder)
+│   │   ├── anyhow v1.0.103
+│   │   ├── blake3 v1.8.5 (*)
+│   │   ├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+│   │   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   │   ├── rusqlite v0.31.0
+│   │   │   ├── bitflags v2.13.0
+│   │   │   ├── fallible-iterator v0.3.0
+│   │   │   ├── fallible-streaming-iterator v0.1.9
+│   │   │   ├── hashlink v0.9.1
+│   │   │   │   └── hashbrown v0.14.5
+│   │   │   │       └── ahash v0.8.12 (*)
+│   │   │   ├── libsqlite3-sys v0.28.0
+│   │   │   │   [build-dependencies]
+│   │   │   │   ├── cc v1.2.67 (*)
+│   │   │   │   ├── pkg-config v0.3.33
+│   │   │   │   └── vcpkg v0.2.15
+│   │   │   └── smallvec v1.15.2
+│   │   ├── serde v1.0.228 (*)
+│   │   ├── serde_json v1.0.150 (*)
+│   │   └── thiserror v1.0.69 (*)
+│   ├── regex v1.13.0 (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   └── thiserror v1.0.69 (*)
+│   [dev-dependencies]
+│   └── jsonschema v0.18.3 (*)
+├── operant-gates v1.0.0 (D:\dev\operant\lanes\L14A\crates\gates)
+│   ├── anyhow v1.0.103
+│   ├── blake3 v1.8.5 (*)
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   ├── regex v1.13.0 (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   └── thiserror v1.0.69 (*)
+├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+├── operant-replay v1.0.0 (D:\dev\operant\lanes\L14A\crates\replay)
+│   ├── anyhow v1.0.103
+│   ├── operant-action v1.0.0 (D:\dev\operant\lanes\L14A\crates\action) (*)
+│   ├── operant-gates v1.0.0 (D:\dev\operant\lanes\L14A\crates\gates) (*)
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   ├── thiserror v1.0.69 (*)
+│   └── tracing v0.1.44 (*)
+│   [dev-dependencies]
+│   └── operant-compiler v1.0.0 (D:\dev\operant\lanes\L14A\crates\compiler) (*)
+├── serde v1.0.228 (*)
+├── serde_json v1.0.150 (*)
+└── thiserror v1.0.69 (*)
+
+operant-cli v1.0.0 (D:\dev\operant\lanes\L14A\cli)
+├── anyhow v1.0.103
+├── operant-bench v1.0.0 (D:\dev\operant\lanes\L14A\crates\bench) (*)
+├── operant-compiler v1.0.0 (D:\dev\operant\lanes\L14A\crates\compiler) (*)
+├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+├── operant-doctor v1.0.0 (D:\dev\operant\lanes\L14A\crates\doctor)
+│   ├── anyhow v1.0.103
+│   ├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   ├── thiserror v1.0.69 (*)
+│   └── zip v0.6.6
+│       ├── aes v0.8.4
+│       │   ├── cfg-if v1.0.4
+│       │   ├── cipher v0.4.4
+│       │   │   ├── crypto-common v0.1.7
+│       │   │   │   ├── generic-array v0.14.7
+│       │   │   │   │   └── typenum v1.20.1
+│       │   │   │   │   [build-dependencies]
+│       │   │   │   │   └── version_check v0.9.5
+│       │   │   │   └── typenum v1.20.1
+│       │   │   └── inout v0.1.4
+│       │   │       └── generic-array v0.14.7 (*)
+│       │   └── cpufeatures v0.2.17
+│       ├── byteorder v1.5.0
+│       ├── bzip2 v0.4.4
+│       │   ├── bzip2-sys v0.1.13+1.0.8
+│       │   │   [build-dependencies]
+│       │   │   ├── cc v1.2.67 (*)
+│       │   │   └── pkg-config v0.3.33
+│       │   └── libc v0.2.186
+│       ├── constant_time_eq v0.1.5
+│       ├── crc32fast v1.5.0
+│       │   └── cfg-if v1.0.4
+│       ├── flate2 v1.1.9
+│       │   ├── crc32fast v1.5.0 (*)
+│       │   └── miniz_oxide v0.8.9 (*)
+│       ├── hmac v0.12.1
+│       │   └── digest v0.10.7
+│       │       ├── block-buffer v0.10.4
+│       │       │   └── generic-array v0.14.7 (*)
+│       │       ├── crypto-common v0.1.7 (*)
+│       │       └── subtle v2.6.1
+│       ├── pbkdf2 v0.11.0
+│       │   ├── digest v0.10.7 (*)
+│       │   ├── hmac v0.12.1 (*)
+│       │   ├── password-hash v0.4.2
+│       │   │   ├── base64ct v1.8.3
+│       │   │   ├── rand_core v0.6.4 (*)
+│       │   │   └── subtle v2.6.1
+│       │   └── sha2 v0.10.9
+│       │       ├── cfg-if v1.0.4
+│       │       ├── cpufeatures v0.2.17
+│       │       └── digest v0.10.7 (*)
+│       ├── sha1 v0.10.7
+│       │   ├── cfg-if v1.0.4
+│       │   ├── cpufeatures v0.2.17
+│       │   └── digest v0.10.7 (*)
+│       ├── time v0.3.53 (*)
+│       └── zstd v0.11.2+zstd.1.5.2
+│           └── zstd-safe v5.0.2+zstd.1.5.2
+│               ├── libc v0.2.186
+│               └── zstd-sys v2.0.16+zstd.1.5.7
+│                   [build-dependencies]
+│                   ├── cc v1.2.67 (*)
+│                   └── pkg-config v0.3.33
+├── operant-gates v1.0.0 (D:\dev\operant\lanes\L14A\crates\gates) (*)
+├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+├── operant-recorder v1.0.0 (D:\dev\operant\lanes\L14A\crates\recorder) (*)
+├── operant-registry v1.0.0 (D:\dev\operant\lanes\L14A\crates\registry)
+│   ├── anyhow v1.0.103
+│   ├── base64 v0.22.1
+│   ├── blake3 v1.8.5 (*)
+│   ├── ed25519-dalek v2.2.0
+│   │   ├── curve25519-dalek v4.1.3
+│   │   │   ├── cfg-if v1.0.4
+│   │   │   ├── cpufeatures v0.2.17
+│   │   │   ├── curve25519-dalek-derive v0.1.1 (proc-macro)
+│   │   │   │   ├── proc-macro2 v1.0.106 (*)
+│   │   │   │   ├── quote v1.0.46 (*)
+│   │   │   │   └── syn v2.0.118 (*)
+│   │   │   ├── digest v0.10.7 (*)
+│   │   │   ├── subtle v2.6.1
+│   │   │   └── zeroize v1.9.0
+│   │   │   [build-dependencies]
+│   │   │   └── rustc_version v0.4.1
+│   │   │       └── semver v1.0.28
+│   │   ├── ed25519 v2.2.3
+│   │   │   └── signature v2.2.0
+│   │   ├── rand_core v0.6.4 (*)
+│   │   ├── sha2 v0.10.9 (*)
+│   │   ├── subtle v2.6.1
+│   │   └── zeroize v1.9.0
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   └── thiserror v1.0.69 (*)
+├── operant-replay v1.0.0 (D:\dev\operant\lanes\L14A\crates\replay) (*)
+└── serde_json v1.0.150 (*)
+
+operant-compiler v1.0.0 (D:\dev\operant\lanes\L14A\crates\compiler) (*)
+
+operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+
+operant-doctor v1.0.0 (D:\dev\operant\lanes\L14A\crates\doctor) (*)
+
+operant-gates v1.0.0 (D:\dev\operant\lanes\L14A\crates\gates) (*)
+
+operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+
+operant-orchestrator v1.0.0 (D:\dev\operant\lanes\L14A\crates\orchestrator)
+├── anyhow v1.0.103
+├── blake3 v1.8.5 (*)
+├── crossbeam-channel v0.5.16 (*)
+├── futures v0.3.32
+│   ├── futures-channel v0.3.32 (*)
+│   ├── futures-core v0.3.32
+│   ├── futures-executor v0.3.32
+│   │   ├── futures-core v0.3.32
+│   │   ├── futures-task v0.3.32
+│   │   └── futures-util v0.3.32 (*)
+│   ├── futures-io v0.3.32
+│   ├── futures-sink v0.3.32
+│   ├── futures-task v0.3.32
+│   └── futures-util v0.3.32 (*)
+├── operant-action v1.0.0 (D:\dev\operant\lanes\L14A\crates\action) (*)
+├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+├── operant-gates v1.0.0 (D:\dev\operant\lanes\L14A\crates\gates) (*)
+├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+├── operant-recorder v1.0.0 (D:\dev\operant\lanes\L14A\crates\recorder) (*)
+├── operant-replay v1.0.0 (D:\dev\operant\lanes\L14A\crates\replay) (*)
+├── operant-safety v1.0.0 (D:\dev\operant\lanes\L14A\crates\safety)
+│   ├── anyhow v1.0.103
+│   ├── blake3 v1.8.5 (*)
+│   ├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+│   ├── operant-gates v1.0.0 (D:\dev\operant\lanes\L14A\crates\gates) (*)
+│   ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+│   ├── operant-recorder v1.0.0 (D:\dev\operant\lanes\L14A\crates\recorder) (*)
+│   ├── serde v1.0.228 (*)
+│   ├── serde_json v1.0.150 (*)
+│   └── thiserror v1.0.69 (*)
+├── serde v1.0.228 (*)
+├── serde_json v1.0.150 (*)
+├── thiserror v1.0.69 (*)
+├── tokio v1.52.3 (*)
+└── tracing v0.1.44 (*)
+[dev-dependencies]
+├── operant-compiler v1.0.0 (D:\dev\operant\lanes\L14A\crates\compiler) (*)
+└── operant-perception-uia v1.0.0 (D:\dev\operant\lanes\L14A\crates\perception-uia)
+    ├── anyhow v1.0.103
+    ├── blake3 v1.8.5 (*)
+    ├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+    ├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+    ├── serde_json v1.0.150 (*)
+    ├── thiserror v1.0.69 (*)
+    └── tracing v0.1.44 (*)
+
+operant-perception-stubs v1.0.0 (D:\dev\operant\lanes\L14A\crates\perception-stubs)
+├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+└── thiserror v1.0.69 (*)
+
+operant-perception-uia v1.0.0 (D:\dev\operant\lanes\L14A\crates\perception-uia) (*)
+
+operant-recorder v1.0.0 (D:\dev\operant\lanes\L14A\crates\recorder) (*)
+
+operant-registry v1.0.0 (D:\dev\operant\lanes\L14A\crates\registry) (*)
+
+operant-replay v1.0.0 (D:\dev\operant\lanes\L14A\crates\replay) (*)
+
+operant-safety v1.0.0 (D:\dev\operant\lanes\L14A\crates\safety) (*)
+
+operant-scheduler v1.0.0 (D:\dev\operant\lanes\L14A\crates\scheduler)
+├── anyhow v1.0.103
+├── operant-core v1.0.0 (D:\dev\operant\lanes\L14A\crates\core) (*)
+├── operant-ir v1.0.0 (D:\dev\operant\lanes\L14A\crates\ir) (*)
+├── operant-replay v1.0.0 (D:\dev\operant\lanes\L14A\crates\replay) (*)
+├── serde v1.0.228 (*)
+├── serde_json v1.0.150 (*)
+├── thiserror v1.0.69 (*)
+├── tokio v1.52.3 (*)
+└── tracing v0.1.44 (*)

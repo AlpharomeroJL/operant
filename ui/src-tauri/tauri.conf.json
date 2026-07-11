@@ -25,7 +25,25 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"]
+    "targets": ["nsis"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.ico"],
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "nsis": {
+        "installMode": "both",
+        "installerHooks": "../../release/nsis/installer-hooks.nsh"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG9wZXJhbnQgdXBkYXRlciBwdWJsaWMga2V5IENFRTMzQzdGM0I1NkQ1Q0EKUldUTzR6eC9PMWJWeW1saFhsTHZwSzd3UlM5bk9idWc4SlZTdDJWRUpkVmpXc0VUZGEvb29XT3MK",
+      "endpoints": [
+        "https://github.com/AlpharomeroJL/operant/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "quiet"
+      }
+    }
   }
 }
