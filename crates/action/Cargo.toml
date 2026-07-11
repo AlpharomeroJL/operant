@@ -13,3 +13,21 @@ serde_json.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
+jsonschema.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+
+# Real Windows input synthesis. Optional so the default build (and every
+# lane that just needs the trait/mock) never has to compile it.
+windows = { version = "0.58", optional = true, features = [
+  "Win32_Foundation",
+  "Win32_Graphics_Gdi",
+  "Win32_System_DataExchange",
+  "Win32_System_Memory",
+  "Win32_System_Threading",
+  "Win32_UI_Input_KeyboardAndMouse",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[features]
+real-input = ["dep:windows"]
