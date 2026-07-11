@@ -42,6 +42,7 @@
 //! ```
 
 mod blobs;
+pub mod backup;
 mod error;
 mod ids;
 mod misc;

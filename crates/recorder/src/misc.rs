@@ -88,7 +88,21 @@ impl Recorder {
         diff_path: Option<&str>,
         approved_by: Option<&str>,
     ) -> Result<()> {
-        let ts = now_ms();
+        self.add_workflow_version_with_ts(workflow_id, version, diff_path, approved_by, None)
+    }
+
+    /// Add a workflow version with an optional explicit timestamp. If ts is None,
+    /// the current time is used. This is primarily used by backup/import to restore
+    /// exact timestamps.
+    pub(crate) fn add_workflow_version_with_ts(
+        &self,
+        workflow_id: &str,
+        version: &str,
+        diff_path: Option<&str>,
+        approved_by: Option<&str>,
+        ts: Option<i64>,
+    ) -> Result<()> {
+        let ts = ts.unwrap_or_else(now_ms);
         let conn = self.lock()?;
         conn.execute(
             "INSERT INTO workflow_versions (workflow_id, version, diff_path, approved_by, ts)
