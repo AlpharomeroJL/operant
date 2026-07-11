@@ -1045,8 +1045,10 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "blake3",
+ "jsonschema",
  "operant-ir",
  "operant-recorder",
+ "regex",
  "serde",
  "serde_json",
  "thiserror",
@@ -1173,8 +1175,11 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "operant-action",
+ "operant-compiler",
  "operant-gates",
  "operant-ir",
+ "serde",
+ "serde_json",
  "thiserror",
  "tracing",
 ]
