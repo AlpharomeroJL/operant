@@ -18,6 +18,7 @@
 //! assert_eq!(out.workflow.manifest.step_summary.len(), 6);
 //! ```
 
+pub mod drift;
 mod emit;
 mod pipeline;
 mod trajectory;
