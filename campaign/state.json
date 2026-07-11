@@ -1,0 +1,929 @@
+{
+  "v": 1,
+  "campaign": "operant-v1.0.0",
+  "repo": "AlpharomeroJL/operant",
+  "registry_repo": "AlpharomeroJL/operant-registry",
+  "build_tree": "D:/dev/operant",
+  "cargo_target": "D:/dev/operant-target",
+  "identity": {
+    "name": "Josef Long",
+    "email": "Josefdean@protonmail.com",
+    "no_ai_attribution": true
+  },
+  "phase": "phase0-bootstrap",
+  "current_wave": 1,
+  "fix_at_gate_log": [],
+  "packets": [
+    {
+      "id": "L1A",
+      "name": "core-bus",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "crates/core",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L2A",
+      "name": "perception-uia",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "crates/perception-uia",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L3A",
+      "name": "action-core",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "crates/action",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L4A",
+      "name": "model-backends",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "crates/orchestrator/src/backends,sidecars/vision",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L5A",
+      "name": "storage-recorder",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "crates/recorder",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L6A",
+      "name": "safety-gates",
+      "tier": "opus",
+      "wave": 1,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "crates/safety,crates/gates",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U1A",
+      "name": "ux-foundation",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "ui",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U2A",
+      "name": "wizard-downloader",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "sidecars/downloader",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "E1A",
+      "name": "e2e-harness",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "e2e",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "D1A",
+      "name": "docs-scaffold",
+      "tier": "haiku",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "site",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "C1A",
+      "name": "cookbook-prose",
+      "tier": "haiku",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "cookbook",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "R1A",
+      "name": "registry-index",
+      "tier": "haiku",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "../operant-registry",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "B1A",
+      "name": "bench-scaffold",
+      "tier": "haiku",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "crates/bench",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "S1A",
+      "name": "soak-scaffold",
+      "tier": "haiku",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "e2e/soak",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "M1A",
+      "name": "launch-drafts",
+      "tier": "sonnet",
+      "wave": 1,
+      "deps": [],
+      "owned_paths": "LAUNCH.md",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L7A",
+      "name": "orchestrator-loop",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L1A",
+        "L3A",
+        "L4A",
+        "L5A",
+        "L6A"
+      ],
+      "owned_paths": "crates/orchestrator",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L8A",
+      "name": "compiler",
+      "tier": "opus",
+      "wave": 2,
+      "deps": [
+        "L3A",
+        "L5A",
+        "L6A"
+      ],
+      "owned_paths": "crates/compiler,crates/replay,sdk/ts",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L9A",
+      "name": "browser-adapter",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L3A"
+      ],
+      "owned_paths": "crates/action/src/adapters/browser",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L10A",
+      "name": "scheduler",
+      "tier": "haiku",
+      "wave": 2,
+      "deps": [
+        "L8A"
+      ],
+      "owned_paths": "crates/scheduler",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L11A",
+      "name": "voice-sidecar",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "sidecars/voice",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L2B",
+      "name": "adapters-native",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L3A"
+      ],
+      "owned_paths": "crates/action/src/adapters",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L4B",
+      "name": "backend-integration",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L4A"
+      ],
+      "owned_paths": "crates/orchestrator/src/backends,docs/models.md",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L6B",
+      "name": "audit-export",
+      "tier": "opus",
+      "wave": 2,
+      "deps": [
+        "L6A"
+      ],
+      "owned_paths": "crates/safety/src/audit",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U1B",
+      "name": "shell-live",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "U1A",
+        "L1A",
+        "L7A"
+      ],
+      "owned_paths": "ui/src",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U2B",
+      "name": "wizard-build",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "U2A",
+        "U1A"
+      ],
+      "owned_paths": "ui/src/wizard",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U3A",
+      "name": "errors-doctor",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L1A"
+      ],
+      "owned_paths": "crates/doctor",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "E1B",
+      "name": "golden-path-v0",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L7A",
+        "L8A"
+      ],
+      "owned_paths": "e2e",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "D1B",
+      "name": "docs-guides",
+      "tier": "haiku",
+      "wave": 2,
+      "deps": [
+        "D1A"
+      ],
+      "owned_paths": "site/guides",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "R1B",
+      "name": "registry-core",
+      "tier": "sonnet",
+      "wave": 2,
+      "deps": [
+        "L6A"
+      ],
+      "owned_paths": "crates/registry",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L12A",
+      "name": "shell-complete",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "U1B"
+      ],
+      "owned_paths": "ui/src",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L13A",
+      "name": "cli-sdk-mcp",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "L8A"
+      ],
+      "owned_paths": "cli,sdk/ts,crates/orchestrator/src/mcp",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L14A",
+      "name": "release",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "U1B",
+        "L8A"
+      ],
+      "owned_paths": "release,ui/src-tauri",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L8B",
+      "name": "drift-repair",
+      "tier": "opus",
+      "wave": 3,
+      "deps": [
+        "L8A",
+        "L2A"
+      ],
+      "owned_paths": "crates/compiler/src/drift",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L7B",
+      "name": "registry-surface",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "R1B",
+        "U1B"
+      ],
+      "owned_paths": "cli,ui/src/gallery",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L9B",
+      "name": "bench-suite",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "L8A",
+        "B1A",
+        "C1B"
+      ],
+      "owned_paths": "crates/bench",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "L10B",
+      "name": "soak-run",
+      "tier": "haiku",
+      "wave": 3,
+      "deps": [
+        "S1A",
+        "L10A"
+      ],
+      "owned_paths": "e2e/soak",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U2C",
+      "name": "wizard-teach",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "U2B",
+        "L7A"
+      ],
+      "owned_paths": "ui/src/wizard",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U4A",
+      "name": "plain-english-renderer",
+      "tier": "opus",
+      "wave": 3,
+      "deps": [
+        "L8A"
+      ],
+      "owned_paths": "sdk/ts/src/render,ui/src/render",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U3B",
+      "name": "doctor-ui",
+      "tier": "haiku",
+      "wave": 3,
+      "deps": [
+        "U3A"
+      ],
+      "owned_paths": "ui/src/doctor",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "U5A",
+      "name": "tour-hints",
+      "tier": "haiku",
+      "wave": 3,
+      "deps": [
+        "U1B"
+      ],
+      "owned_paths": "ui/src/tour",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "E1C",
+      "name": "first-timer-path",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "U2B",
+        "U2C",
+        "L12A"
+      ],
+      "owned_paths": "e2e/first-timer",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "C1B",
+      "name": "cookbook-compile",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "L8A",
+        "C1A"
+      ],
+      "owned_paths": "cookbook",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "M1C",
+      "name": "readme-draft",
+      "tier": "sonnet",
+      "wave": 3,
+      "deps": [
+        "M1A"
+      ],
+      "owned_paths": "README.md",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "V1",
+      "name": "capture",
+      "tier": "sonnet",
+      "wave": 4,
+      "deps": [
+        "L12A",
+        "E1C"
+      ],
+      "owned_paths": "assets",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "V2",
+      "name": "readme-final",
+      "tier": "sonnet",
+      "wave": 4,
+      "deps": [
+        "M1C",
+        "V1",
+        "L9B"
+      ],
+      "owned_paths": "README.md",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "V3",
+      "name": "site-deploy",
+      "tier": "haiku",
+      "wave": 4,
+      "deps": [
+        "D1B"
+      ],
+      "owned_paths": "site",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "V4",
+      "name": "launch-final",
+      "tier": "sonnet",
+      "wave": 4,
+      "deps": [
+        "M1A",
+        "V1"
+      ],
+      "owned_paths": "LAUNCH.md",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "V5",
+      "name": "first-timer-release",
+      "tier": "sonnet",
+      "wave": 4,
+      "deps": [
+        "E1C",
+        "L14A"
+      ],
+      "owned_paths": "e2e/first-timer",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X1",
+      "name": "kill-switch",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "L3A",
+        "U1A"
+      ],
+      "owned_paths": "crates/action/src/killswitch",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X2",
+      "name": "undo-journal",
+      "tier": "opus",
+      "wave": 9,
+      "deps": [
+        "L3A",
+        "L5A"
+      ],
+      "owned_paths": "crates/recorder/src/undo",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X4",
+      "name": "anchor-redaction",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "L4A",
+        "L5A"
+      ],
+      "owned_paths": "crates/recorder/src/redact",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X16",
+      "name": "oauth-broker",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "L4A",
+        "U2B"
+      ],
+      "owned_paths": "crates/orchestrator/src/oauth",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X3",
+      "name": "time-saved",
+      "tier": "haiku",
+      "wave": 9,
+      "deps": [
+        "L5A",
+        "U1B"
+      ],
+      "owned_paths": "crates/recorder/src/metrics",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X5",
+      "name": "watch-and-suggest",
+      "tier": "opus",
+      "wave": 9,
+      "deps": [
+        "L5A",
+        "L7A",
+        "X4"
+      ],
+      "owned_paths": "crates/orchestrator/src/watch",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X6",
+      "name": "composition",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "L8A",
+        "L6A"
+      ],
+      "owned_paths": "crates/replay/src/compose",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X7",
+      "name": "backup-portable",
+      "tier": "haiku",
+      "wave": 9,
+      "deps": [
+        "L5A"
+      ],
+      "owned_paths": "crates/recorder/src/backup",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X8",
+      "name": "app-accessibility",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "U1B"
+      ],
+      "owned_paths": "ui/src",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X9",
+      "name": "playwright-importer",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "L8A",
+        "L9A"
+      ],
+      "owned_paths": "cli/src/import",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X10",
+      "name": "community-kit",
+      "tier": "haiku",
+      "wave": 9,
+      "deps": [],
+      "owned_paths": ".github,CONTRIBUTING.md,SECURITY.md",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X11",
+      "name": "narrated-demo",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "V1",
+        "L11A"
+      ],
+      "owned_paths": "assets/video",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X12",
+      "name": "explain-cli",
+      "tier": "haiku",
+      "wave": 9,
+      "deps": [
+        "U4A"
+      ],
+      "owned_paths": "cli/src/explain",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X13",
+      "name": "diagnostics-bundle",
+      "tier": "haiku",
+      "wave": 9,
+      "deps": [
+        "U3A"
+      ],
+      "owned_paths": "crates/doctor/src/bundle",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X14",
+      "name": "i18n-scaffold",
+      "tier": "haiku",
+      "wave": 9,
+      "deps": [
+        "U1A"
+      ],
+      "owned_paths": "ui/src/locales",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    },
+    {
+      "id": "X15",
+      "name": "wasm-playground",
+      "tier": "sonnet",
+      "wave": 9,
+      "deps": [
+        "L8A",
+        "L9A",
+        "D1A"
+      ],
+      "owned_paths": "site/playground",
+      "status": "pending",
+      "branch": null,
+      "merge_commit": null,
+      "attempts": 0
+    }
+  ]
+}

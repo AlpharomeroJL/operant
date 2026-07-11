@@ -1,0 +1,70 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/ir",
+  "crates/core",
+  "crates/perception-uia",
+  "crates/perception-stubs",
+  "crates/action",
+  "crates/recorder",
+  "crates/gates",
+  "crates/safety",
+  "crates/compiler",
+  "crates/replay",
+  "crates/orchestrator",
+  "crates/scheduler",
+  "crates/registry",
+  "crates/bench",
+  "crates/doctor",
+  "cli",
+]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.90"
+license = "Apache-2.0"
+authors = ["Josef Long"]
+repository = "https://github.com/AlpharomeroJL/operant"
+description = "Local-first desktop agent that compiles AI trajectories into deterministic, invariant-gated automations."
+
+[workspace.dependencies]
+# internal crates
+operant-ir = { path = "crates/ir" }
+operant-core = { path = "crates/core" }
+operant-perception-uia = { path = "crates/perception-uia" }
+operant-perception-stubs = { path = "crates/perception-stubs" }
+operant-action = { path = "crates/action" }
+operant-recorder = { path = "crates/recorder" }
+operant-gates = { path = "crates/gates" }
+operant-safety = { path = "crates/safety" }
+operant-compiler = { path = "crates/compiler" }
+operant-replay = { path = "crates/replay" }
+operant-orchestrator = { path = "crates/orchestrator" }
+operant-scheduler = { path = "crates/scheduler" }
+operant-registry = { path = "crates/registry" }
+operant-bench = { path = "crates/bench" }
+operant-doctor = { path = "crates/doctor" }
+
+# third-party (conservative, widely-available floors; cargo resolves latest compatible)
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+anyhow = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+blake3 = "1"
+rusqlite = { version = "0.31", features = ["bundled"] }
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+rand = "0.8"
+base64 = "0.22"
+ulid = "1"
+regex = "1"
+jsonschema = "0.18"
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+
+[profile.release]
+lto = "thin"
+strip = true

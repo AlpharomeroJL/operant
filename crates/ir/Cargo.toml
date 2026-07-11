@@ -1,0 +1,12 @@
+[package]
+name = "operant-ir"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Shared Operant IR types: Action IR, Perception Snapshot, gate expression AST, workflow manifest, bus envelope. The Rust embodiment of contracts/."
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true

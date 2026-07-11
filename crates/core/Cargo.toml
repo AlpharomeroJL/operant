@@ -1,0 +1,18 @@
+[package]
+name = "operant-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Operant core runtime: typed versioned event bus, config store, logging, Perceiver trait, sidecar supervisor."
+
+[dependencies]
+operant-ir.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+crossbeam-channel.workspace = true
+parking_lot.workspace = true

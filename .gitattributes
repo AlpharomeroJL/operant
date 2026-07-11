@@ -1,0 +1,12 @@
+# Normalize line endings so the em-dash grep, markdownlint, and hashing are deterministic.
+* text=auto eol=lf
+
+# Binary fixtures: never touch.
+*.png binary
+*.pdf binary
+*.bin binary
+*.ico binary
+*.gif binary
+*.mp4 binary
+*.woff2 binary
+contracts/fixtures/registry/publisher.key -text

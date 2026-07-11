@@ -1,0 +1,14 @@
+[package]
+name = "operant-replay"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+operant-ir.workspace = true
+operant-action.workspace = true
+operant-gates.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
