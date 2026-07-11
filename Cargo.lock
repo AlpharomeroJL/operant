@@ -1207,6 +1207,8 @@ dependencies = [
  "operant-core",
  "operant-ir",
  "operant-replay",
+ "serde",
+ "serde_json",
  "thiserror",
  "tokio",
  "tracing",
