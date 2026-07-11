@@ -1,0 +1,19 @@
+{
+  "name": "operant-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Operant C13 shell UI and C19 zero-code design system: design tokens, default/Advanced mode switch, and a mocked event bus so the shell renders with no backend running.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "node --test",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.1.4"
+  }
+}
