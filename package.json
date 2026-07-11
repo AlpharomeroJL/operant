@@ -1,0 +1,14 @@
+{
+  "name": "operant-soak",
+  "version": "1.0.0",
+  "description": "E2E soak testing for reliability validation",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "soak:dry": "node e2e/soak/soak.mjs --dry",
+    "soak:full": "node e2e/soak/soak.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
