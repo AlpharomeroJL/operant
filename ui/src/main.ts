@@ -4,8 +4,24 @@ import { createMockBusClient } from "./bus/mockClient.ts";
 import type { BusEvent } from "./bus/types.ts";
 import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
 import { createRunViewer } from "./runViewer/state.ts";
-import { paletteStrings, runViewerStrings, commonStrings } from "./strings/default.ts";
+import { paletteStrings, runViewerStrings, commonStrings, navStrings } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
+import { advancedSurfaceVisibility } from "./advanced/state.ts";
+import { mountDslEditor, mountRawWorkflowDetails, mountAuditBrowser, mountConnectedTools } from "./advanced/view.ts";
+import { createConnectedToolsStore } from "./advanced/connectedTools.ts";
+import { createMockRegistry, type MockWorkflowRecord } from "./library/mockRegistry.ts";
+import { createLibrary } from "./library/state.ts";
+import { mountLibrary } from "./library/view.ts";
+import { libraryStrings } from "./library/strings.ts";
+import { createGrantPrompt } from "./grants/state.ts";
+import { mountGrantPrompt } from "./grants/view.ts";
+import { createSettings } from "./settings/state.ts";
+import { mountSettings } from "./settings/view.ts";
+import { settingsDetailStrings } from "./settings/strings.ts";
+import type { BackupPayload } from "./settings/mockStore.ts";
+import { createTray } from "./tray/state.ts";
+import { mountTray } from "./tray/view.ts";
+import { mountWorkflowView } from "./render/workflowView.ts";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -13,18 +29,25 @@ if (!root) {
 }
 
 // Static skeleton only: structure and ids, no baked-in copy. Every visible
-// string is assigned below from ui/src/strings (default) or
-// ui/src/advanced (advanced), so this file has nothing for the microcopy
-// lint to check and nowhere for jargon to hide.
+// string is assigned below from ui/src/strings (default) or ui/src/advanced
+// (advanced), or from a module's own default-mode strings.ts (library,
+// grants, settings, tray), so this file has nothing for the microcopy lint
+// to check and nowhere for jargon to hide.
 root.innerHTML = `
   <div class="op-app">
     <header class="op-header">
       <h1 class="op-header__title" id="op-app-title"></h1>
+      <nav class="op-nav" id="op-nav" aria-label="Screens">
+        <button type="button" class="op-nav__button" id="op-nav-run" aria-pressed="true"></button>
+        <button type="button" class="op-nav__button" id="op-nav-library" aria-pressed="false"></button>
+        <button type="button" class="op-nav__button" id="op-nav-settings" aria-pressed="false"></button>
+      </nav>
+      <div id="op-tray-mount"></div>
       <button type="button" class="op-mode-toggle" id="op-mode-toggle" aria-pressed="false">
         <span id="op-mode-toggle-label"></span>
       </button>
     </header>
-    <main class="op-main">
+    <main class="op-main" id="op-screen-run">
       <section class="op-panel" aria-labelledby="op-palette-heading">
         <h2 class="op-panel__title" id="op-palette-heading"></h2>
         <form class="op-palette" id="op-palette-form">
@@ -52,9 +75,30 @@ root.innerHTML = `
         </form>
       </section>
     </main>
+    <section class="op-panel op-screen" id="op-screen-library" hidden aria-label="Library">
+      <div id="op-library-mount"></div>
+    </section>
+    <section class="op-panel op-screen" id="op-screen-settings" hidden aria-label="Settings">
+      <div id="op-settings-mount"></div>
+    </section>
+    <section class="op-panel op-explain-panel" id="op-explain-panel" hidden aria-labelledby="op-explain-heading">
+      <div class="op-explain-panel__header">
+        <h2 class="op-panel__title" id="op-explain-heading"></h2>
+        <button type="button" class="op-button" id="op-explain-close"></button>
+      </div>
+      <div id="op-explain-mount"></div>
+    </section>
+    <div class="op-modal-backdrop" id="op-grant-backdrop" hidden>
+      <div id="op-grant-mount"></div>
+    </div>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
       <h2 class="op-panel__title" id="op-advanced-heading"></h2>
-      <pre id="op-advanced-log"></pre>
+      <div class="op-advanced-panel__grid">
+        <div id="op-advanced-editor"></div>
+        <div id="op-advanced-raw"></div>
+        <div id="op-advanced-audit"></div>
+        <div id="op-advanced-tools"></div>
+      </div>
     </section>
   </div>
 `;
@@ -86,7 +130,26 @@ const interveneInput = byId<HTMLInputElement>("op-intervene-input");
 const interveneSubmit = byId<HTMLButtonElement>("op-intervene-submit");
 const advancedPanel = byId<HTMLElement>("op-advanced-panel");
 const advancedHeading = byId<HTMLHeadingElement>("op-advanced-heading");
-const advancedLog = byId<HTMLPreElement>("op-advanced-log");
+const advancedDsl = byId<HTMLElement>("op-advanced-editor");
+const advancedRaw = byId<HTMLElement>("op-advanced-raw");
+const advancedAudit = byId<HTMLElement>("op-advanced-audit");
+const advancedTools = byId<HTMLElement>("op-advanced-tools");
+
+const navRun = byId<HTMLButtonElement>("op-nav-run");
+const navLibrary = byId<HTMLButtonElement>("op-nav-library");
+const navSettings = byId<HTMLButtonElement>("op-nav-settings");
+const screenRun = byId<HTMLElement>("op-screen-run");
+const screenLibrary = byId<HTMLElement>("op-screen-library");
+const screenSettings = byId<HTMLElement>("op-screen-settings");
+const trayMount = byId<HTMLElement>("op-tray-mount");
+const libraryMount = byId<HTMLElement>("op-library-mount");
+const settingsMount = byId<HTMLElement>("op-settings-mount");
+const explainPanel = byId<HTMLElement>("op-explain-panel");
+const explainHeading = byId<HTMLHeadingElement>("op-explain-heading");
+const explainClose = byId<HTMLButtonElement>("op-explain-close");
+const explainMount = byId<HTMLElement>("op-explain-mount");
+const grantBackdrop = byId<HTMLElement>("op-grant-backdrop");
+const grantMount = byId<HTMLElement>("op-grant-mount");
 
 appTitle.textContent = commonStrings.appName;
 paletteHeading.textContent = paletteStrings.placeholder;
@@ -99,11 +162,26 @@ stopButton.textContent = runViewerStrings.stop;
 interveneLabel.textContent = runViewerStrings.intervenePlaceholder;
 interveneInput.placeholder = runViewerStrings.intervenePlaceholder;
 interveneSubmit.textContent = runViewerStrings.interveneSubmit;
-advancedHeading.textContent = advancedStrings.navAuditBrowser;
-advancedLog.textContent = advancedStrings.auditEmpty;
+advancedHeading.textContent = advancedStrings.toggleLabel;
+navRun.textContent = navStrings.run;
+navLibrary.textContent = navStrings.library;
+navSettings.textContent = navStrings.settings;
+explainClose.textContent = libraryStrings.closeExplain;
 
 const bus = createMockBusClient();
 const runViewer = createRunViewer(bus);
+const registry = createMockRegistry();
+const connectedTools = createConnectedToolsStore();
+
+const library = createLibrary(bus, {
+  registry,
+  onScheduleRequested: (_name, title) => {
+    scheduleNotice = libraryStrings.scheduleNotice(title);
+    renderLibraryPanel();
+  },
+});
+const settings = createSettings(bus);
+const tray = createTray(bus);
 
 // The currently streaming canned demo, if any: cancels the timers behind a
 // run so Stop (and Pause, which freezes progress until resumed) do not let
@@ -112,18 +190,69 @@ const runViewer = createRunViewer(bus);
 // runViewer, not here; this only tracks the demo's own timers.
 let stopDemo: (() => void) | null = null;
 let lastEvents: BusEvent[] = [];
+let scheduleNotice: string | null = null;
+// The workflow last opened via Explain: also what the Advanced DSL editor
+// and raw-details panes show, so a developer looking at one is looking at
+// the other, the same workflow, in plain English and in raw form.
+let selectedWorkflowName: string | null = null;
+
+type Screen = "run" | "library" | "settings";
+let activeScreen: Screen = "run";
+
+function selectedRecord(): MockWorkflowRecord | undefined {
+  return selectedWorkflowName ? registry.get(selectedWorkflowName) : undefined;
+}
+
+function renderScreen(): void {
+  screenRun.hidden = activeScreen !== "run";
+  screenLibrary.hidden = activeScreen !== "library";
+  screenSettings.hidden = activeScreen !== "settings";
+  navRun.setAttribute("aria-pressed", String(activeScreen === "run"));
+  navLibrary.setAttribute("aria-pressed", String(activeScreen === "library"));
+  navSettings.setAttribute("aria-pressed", String(activeScreen === "settings"));
+}
+
+function showScreen(screen: Screen): void {
+  activeScreen = screen;
+  renderScreen();
+}
 
 function renderMode(mode: UiMode): void {
   const isAdvanced = mode === "advanced";
   modeToggleButton.setAttribute("aria-pressed", String(isAdvanced));
   modeToggleLabel.textContent = isAdvanced ? advancedStrings.toggleLabel : advancedStrings.toggleOffLabel;
   advancedPanel.hidden = !isAdvanced;
+  renderAdvancedSurfaces(mode);
 }
 
-function renderAdvancedLog(): void {
-  advancedLog.textContent = lastEvents.length
-    ? JSON.stringify(lastEvents.slice(-20), null, 2)
-    : advancedStrings.auditEmpty;
+function renderAdvancedSurfaces(mode: UiMode): void {
+  const visibility = advancedSurfaceVisibility(mode);
+  advancedDsl.hidden = !visibility.dslEditor;
+  advancedRaw.hidden = !visibility.rawWorkflowDetails;
+  advancedAudit.hidden = !visibility.auditBrowser;
+  advancedTools.hidden = !visibility.connectedTools;
+  if (visibility.dslEditor) renderAdvancedDsl();
+  if (visibility.rawWorkflowDetails) renderAdvancedRaw();
+  if (visibility.auditBrowser) renderAdvancedAudit();
+  if (visibility.connectedTools) renderAdvancedTools();
+}
+
+function renderAdvancedDsl(): void {
+  mountDslEditor(advancedDsl, selectedRecord());
+}
+
+function renderAdvancedRaw(): void {
+  mountRawWorkflowDetails(advancedRaw, selectedRecord());
+}
+
+function renderAdvancedAudit(): void {
+  mountAuditBrowser(advancedAudit, lastEvents);
+}
+
+function renderAdvancedTools(): void {
+  mountConnectedTools(advancedTools, connectedTools.list(), {
+    onToggle: (name, enabled) => connectedTools.setEnabled(name, enabled),
+  });
 }
 
 function renderRunViewer(): void {
@@ -165,18 +294,136 @@ function renderRunViewer(): void {
   }
 }
 
+function closeExplain(): void {
+  explainPanel.hidden = true;
+  explainMount.textContent = "";
+}
+
+function openExplain(name: string): void {
+  const view = library.explain(name);
+  if (!view) return;
+  selectedWorkflowName = name;
+  explainHeading.textContent = view.title;
+  mountWorkflowView(explainMount, view);
+  explainPanel.hidden = false;
+  renderAdvancedDsl();
+  renderAdvancedRaw();
+}
+
+function closeGrantPrompt(): void {
+  grantBackdrop.hidden = true;
+  grantMount.textContent = "";
+}
+
+/** Run a saved workflow from the library. A workflow with no capabilities skips the grant prompt entirely, same as docs/specs/registry.md's install flow only requires approval when there is something to approve. */
+function requestRun(name: string): void {
+  const record = registry.get(name);
+  if (!record) return;
+  const caps = record.manifest.capabilities;
+  const needsGrant = Boolean((caps.paths && caps.paths.length) || (caps.apps && caps.apps.length) || caps.network);
+  if (!needsGrant) {
+    library.run(name);
+    return;
+  }
+
+  const prompt = createGrantPrompt(caps, {
+    onAllow: () => {
+      library.run(name);
+      closeGrantPrompt();
+    },
+    onDeny: () => closeGrantPrompt(),
+  });
+  mountGrantPrompt(grantMount, prompt.getSnapshot(), {
+    onAllow: () => prompt.allow(),
+    onDeny: () => prompt.deny(),
+  });
+  grantBackdrop.hidden = false;
+}
+
+function renderLibraryPanel(): void {
+  const snapshot = library.getSnapshot();
+  mountLibrary(libraryMount, snapshot, {
+    onRun: requestRun,
+    onSchedule: (name) => library.schedule(name),
+    onExplain: openExplain,
+  });
+  if (scheduleNotice) {
+    const notice = document.createElement("p");
+    notice.className = "op-settings__hint";
+    notice.textContent = scheduleNotice;
+    libraryMount.append(notice);
+  }
+}
+
+function downloadBackup(payload: BackupPayload): void {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `operant-backup-${payload.exportedAt.slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importBackupFile(file: File): void {
+  file
+    .text()
+    .then((text) => settings.importBackup(JSON.parse(text) as BackupPayload))
+    .catch(() => {
+      const notice = document.createElement("p");
+      notice.className = "op-settings__hint";
+      notice.textContent = settingsDetailStrings.backupInvalid;
+      settingsMount.append(notice);
+    });
+}
+
+function renderSettingsPanel(): void {
+  mountSettings(settingsMount, settings.getSnapshot(), {
+    onVoiceToggle: (on) => settings.setVoiceEnabled(on),
+    onSpeakingRateChange: (rate) => settings.setSpeakingRate(rate),
+    onWatchAndSuggestToggle: (on) => settings.setWatchAndSuggest(on),
+    onPurge: () => settings.purgeWatchedData(),
+    onStartChordRecording: () => settings.startChordRecording(),
+    onCancelChordRecording: () => settings.cancelChordRecording(),
+    onExportBackup: () => downloadBackup(settings.exportBackup()),
+    onImportBackupFile: importBackupFile,
+  });
+}
+
+function renderTrayPanel(): void {
+  mountTray(trayMount, tray.getSnapshot(), {
+    onDismissNotification: (id) => tray.dismissNotification(id),
+  });
+}
+
 bus.subscribe("*", (event) => {
   lastEvents.push(event);
-  renderAdvancedLog();
+  if (modeStore.get() === "advanced") renderAdvancedAudit();
+});
+connectedTools.subscribe(() => {
+  if (modeStore.get() === "advanced") renderAdvancedTools();
 });
 runViewer.subscribe(renderRunViewer);
+library.subscribe(renderLibraryPanel);
+settings.subscribe(renderSettingsPanel);
+tray.subscribe(renderTrayPanel);
+
+navRun.addEventListener("click", () => showScreen("run"));
+navLibrary.addEventListener("click", () => showScreen("library"));
+navSettings.addEventListener("click", () => showScreen("settings"));
+explainClose.addEventListener("click", closeExplain);
 
 modeToggleButton.addEventListener("click", () => {
   modeStore.toggle();
 });
 modeStore.subscribe(renderMode);
+
+renderScreen();
 renderMode(modeStore.get());
 renderRunViewer();
+renderLibraryPanel();
+renderSettingsPanel();
+renderTrayPanel();
 
 paletteForm.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -211,6 +458,21 @@ interveneForm.addEventListener("submit", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (settings.getSnapshot().recordingChord) {
+    event.preventDefault();
+    if (event.key === "Escape") {
+      settings.cancelChordRecording();
+      return;
+    }
+    settings.recordChordKey({
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      altKey: event.altKey,
+      shiftKey: event.shiftKey,
+      metaKey: event.metaKey,
+    });
+    return;
+  }
   if (isGlobalPaletteHotkey(event)) {
     event.preventDefault();
     paletteInput.focus();

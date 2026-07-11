@@ -15,6 +15,17 @@ export const commonStrings = {
   errorGeneric: "Something went wrong. Try again, or check your setup.",
 };
 
+// Labels for the shell's top-level screen switcher. docs/specs/ui.md lists
+// its screens as a flat set (tray, command palette, run viewer, workflow
+// library, grant prompt, drift card, settings, doctor) without dictating how
+// a person moves between them; "Run" below covers the palette-plus-run-
+// viewer pair together, since neither is useful without the other.
+export const navStrings = {
+  run: "Run",
+  library: "Library",
+  settings: "Settings",
+};
+
 export const trayStrings = {
   idle: "Idle",
   running: "Running",
