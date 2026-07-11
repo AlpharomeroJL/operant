@@ -15,4 +15,5 @@ export const advancedStrings = {
   manifestEmpty: "No manifest loaded for this workflow yet.",
   auditEmpty: "No audit entries recorded yet.",
   dslEmpty: "No compiled DSL for this workflow yet.",
+  mcpEmpty: "No connected tools yet.",
 };
