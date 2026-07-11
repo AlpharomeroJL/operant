@@ -1,0 +1,78 @@
+{
+  "v": 1,
+  "name": "notepad-invoice-note",
+  "version": "1.0.0",
+  "description": "Writes a dated invoice note into Notepad and saves it.",
+  "step_summary": [
+    "Click the text editor",
+    "Type the invoice note",
+    "Wait for the screen to update",
+    "Save the file",
+    "Wait for the screen to update",
+    "Check that the note was written"
+  ],
+  "inputs_schema": {
+    "type": "object",
+    "properties": {
+      "invoice_date": {
+        "type": "string",
+        "format": "date",
+        "default": "2026-07-11",
+        "title": "Invoice date"
+      },
+      "amount": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d{2}$",
+        "default": "142.50",
+        "title": "Amount"
+      }
+    },
+    "additionalProperties": false
+  },
+  "capabilities": {
+    "apps": [
+      "notepad.exe"
+    ],
+    "paths": [],
+    "network": false,
+    "risk_ceiling": "write"
+  },
+  "gates": [
+    {
+      "step_ref": null,
+      "kind": "pre",
+      "expr": {
+        "op": "equals",
+        "left": {
+          "kind": "snapshot_window_process"
+        },
+        "right": {
+          "kind": "literal",
+          "value": "notepad.exe"
+        }
+      },
+      "on_fail": "halt"
+    },
+    {
+      "step_ref": null,
+      "kind": "post",
+      "expr": {
+        "op": "matches",
+        "query": {
+          "kind": "snapshot_element_value",
+          "role": "document",
+          "name": "Text editor"
+        },
+        "regex": "^Invoice \\d{4}-\\d{2}-\\d{2} total \\$\\d+\\.\\d{2}$"
+      },
+      "on_fail": "halt"
+    }
+  ],
+  "min_operant_version": "1.0.0",
+  "source_run_id": "01JZFIXTURERUN0000000000",
+  "dsl": {
+    "path": "workflow.ts",
+    "hash": "89b0cd44ca415e03142236dca738112362430705a30a682fa92ecc3cda286c8f"
+  },
+  "signature": null
+}

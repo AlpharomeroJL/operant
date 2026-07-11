@@ -1,0 +1,138 @@
+{
+  "v": 1,
+  "source": "fixture",
+  "window": {
+    "hwnd": "0x000A0B0C",
+    "process": "notepad.exe",
+    "title": "Untitled - Notepad",
+    "monitor": "MON1",
+    "dpi_scale": 1.0
+  },
+  "digest": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+  "truncated": false,
+  "captured_ms": 41,
+  "elements": [
+    {
+      "idx": 0,
+      "parent": null,
+      "role": "window",
+      "name": "Untitled - Notepad",
+      "value": null,
+      "automation_id": null,
+      "bounds": { "x": 100, "y": 100, "w": 1200, "h": 800, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": [],
+      "selectors": [
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }] }
+      ]
+    },
+    {
+      "idx": 1,
+      "parent": 0,
+      "role": "titlebar",
+      "name": "Untitled - Notepad",
+      "value": null,
+      "automation_id": "TitleBar",
+      "bounds": { "x": 100, "y": 100, "w": 1200, "h": 32, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": [],
+      "selectors": [
+        { "kind": "automation_id", "value": "TitleBar" },
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "titlebar", "name": "Untitled - Notepad" }] },
+        { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "titlebar", "ordinal": 0 }] }
+      ]
+    },
+    {
+      "idx": 2,
+      "parent": 0,
+      "role": "menubar",
+      "name": "Application",
+      "value": null,
+      "automation_id": "MenuBar",
+      "bounds": { "x": 100, "y": 132, "w": 1200, "h": 24, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": [],
+      "selectors": [
+        { "kind": "automation_id", "value": "MenuBar" },
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "menubar", "name": "Application" }] },
+        { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "menubar", "ordinal": 0 }] }
+      ]
+    },
+    {
+      "idx": 3,
+      "parent": 2,
+      "role": "menuitem",
+      "name": "File",
+      "value": null,
+      "automation_id": null,
+      "bounds": { "x": 104, "y": 134, "w": 48, "h": 20, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": ["invoke"],
+      "selectors": [
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "menubar", "name": "Application" }, { "role": "menuitem", "name": "File" }] },
+        { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "menubar", "ordinal": 0 }, { "role": "menuitem", "ordinal": 0 }] }
+      ]
+    },
+    {
+      "idx": 4,
+      "parent": 2,
+      "role": "menuitem",
+      "name": "Edit",
+      "value": null,
+      "automation_id": null,
+      "bounds": { "x": 152, "y": 134, "w": 48, "h": 20, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": ["invoke"],
+      "selectors": [
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "menubar", "name": "Application" }, { "role": "menuitem", "name": "Edit" }] },
+        { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "menubar", "ordinal": 0 }, { "role": "menuitem", "ordinal": 1 }] }
+      ]
+    },
+    {
+      "idx": 5,
+      "parent": 0,
+      "role": "document",
+      "name": "Text editor",
+      "value": "",
+      "automation_id": "RichEditD2DPT",
+      "bounds": { "x": 100, "y": 156, "w": 1200, "h": 716, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": ["value", "text", "scroll"],
+      "selectors": [
+        { "kind": "automation_id", "value": "RichEditD2DPT" },
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "document", "name": "Text editor" }] },
+        { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "document", "ordinal": 0 }] }
+      ]
+    },
+    {
+      "idx": 6,
+      "parent": 0,
+      "role": "statusbar",
+      "name": "Status bar",
+      "value": "Ln 1, Col 1",
+      "automation_id": "StatusBar",
+      "bounds": { "x": 100, "y": 872, "w": 1200, "h": 28, "monitor": "MON1" },
+      "enabled": true,
+      "offscreen": false,
+      "is_password": false,
+      "patterns": ["value"],
+      "selectors": [
+        { "kind": "automation_id", "value": "StatusBar" },
+        { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "statusbar", "name": "Status bar" }] },
+        { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "statusbar", "ordinal": 0 }] }
+      ]
+    }
+  ]
+}

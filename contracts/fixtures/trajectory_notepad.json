@@ -1,0 +1,157 @@
+{
+  "v": 1,
+  "description": "Canonical explore trajectory: the compiler input shape. Exercises every compiler pass: a retry-superseded step (pass 1), a human correction (pass 1), date and currency literals (pass 2), all three selector kinds plus an anchor (pass 3), digest changes requiring waits (pass 4), and an outcome-bearing final step requiring a postcondition assert (pass 4).",
+  "run": {
+    "id": "01JZFIXTURERUN0000000000",
+    "goal": "Write an invoice note in Notepad and save it",
+    "mode": "explore",
+    "started": "2026-07-11T10:00:00.000Z",
+    "ended": "2026-07-11T10:01:32.000Z",
+    "status": "completed",
+    "model_config": { "planner": "mock_planner", "grounder": "mock_grounder" }
+  },
+  "steps": [
+    {
+      "seq": 1,
+      "action": {
+        "v": 1,
+        "id": "01JZFIXTURESTEP000000001",
+        "kind": "click",
+        "intent": "Click the text editor",
+        "target": {
+          "window": { "process": "notepad.exe", "title_pattern": ".* - Notepad" },
+          "selectors": [
+            { "kind": "automation_id", "value": "RichEditD2DPT" },
+            { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "document", "name": "Text editor" }] },
+            { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "document", "ordinal": 0 }] }
+          ],
+          "coords_last_known": { "x": 700, "y": 500, "monitor": "MON1", "dpi_scale": 1.0 }
+        },
+        "params": {},
+        "pace": "human",
+        "risk_class": "read",
+        "grounding": "uia",
+        "timeout_ms": 5000,
+        "retry": { "attempts": 2, "backoff_ms": 250 }
+      },
+      "snapshot_digest_before": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+      "snapshot_digest_after": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+      "grounding": "uia",
+      "outcome": "ok",
+      "ms": 180
+    },
+    {
+      "seq": 2,
+      "action": {
+        "v": 1,
+        "id": "01JZFIXTURESTEP000000002",
+        "kind": "type",
+        "intent": "Type the invoice note",
+        "target": {
+          "window": { "process": "notepad.exe", "title_pattern": ".* - Notepad" },
+          "selectors": [
+            { "kind": "automation_id", "value": "RichEditD2DPT" },
+            { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "document", "name": "Text editor" }] },
+            { "kind": "ordinal_path", "path": [{ "role": "window", "ordinal": 0 }, { "role": "document", "ordinal": 0 }] }
+          ]
+        },
+        "params": { "text": "Invoice 2026-07-11 total $142.50" },
+        "pace": "human",
+        "risk_class": "write",
+        "grounding": "uia",
+        "timeout_ms": 5000,
+        "retry": { "attempts": 2, "backoff_ms": 250 }
+      },
+      "snapshot_digest_before": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
+      "snapshot_digest_after": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+      "grounding": "uia",
+      "outcome": "ok",
+      "ms": 1240
+    },
+    {
+      "seq": 3,
+      "action": {
+        "v": 1,
+        "id": "01JZFIXTURESTEP000000003",
+        "kind": "click",
+        "intent": "Open the File menu",
+        "target": {
+          "window": { "process": "notepad.exe", "title_pattern": ".* - Notepad" },
+          "selectors": [
+            { "kind": "name_role_path", "path": [{ "role": "window", "name": "Untitled - Notepad" }, { "role": "menubar", "name": "Application" }, { "role": "menuitem", "name": "File" }] }
+          ]
+        },
+        "params": {},
+        "pace": "human",
+        "risk_class": "read",
+        "grounding": "vision",
+        "timeout_ms": 5000,
+        "retry": { "attempts": 2, "backoff_ms": 250 }
+      },
+      "snapshot_digest_before": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+      "snapshot_digest_after": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+      "grounding": "vision",
+      "outcome": "retry_superseded",
+      "ms": 900,
+      "note": "Vision misgrounded on the Edit menu; superseded by the corrected step 4. Pass 1 drops this step."
+    },
+    {
+      "seq": 4,
+      "action": {
+        "v": 1,
+        "id": "01JZFIXTURESTEP000000004",
+        "kind": "key",
+        "intent": "Save the file",
+        "target": {
+          "window": { "process": "notepad.exe", "title_pattern": ".* - Notepad" }
+        },
+        "params": { "combo": "ctrl+s" },
+        "pace": "instant",
+        "risk_class": "write",
+        "grounding": "uia",
+        "timeout_ms": 5000,
+        "retry": { "attempts": 2, "backoff_ms": 250 }
+      },
+      "snapshot_digest_before": "d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1d1",
+      "snapshot_digest_after": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+      "grounding": "uia",
+      "outcome": "ok",
+      "ms": 310,
+      "human_correction": {
+        "supersedes_seq": 3,
+        "instruction": "Do not use the menu. Press Ctrl+S instead.",
+        "ts": "2026-07-11T10:01:05.000Z"
+      }
+    },
+    {
+      "seq": 5,
+      "action": {
+        "v": 1,
+        "id": "01JZFIXTURESTEP000000005",
+        "kind": "assert",
+        "intent": "Check that the note was written",
+        "target": {
+          "window": { "process": "notepad.exe", "title_pattern": ".* - Notepad" }
+        },
+        "params": {
+          "expr": {
+            "op": "matches",
+            "query": { "kind": "snapshot_element_value", "role": "document", "name": "Text editor" },
+            "regex": "^Invoice \\d{4}-\\d{2}-\\d{2} total \\$\\d+\\.\\d{2}$"
+          }
+        },
+        "pace": "instant",
+        "risk_class": "read",
+        "grounding": "uia",
+        "timeout_ms": 5000,
+        "retry": { "attempts": 0, "backoff_ms": 0 }
+      },
+      "snapshot_digest_before": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+      "snapshot_digest_after": "d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2",
+      "grounding": "uia",
+      "outcome": "ok",
+      "ms": 60,
+      "outcome_bearing": true
+    }
+  ]
+}

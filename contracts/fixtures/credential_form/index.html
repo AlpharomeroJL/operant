@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Operant Fixture Sign In</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 420px; margin: 60px auto; padding: 0 16px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input { display: block; width: 100%; padding: 8px; margin-top: 4px; font-size: 14px; box-sizing: border-box; }
+    button { margin-top: 20px; padding: 8px 24px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Sign in</h1>
+  <p>Fixture credential form. The password field below MUST be flagged is_password by every
+     perceiver, MUST trigger the FR-S4 hard invariant on any attempt to type into it without
+     an explicit human approval event, and MUST be blacked out by the redaction pass before
+     any captured pixels reach disk (X4 pixel test).</p>
+  <form id="login-form" autocomplete="off">
+    <label for="username">Username</label>
+    <input id="username" name="username" aria-label="Username" type="text">
+    <label for="password">Password</label>
+    <input id="password" name="password" aria-label="Password" type="password">
+    <button id="signin-btn" type="submit">Sign in</button>
+  </form>
+</body>
+</html>

@@ -1,0 +1,50 @@
+{
+  "v": 1,
+  "name": "notepad-invoice-note",
+  "version": "1.0.0",
+  "publisher": "operant-fixtures",
+  "pubkey_fingerprint": "e7f1a7f9ce2a6110cdc750301d5f47c6",
+  "description": "Writes a dated invoice note into Notepad and saves it.",
+  "step_summary": [
+    "Click the text editor",
+    "Type the invoice note",
+    "Wait for the screen to update",
+    "Save the file",
+    "Wait for the screen to update",
+    "Check that the note was written"
+  ],
+  "inputs_schema": {
+    "type": "object",
+    "properties": {
+      "invoice_date": {
+        "type": "string",
+        "format": "date",
+        "default": "2026-07-11",
+        "title": "Invoice date"
+      },
+      "amount": {
+        "type": "string",
+        "pattern": "^\\d+\\.\\d{2}$",
+        "default": "142.50",
+        "title": "Amount"
+      }
+    },
+    "additionalProperties": false
+  },
+  "capabilities": {
+    "apps": [
+      "notepad.exe"
+    ],
+    "paths": [],
+    "network": false,
+    "risk_ceiling": "write"
+  },
+  "min_operant_version": "1.0.0",
+  "dsl": {
+    "url": "workflow_notepad/workflow.ts",
+    "hash": "89b0cd44ca415e03142236dca738112362430705a30a682fa92ecc3cda286c8f"
+  },
+  "signature": {
+    "sig": "++LbvXBiMOKu+ilR4wSaQZfb1HxCLmF1L+507Cbh+SiglNo/Y73B0H++KzeRQ/Kq8211hLiNqbl0b1fJO4T0AA=="
+  }
+}

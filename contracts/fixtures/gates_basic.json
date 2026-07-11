@@ -1,0 +1,103 @@
+{
+  "v": 1,
+  "description": "Canonical gate expression AST shapes. The gates engine (crates/gates) treats these as binding: every operator and query kind here must evaluate. Operators: exists, equals, matches, count, sum, within_tolerance, and, or, not. Query kinds address the perception snapshot, the filesystem, and adapter results.",
+  "gates": [
+    {
+      "step_ref": null,
+      "kind": "pre",
+      "expr": {
+        "op": "equals",
+        "left": { "kind": "snapshot_window_process" },
+        "right": { "kind": "literal", "value": "notepad.exe" }
+      },
+      "on_fail": "halt",
+      "note": "Right app is foreground before step 1."
+    },
+    {
+      "step_ref": "01JZFIXTURESTEP000000002",
+      "kind": "pre",
+      "expr": {
+        "op": "exists",
+        "query": { "kind": "snapshot_element", "role": "document", "name": "Text editor" }
+      },
+      "on_fail": "halt"
+    },
+    {
+      "step_ref": "01JZFIXTURESTEP000000005",
+      "kind": "post",
+      "expr": {
+        "op": "and",
+        "args": [
+          {
+            "op": "matches",
+            "query": { "kind": "snapshot_element_value", "role": "document", "name": "Text editor" },
+            "regex": "^Invoice \\d{4}-\\d{2}-\\d{2} total \\$\\d+\\.\\d{2}$"
+          },
+          {
+            "op": "not",
+            "arg": {
+              "op": "exists",
+              "query": { "kind": "snapshot_element", "role": "window", "name": "Save As" }
+            }
+          }
+        ]
+      },
+      "on_fail": "halt"
+    },
+    {
+      "step_ref": null,
+      "kind": "post",
+      "expr": {
+        "op": "within_tolerance",
+        "left": { "kind": "count", "query": { "kind": "snapshot_element", "role": "listitem", "name": "*" } },
+        "right": { "kind": "literal", "value": 0 },
+        "tolerance": 0
+      },
+      "on_fail": "halt",
+      "note": "count as a value-position query; wildcard name matches any."
+    },
+    {
+      "step_ref": null,
+      "kind": "post",
+      "expr": {
+        "op": "exists",
+        "query": { "kind": "fs", "path": "{output_path}", "min_size": 1 }
+      },
+      "on_fail": "halt",
+      "note": "Filesystem address kind: path templates resolve workflow inputs."
+    },
+    {
+      "step_ref": null,
+      "kind": "post",
+      "expr": {
+        "op": "equals",
+        "left": { "kind": "adapter_result", "step_ref": "01JZFIXTURESTEP000000004", "field": "exit_code" },
+        "right": { "kind": "literal", "value": 0 }
+      },
+      "on_fail": "halt",
+      "note": "Adapter-result address kind."
+    },
+    {
+      "step_ref": null,
+      "kind": "post",
+      "expr": {
+        "op": "or",
+        "args": [
+          {
+            "op": "sum",
+            "query": { "kind": "adapter_result", "step_ref": "01JZFIXTURESTEP000000004", "field": "rows[].amount" },
+            "equals": 142.5
+          },
+          {
+            "op": "equals",
+            "left": { "kind": "literal", "value": true },
+            "right": { "kind": "literal", "value": true }
+          }
+        ]
+      },
+      "on_fail": "halt",
+      "note": "sum over an array field of an adapter result; the or-branch keeps the fixture green when the adapter result is absent."
+    }
+  ],
+  "safety_notes": "Safety gates never appear in this file or any workflow file. They are runtime-owned (crates/safety): credential-field targeting, payment/deletion confirmation dialogs, unexpected window class mid-run. A workflow attempting to declare or disable a safety gate fails to load."
+}

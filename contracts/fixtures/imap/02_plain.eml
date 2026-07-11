@@ -1,0 +1,10 @@
+From: newsletter@fixture-news.example
+To: owner@operant-fixture.example
+Subject: Weekly digest
+Date: Fri, 10 Jul 2026 12:00:00 +0000
+Message-ID: <fixture-digest-002@fixture-news.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+This is an ordinary email that must NOT match the invoice trigger filters.
+It exists so filter tests have a negative case.

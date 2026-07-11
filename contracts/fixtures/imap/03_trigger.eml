@@ -1,0 +1,18 @@
+From: billing@acme-fixture.example
+To: owner@operant-fixture.example
+Subject: Invoice 2026-08 for Acme Services
+Date: Sat, 11 Jul 2026 08:00:00 +0000
+Message-ID: <fixture-invoice-003@acme-fixture.example>
+MIME-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+
+Hello,
+
+August invoice attached below.
+
+Invoice number: INV-2026-0811
+Amount due: $98.00
+Due date: 2026-08-25
+
+Thank you,
+Acme Billing

@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://operant.dev/contracts/action_ir.schema.json",
+  "title": "Action IR",
+  "description": "The single action serialization all Operant components speak. Contract is append-only during the campaign: add optional fields, never rename or remove.",
+  "type": "object",
+  "required": ["v", "id", "kind", "risk_class", "grounding"],
+  "properties": {
+    "v": { "type": "integer", "const": 1, "description": "Schema version." },
+    "id": { "type": "string", "minLength": 1, "description": "Unique step id (ULID recommended)." },
+    "kind": {
+      "type": "string",
+      "enum": ["click", "type", "key", "scroll", "drag", "wait", "assert", "adapter_call"]
+    },
+    "intent": {
+      "type": "string",
+      "description": "Plain-English step intent recorded at explore time. Drift repair re-grounds against it; the compiler emits it as the step comment; the renderer may use it as fallback context (never as the only rendering path)."
+    },
+    "target": {
+      "type": "object",
+      "description": "Where the action lands. Required for click/type/drag/scroll targeting an element; omitted for adapter_call/wait/key-global.",
+      "properties": {
+        "window": {
+          "type": "object",
+          "properties": {
+            "process": { "type": "string", "description": "Executable name, e.g. notepad.exe" },
+            "title_pattern": { "type": "string", "description": "Anchored regex over the window title." }
+          },
+          "additionalProperties": false
+        },
+        "selectors": {
+          "type": "array",
+          "description": "Ordered most-stable-first. Replay tries them in order.",
+          "items": { "$ref": "#/$defs/selector" }
+        },
+        "anchor": {
+          "type": "object",
+          "required": ["img_hash", "tolerance"],
+          "properties": {
+            "img_hash": { "type": "string", "description": "BLAKE3 hex of the stored anchor image blob." },
+            "tolerance": { "type": "number", "minimum": 0, "maximum": 1, "description": "Template match tolerance, default 0.85." }
+          },
+          "additionalProperties": false
+        },
+        "coords_last_known": {
+          "type": "object",
+          "required": ["x", "y"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "monitor": { "type": "string", "description": "Monitor handle/id the coordinates belong to." },
+            "dpi_scale": { "type": "number" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "params": {
+      "type": "object",
+      "description": "Kind-specific parameters. type: {text | input_ref}. key: {combo}. scroll: {direction, amount}. drag: {to: target}. wait: {scope, timeout_ms}. assert: {expr (gate expression AST)}. adapter_call: {namespace, verb, args}.",
+      "properties": {
+        "text": { "type": "string" },
+        "input_ref": { "type": "string", "description": "Name of a typed workflow input whose value substitutes here at replay." },
+        "combo": { "type": "string", "description": "Key combo, e.g. ctrl+s." },
+        "direction": { "type": "string", "enum": ["up", "down", "left", "right"] },
+        "amount": { "type": "number" },
+        "namespace": { "type": "string", "description": "Adapter namespace, e.g. fs, shell, excel, word, email, ocr, browser, mcp, workflow." },
+        "verb": { "type": "string" },
+        "args": { "type": "object" },
+        "expr": { "type": "object", "description": "Gate expression AST per contracts/gates: evaluated against snapshot/filesystem/adapter results." },
+        "scope": { "type": "object", "description": "Perception scope for wait: selector or window." }
+      },
+      "additionalProperties": true
+    },
+    "pace": { "type": "string", "enum": ["instant", "human"], "default": "instant" },
+    "risk_class": { "type": "string", "enum": ["read", "write", "destructive"] },
+    "irreversible": {
+      "type": "boolean",
+      "default": false,
+      "description": "True when no safe inverse exists (email send, form submit, side-effectful shell). Renderer badges it; undo lists it as cannot-be-undone."
+    },
+    "grounding": { "type": "string", "enum": ["uia", "vision", "adapter"] },
+    "timeout_ms": { "type": "integer", "minimum": 0, "default": 5000 },
+    "retry": {
+      "type": "object",
+      "properties": {
+        "attempts": { "type": "integer", "minimum": 0, "default": 2 },
+        "backoff_ms": { "type": "integer", "minimum": 0, "default": 250 }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "selector": {
+      "type": "object",
+      "required": ["kind"],
+      "oneOf": [
+        {
+          "properties": {
+            "kind": { "const": "automation_id" },
+            "value": { "type": "string", "minLength": 1 }
+          },
+          "required": ["kind", "value"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": { "const": "name_role_path" },
+            "path": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["role", "name"],
+                "properties": {
+                  "role": { "type": "string" },
+                  "name": { "type": "string" }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["kind", "path"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": { "const": "ordinal_path" },
+            "path": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["role", "ordinal"],
+                "properties": {
+                  "role": { "type": "string" },
+                  "ordinal": { "type": "integer", "minimum": 0 }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": ["kind", "path"],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "kind": { "const": "css" },
+            "value": { "type": "string", "minLength": 1, "description": "Browser adapter only: CSS selector." }
+          },
+          "required": ["kind", "value"],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

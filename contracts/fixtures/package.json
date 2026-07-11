@@ -1,0 +1,9 @@
+{
+  "name": "operant-fixtures",
+  "private": true,
+  "type": "module",
+  "description": "Fixture generation only. Not part of the product build.",
+  "dependencies": {
+    "@noble/hashes": "^1.4.0"
+  }
+}

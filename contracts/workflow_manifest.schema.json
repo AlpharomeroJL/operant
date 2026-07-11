@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://operant.dev/contracts/workflow_manifest.schema.json",
+  "title": "Workflow Manifest",
+  "description": "Manifest emitted by the compiler beside the DSL file. Signable: signature is Ed25519 over the canonical JSON (RFC 8785 style: sorted keys, no whitespace) of the manifest with the signature block removed.",
+  "type": "object",
+  "required": ["v", "name", "version", "description", "step_summary", "inputs_schema", "capabilities", "dsl"],
+  "properties": {
+    "v": { "type": "integer", "const": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "description": { "type": "string" },
+    "step_summary": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Numbered plain-English steps from the renderer, embedded so any surface (gallery, explain, registry) shows them without executing code."
+    },
+    "inputs_schema": {
+      "type": "object",
+      "description": "JSON Schema (draft 2020-12) object describing the typed inputs inferred by compiler pass 2."
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["risk_ceiling"],
+      "properties": {
+        "apps": { "type": "array", "items": { "type": "string" }, "description": "Executable paths or package ids this workflow may drive." },
+        "paths": { "type": "array", "items": { "type": "string" }, "description": "Directory subtrees this workflow may touch." },
+        "network": { "type": "boolean", "default": false },
+        "risk_ceiling": { "type": "string", "enum": ["read", "write", "destructive"] }
+      },
+      "additionalProperties": false
+    },
+    "gates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "expr"],
+        "properties": {
+          "step_ref": { "type": ["string", "null"], "description": "Step id the gate binds to; null for workflow-level pre/post." },
+          "kind": { "type": "string", "enum": ["pre", "post"] },
+          "expr": { "type": "object", "description": "Gate expression AST. Safety gates are runtime-owned and never appear here." },
+          "on_fail": { "type": "string", "enum": ["halt", "reground_once"], "default": "halt" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "min_operant_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "source_run_id": { "type": ["string", "null"] },
+    "dsl": {
+      "type": "object",
+      "required": ["path", "hash"],
+      "properties": {
+        "path": { "type": "string", "description": "Relative path to the TypeScript DSL file." },
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "BLAKE3 hex of the DSL file bytes." }
+      },
+      "additionalProperties": false
+    },
+    "signature": {
+      "type": ["object", "null"],
+      "description": "Absent or null for unsigned workflows (which run dry-run only when installed from outside).",
+      "properties": {
+        "publisher": { "type": "string" },
+        "pubkey_fingerprint": { "type": "string", "description": "Hex BLAKE3-16 of the raw Ed25519 public key." },
+        "sig": { "type": "string", "description": "Base64 Ed25519 signature over canonical JSON minus this block." }
+      },
+      "required": ["publisher", "pubkey_fingerprint", "sig"],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

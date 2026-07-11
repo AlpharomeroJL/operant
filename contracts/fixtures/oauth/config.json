@@ -1,0 +1,36 @@
+{
+  "v": 1,
+  "description": "Mock OAuth server contract for the X16 broker tests. X16 implements a local server exposing exactly these endpoints with PKCE S256 enforcement; the broker is configured against base_url at test time. Static config only here; the server implementation is owned by X16 under e2e/mock-oauth/.",
+  "base_url": "http://127.0.0.1:{port}",
+  "endpoints": {
+    "authorize": "/oauth/authorize",
+    "token": "/oauth/token",
+    "refresh": "/oauth/token",
+    "revoke": "/oauth/revoke"
+  },
+  "providers": [
+    {
+      "id": "chatgpt_plan",
+      "display": "Sign in with ChatGPT",
+      "client_id": "operant-fixture-chatgpt",
+      "scopes": ["model.complete"],
+      "dialect": "openai"
+    },
+    {
+      "id": "claude_plan",
+      "display": "Sign in with Claude",
+      "client_id": "operant-fixture-claude",
+      "scopes": ["model.complete"],
+      "dialect": "anthropic"
+    }
+  ],
+  "rules": {
+    "pkce": "S256 required; plain rejected",
+    "state": "echoed and verified; mismatch rejected",
+    "redirect": "loopback 127.0.0.1 with ephemeral port only",
+    "access_token_ttl_s": 3600,
+    "refresh_rotates": true,
+    "revoked_refresh_returns": 400,
+    "tokens_storage": "OS credential vault ONLY; never config or logs (grep-tested)"
+  }
+}

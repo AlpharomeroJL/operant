@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://operant.dev/contracts/perception_snapshot.schema.json",
+  "title": "Perception Snapshot",
+  "description": "Normalized accessibility snapshot emitted by any Perceiver (UIA, browser CDP, fixture). Elements are a flat array; tree shape via parent index. Digest: BLAKE3 hex over the normalized element list minus bounds (layout changes must not change the digest; content changes must).",
+  "type": "object",
+  "required": ["v", "source", "window", "digest", "elements"],
+  "properties": {
+    "v": { "type": "integer", "const": 1 },
+    "source": { "type": "string", "enum": ["uia", "browser", "fixture", "ax_stub", "atspi_stub"] },
+    "window": {
+      "type": "object",
+      "required": ["process", "title"],
+      "properties": {
+        "hwnd": { "type": "string", "description": "Native handle as opaque string; absent for browser/fixture." },
+        "process": { "type": "string" },
+        "title": { "type": "string" },
+        "monitor": { "type": "string" },
+        "dpi_scale": { "type": "number", "default": 1.0 }
+      },
+      "additionalProperties": false
+    },
+    "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "BLAKE3 hex." },
+    "truncated": { "type": "boolean", "default": false, "description": "True when virtualized realization hit the 500-item cap." },
+    "captured_ms": { "type": "integer", "description": "Capture duration in ms (diagnostic; excluded from digest)." },
+    "elements": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/element" }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "role": {
+      "type": "string",
+      "enum": ["window", "pane", "button", "edit", "text", "checkbox", "radio", "combobox", "list", "listitem", "tree", "treeitem", "menu", "menuitem", "menubar", "tab", "tabitem", "toolbar", "table", "row", "cell", "header", "link", "image", "slider", "progressbar", "scrollbar", "statusbar", "titlebar", "document", "group", "separator", "tooltip", "hyperlink", "spinner", "custom", "unknown"]
+    },
+    "element": {
+      "type": "object",
+      "required": ["idx", "parent", "role", "name"],
+      "properties": {
+        "idx": { "type": "integer", "minimum": 0, "description": "Index in the flat array." },
+        "parent": { "type": ["integer", "null"], "description": "Parent element idx; null for the root." },
+        "role": { "$ref": "#/$defs/role" },
+        "name": { "type": "string" },
+        "value": { "type": ["string", "null"] },
+        "automation_id": { "type": ["string", "null"] },
+        "bounds": {
+          "type": "object",
+          "required": ["x", "y", "w", "h"],
+          "properties": {
+            "x": { "type": "number" },
+            "y": { "type": "number" },
+            "w": { "type": "number" },
+            "h": { "type": "number" },
+            "monitor": { "type": "string" }
+          },
+          "additionalProperties": false,
+          "description": "Physical pixels. Excluded from the digest."
+        },
+        "enabled": { "type": "boolean", "default": true },
+        "offscreen": { "type": "boolean", "default": false },
+        "is_password": { "type": "boolean", "default": false, "description": "UIA IsPassword or equivalent. Drives redaction and the FR-S4 credential invariant." },
+        "patterns": { "type": "array", "items": { "type": "string" }, "description": "Supported patterns, e.g. invoke, value, toggle, scroll, virtualized." },
+        "selectors": {
+          "type": "array",
+          "items": { "$ref": "action_ir.schema.json#/$defs/selector" },
+          "description": "Ordered most-stable-first selector alternatives for this element."
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

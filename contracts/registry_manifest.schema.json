@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://operant.dev/contracts/registry_manifest.schema.json",
+  "title": "Registry Manifest",
+  "description": "A workflow manifest as published to the registry index repo. Superset of workflow_manifest with publisher metadata and a hash-pinned DSL fetch URL. Signature is Ed25519 over canonical JSON (sorted keys, no whitespace) minus the signature block; any hash or signature mismatch aborts install with a typed error.",
+  "type": "object",
+  "required": ["v", "name", "version", "publisher", "pubkey_fingerprint", "description", "step_summary", "inputs_schema", "capabilities", "min_operant_version", "dsl", "signature"],
+  "properties": {
+    "v": { "type": "integer", "const": 1 },
+    "name": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "publisher": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,38}$" },
+    "pubkey_fingerprint": { "type": "string" },
+    "description": { "type": "string" },
+    "step_summary": { "type": "array", "items": { "type": "string" } },
+    "inputs_schema": { "type": "object" },
+    "capabilities": { "$ref": "workflow_manifest.schema.json#/properties/capabilities" },
+    "min_operant_version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "dsl": {
+      "type": "object",
+      "required": ["url", "hash"],
+      "properties": {
+        "url": { "type": "string", "description": "Fetch location of the DSL file, relative to the index repo root or absolute https." },
+        "hash": { "type": "string", "pattern": "^[0-9a-f]{64}$", "description": "BLAKE3 hex; the fetched file must hash to exactly this." }
+      },
+      "additionalProperties": false
+    },
+    "signature": {
+      "type": "object",
+      "required": ["sig"],
+      "properties": {
+        "sig": { "type": "string", "description": "Base64 Ed25519 signature by the publisher key over canonical JSON minus this block." }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
