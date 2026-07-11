@@ -29,6 +29,8 @@
 //! # }
 //! ```
 
+pub mod compose;
+
 use std::collections::BTreeMap;
 
 use operant_action::{Executor, MockSynthesizer, NoopSleeper, Synthesizer};
