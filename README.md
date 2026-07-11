@@ -1,0 +1,288 @@
+# Operant
+
+[![build](https://img.shields.io/badge/build-local%20CI-blue)](CONTRIBUTING.md#building-and-testing)
+[![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
+[![platform](https://img.shields.io/badge/platform-Windows-0078D6)](docs/ARCHITECTURE.md)
+[![local-first](https://img.shields.io/badge/local--first-yes-brightgreen)](docs/PRD.md)
+[![benchmark](https://img.shields.io/badge/benchmark-replay%205%2F5-brightgreen)](BENCHMARKS.md)
+
+**Teach your computer once. It does it forever. No code. Free.**
+
+Operant is a free, open source desktop agent for Windows. Show it a task once, by
+demonstration or by voice, and it saves what it learned as a workflow you can run
+again with one click or on a schedule. After the first time it does not need a model
+again: replay runs from a file on your own machine, zero model calls and zero network
+calls, both checked in CI.
+
+<a id="see-it-replay"></a>
+
+{ASSET:04-replay.gif}
+
+*The same task, taught once. The second run has the model indicator off and finishes
+instantly.*
+
+[Download the installer](https://github.com/AlpharomeroJL/operant/releases) | [Watch the 90-second replay](#see-it-replay) | [Star the repo](https://github.com/AlpharomeroJL/operant) | [Browse the template gallery](https://github.com/AlpharomeroJL/operant-registry) | [See the cookbook](cookbook/README.md)
+
+## Get started (no terminal, no code)
+
+No cargo, no npm, no terminal. The installer is a single Windows executable.
+
+1. Download the installer from the [releases page](https://github.com/AlpharomeroJL/operant/releases).
+2. Run it and follow the setup wizard.
+3. Pick one plain-language option: download a free local model with a progress bar,
+   sign in with a ChatGPT or Claude account you already have, or paste an API key.
+   A demo mode is also there if you would rather watch it work first.
+4. Teach it your first task by demonstration or by voice, then save it as a workflow.
+
+{ASSET:00-onboarding.gif}
+
+*The setup wizard: pick a model, watch the download, land on done.*
+
+Building from source instead of installing: see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Kill switch and undo
+
+Two things hold no matter what Operant is doing.
+
+**One key stops everything, instantly.** The kill switch runs at the action layer,
+below the planner, so no model decision can delay it. CI holds the freeze under
+100 ms.
+
+{ASSET:12-killswitch.gif}
+
+**Every run can be undone.** Write actions record an inverse before they run, so
+"Undo last run" is a real replay of real inverses, narrated in plain English.
+Anything without a safe inverse, like a sent email, is labeled irreversible before
+you run it, not after.
+
+{ASSET:10-undo.gif}
+
+Operant also keeps score. {ASSET:11-timesaved.png} is the tray showing estimated
+time saved this week, the screenshot people actually share. If it saves you time,
+[star the repo](https://github.com/AlpharomeroJL/operant).
+
+That's the whole pitch if you are not a developer. Everything below is for people
+who want to know how it actually works.
+
+---
+
+## For developers
+
+The model is a compiler, not a runtime. Exploration should be probabilistic.
+Execution should not be. At 98 percent per-step model accuracy, a 40-step workflow
+fails about 55 percent of the time in production: probabilistic execution does not
+survive multiplication. So Operant explores a task with a model once, or a few times
+with correction, then freezes the successful run into a typed, readable file guarded
+by invariant gates. Replay after that makes zero model calls and zero network calls,
+both asserted in CI, not just promised.
+
+### Explore once, replay forever
+
+{ASSET:02-explore.gif} is a live teach run with the model indicator on.
+{ASSET:04-replay.gif} is the same task run again with the model indicator off. Same
+result, second run instant.
+
+```text
+EXPLORE (probabilistic, model in loop)             REPLAY (deterministic, no model)
+ perceive -> plan(LLM) -> gate -> act -> record     load workflow -> gate -> act -> gate ...
+ slow, costly, supervised                           under 150ms/step, free, offline, audited
+                    \                                 ^                    |
+                     \        compile                /            drift?  v
+                      +------------------------------+        re-ground one step (model)
+                                                              -> patch diff -> human approve
+                                                              -> versioned merge
+```
+
+When a compiled step fails because the screen changed, Operant re-grounds that one
+step, proposes a patch diff, and waits for a human approval before merging a new
+version. The workflow heals. It never silently mutates.
+
+### The benchmark
+
+Across all three benchmark tasks, compiled replay succeeds 5 out of 5 runs with zero
+model calls. Re-inferring the same tasks at every step also succeeds 5 out of 5, but
+costs 15 to 25 model calls and 2700 to 4500 tokens per task. Full numbers, from
+[BENCHMARKS.md](BENCHMARKS.md), regenerated each release:
+
+| Task | Mode | Success | p50/step | p95/step | Model calls | Tokens |
+|---|---|---|---|---|---|---|
+| drift_repaired | replay | 5/5 | 0ms | 0ms | 0 | 0 |
+| drift_repaired | re-infer (mock) | 5/5 | 6ms | 6ms | 15 | 2700 |
+| notepad | replay | 5/5 | 1ms | 1ms | 0 | 0 |
+| notepad | re-infer (mock) | 5/5 | 7ms | 7ms | 25 | 4500 |
+| web | replay | 5/5 | 1ms | 1ms | 0 | 0 |
+| web | re-infer (mock) | 5/5 | 7ms | 7ms | 25 | 4500 |
+
+{ASSET:07-bench.png}
+
+Replay wins at zero model calls by construction, not by configuration: the replay
+executor links against a backend-free crate, so a model call during replay is not a
+setting that could be flipped on by accident, it is a compile-time impossibility. The
+re-infer (mock) numbers reuse recorded latencies from the actual replay to simulate
+agent-at-every-step cost without hitting a real backend, stated plainly in
+BENCHMARKS.md's own methods section. Full methodology:
+[BENCHMARKS.md](BENCHMARKS.md) and [docs/specs/bench.md](docs/specs/bench.md).
+
+### What a compiled workflow looks like
+
+This is the actual compiler fixture, unedited, from
+[`contracts/fixtures/workflow_notepad/workflow.ts`](contracts/fixtures/workflow_notepad/workflow.ts):
+
+```typescript
+// Compiled by Operant from run 01JZFIXTURERUN0000000000
+// Goal: Write an invoice note in Notepad and save it
+// This file is the canonical compiler OUTPUT shape: declarative, one step per
+// statement, plain-English intent on every step, zero model calls at replay.
+import { defineWorkflow, step, input } from "@operant/sdk";
+
+export default defineWorkflow({
+  name: "notepad-invoice-note",
+  version: "1.0.0",
+  description: "Writes a dated invoice note into Notepad and saves it.",
+  inputs: {
+    invoice_date: input.date({ default: "2026-07-11", label: "Invoice date" }),
+    amount: input.currency({ default: "142.50", label: "Amount" }),
+  },
+  steps: [
+    // 1. Click the text editor
+    step.click({
+      intent: "Click the text editor",
+      window: { process: "notepad.exe", titlePattern: ".* - Notepad" },
+      selectors: [
+        { kind: "automation_id", value: "RichEditD2DPT" },
+        { kind: "name_role_path", path: [{ role: "window", name: "Untitled - Notepad" }, { role: "document", name: "Text editor" }] },
+        { kind: "ordinal_path", path: [{ role: "window", ordinal: 0 }, { role: "document", ordinal: 0 }] },
+      ],
+      risk: "read",
+    }),
+    // 2. Type the invoice note
+    step.type({
+      intent: "Type the invoice note",
+      window: { process: "notepad.exe", titlePattern: ".* - Notepad" },
+      selectors: [
+        { kind: "automation_id", value: "RichEditD2DPT" },
+        { kind: "name_role_path", path: [{ role: "window", name: "Untitled - Notepad" }, { role: "document", name: "Text editor" }] },
+        { kind: "ordinal_path", path: [{ role: "window", ordinal: 0 }, { role: "document", ordinal: 0 }] },
+      ],
+      text: "Invoice {invoice_date} total ${amount}",
+      risk: "write",
+    }),
+    // 3. Wait for the screen to update
+    step.wait({
+      intent: "Wait for the screen to update",
+      scope: { window: { process: "notepad.exe", titlePattern: ".* - Notepad" } },
+      timeoutMs: 5000,
+    }),
+    // 4. Save the file
+    step.key({
+      intent: "Save the file",
+      window: { process: "notepad.exe", titlePattern: ".* - Notepad" },
+      combo: "ctrl+s",
+      risk: "write",
+    }),
+    // 5. Wait for the screen to update
+    step.wait({
+      intent: "Wait for the screen to update",
+      scope: { window: { process: "notepad.exe", titlePattern: ".* - Notepad" } },
+      timeoutMs: 5000,
+    }),
+    // 6. Check that the note was written
+    step.assert({
+      intent: "Check that the note was written",
+      window: { process: "notepad.exe", titlePattern: ".* - Notepad" },
+      expr: {
+        op: "matches",
+        query: { kind: "snapshot_element_value", role: "document", name: "Text editor" },
+        regex: "^Invoice \\d{4}-\\d{2}-\\d{2} total \\$\\d+\\.\\d{2}$",
+      },
+    }),
+  ],
+});
+```
+
+Every step carries a plain-English `intent` string. That is not a comment for
+developers only: it is the same text the plain-English workflow view shows a
+non-coder, from the same file, with no separate copy that could drift from the real
+logic.
+
+### Architecture
+
+Two execution modes over one runtime:
+
+- **Perception**: Windows accessibility tree (UIA) first, CDP for browsers, OCR for
+  PDFs and images, a vision-grounding fallback for anything else. Every vision step
+  stores an anchor image, so replay resolves by template match, never by calling a
+  model.
+- **Action**: a typed, serializable Action IR for every step, with a risk class of
+  read, write, or destructive. Adapters (shell, filesystem, Office COM, email,
+  browser, MCP) win over raw accessibility actions, which win over vision.
+- **Compiler and drift repair**: normalizes a recorded run, turns varying literals
+  into typed inputs, scores selectors for stability, and emits a TypeScript file plus
+  a signed manifest. A failed replay step re-grounds itself, proposes a patch, and
+  waits for human approval before merging.
+- **Invariant gates**: precondition, postcondition, and safety checks run in both
+  explore and replay. Hard safety invariants (credential fields, payment or delete
+  confirmations) live in the runtime, not in workflow files, and no workflow can turn
+  them off.
+- **Safety and audit**: capability grants per workflow, a dry-run mode with zero side
+  effects, and a hash-chained append-only audit log with JSON and PDF export.
+- **Orchestrator and models**: bring your own backend, 17 named options across local
+  runners, API keys, and sign-in-with-subscription, or run fully offline.
+- **Voice**: local speech in and out, lazy-loaded so it does not sit in memory until
+  used.
+- **Shell UI**: tray, global-hotkey command palette, run viewer with a model on/off
+  indicator, and a plain-English workflow view with a code toggle for anyone who
+  wants it.
+
+Full component specs and the data model: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+### Registry
+
+`operant install <name>` fetches a workflow manifest from a git-backed index,
+verifies its Ed25519 signature against a publisher key, shows the grants it needs in
+plain language, and installs only after approval. Unsigned or unverified workflows
+still install, but run in dry-run only until you explicitly promote them after
+reading the steps.
+
+Registry: [github.com/AlpharomeroJL/operant-registry](https://github.com/AlpharomeroJL/operant-registry).
+
+### MCP, CLI, and SDK
+
+MCP runs both directions. Operant serves every compiled workflow as an MCP tool
+(`workflow_<slug>`, schema taken straight from the manifest's own inputs), and it
+consumes external MCP servers as adapters your workflows can call. A TypeScript SDK
+sits on the same file format as the CLI:
+
+`operant run|compile|dry-run|list|install|bench|doctor|explain`
+
+Details: [docs/specs/mcp.md](docs/specs/mcp.md).
+
+## How Operant compares
+
+Checked against each project's own public documentation. "Not documented" means no
+public evidence either way was found, not a claim that the feature is absent;
+corrections are welcome as an issue. Last checked: {COMPARISON_LAST_CHECKED_DATE}.
+
+| | Operant | Simular | UI-TARS Desktop | Open Interpreter | UFO |
+|---|---|---|---|---|---|
+| Deterministic, model-free replay | Yes, CI-asserted | No, cloud execution | No, re-infers every step | No, re-infers every step | No, re-infers every step |
+| Works fully offline after teaching | Yes | No | Partial | Partial | Partial |
+| Self-heals on UI drift, human-approved | Yes | Not documented | Not documented | Not documented | Not documented |
+| Full audit trail, hash-chained, exportable | Yes | Not documented | Not documented | Not documented | Not documented |
+| No-code path for non-developers | Yes, wizard plus plain-English steps | Yes | No, developer tool | No, developer tool | No, research framework |
+| One-click undo | Yes | Not documented | No | No | No |
+| Kill switch under 100ms | Yes, latency-tested | Not documented | No | No | No |
+| Price | Free, Apache 2.0 | Paid, per-seat | Free, open source | Free, open source | Free, research license |
+| Raw exploration-time model quality | Conceding: dedicated grounding teams are likely ahead here | n/a | n/a | n/a | n/a |
+| Mobile device control | Conceding: not at v1.0.0 | Not documented | No | No | No |
+
+This table is kept in sync with the one in LAUNCH.md.
+
+## License and links
+
+- License: [Apache 2.0](LICENSE)
+- Contributing: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Security policy: [SECURITY.md](SECURITY.md)
+- Docs: [alpharomerojl.github.io/operant](https://alpharomerojl.github.io/operant/)
+- Registry: [github.com/AlpharomeroJL/operant-registry](https://github.com/AlpharomeroJL/operant-registry)
+- Repo: [github.com/AlpharomeroJL/operant](https://github.com/AlpharomeroJL/operant)
