@@ -1,0 +1,19 @@
+{
+  "name": "@operant/downloader",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Resumable, checksum-verified file downloader sidecar for the zero-code wizard's Download a free brain (local) setup path.",
+  "license": "Apache-2.0",
+  "main": "index.mjs",
+  "bin": {
+    "operant-downloader": "cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test test/downloader.test.mjs",
+    "check:copy": "node check_wizard_copy.mjs"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

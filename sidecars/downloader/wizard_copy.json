@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "description": "Plain-language copy for the zero-code wizard screens owned by this lane: welcome, the four thinking-power setup paths plus the demo link, the microphone check, and the schedule screen. Every string value here must stay clean of contracts/microcopy_glossary.json internal terms and must not contain an em dash. Checked by check_wizard_copy.mjs in this directory.",
+  "screens": {
+    "welcome": {
+      "heading": "Welcome to Operant",
+      "body": "Operant learns the things you do on your computer so it can do them for you.",
+      "continue_button": "Continue"
+    },
+    "setup_path": {
+      "heading": "How should Operant think?",
+      "subheading": "Pick how Operant gets its thinking power. You can change this later in settings.",
+      "cards": {
+        "chatgpt": {
+          "title": "Sign in with ChatGPT",
+          "body": "Use the AI plan you already pay for. No keys to copy.",
+          "button": "Sign in with ChatGPT"
+        },
+        "claude": {
+          "title": "Sign in with Claude",
+          "body": "Use the AI plan you already pay for. No keys to copy.",
+          "button": "Sign in with Claude"
+        },
+        "local": {
+          "title": "Download a free brain",
+          "body": "Get a model that runs right on this computer. Free and private, and it keeps working without the internet once it is downloaded.",
+          "disk_check_label": "Checking free space on this computer.",
+          "disk_check_ok": "You have enough room for this.",
+          "disk_check_low": "This computer is short on space. Free up {needed} and try again.",
+          "compatibility_check_label": "Checking whether this computer can run it well.",
+          "compatibility_check_ok": "This computer can run it well.",
+          "compatibility_check_slow": "This computer can run it, but it may think slowly.",
+          "compatibility_check_fail": "This computer does not have enough graphics memory for this option. Try signing in with ChatGPT or Claude instead.",
+          "button": "Download",
+          "download": {
+            "starting": "Getting ready to download.",
+            "downloading": "Downloading, {percent} percent done.",
+            "resuming": "Picking up where it left off.",
+            "paused": "Paused. What is already downloaded is saved.",
+            "pause_button": "Pause",
+            "resume_button": "Resume",
+            "cancel_button": "Cancel download",
+            "verifying": "Double-checking the download.",
+            "complete": "Ready to go.",
+            "failed": "The download did not finish."
+          }
+        },
+        "access_key": {
+          "title": "I have an access key",
+          "body": "Paste the access key you already have. Operant will figure out where it is from.",
+          "placeholder": "Paste your access key here",
+          "provider_label": "Which service is this key from?",
+          "provider_auto_detected": "We recognized this key. It looks like it is from {provider}.",
+          "provider_pick_manually": "We could not tell where this key is from. Pick it from the list below.",
+          "button": "Continue"
+        }
+      },
+      "demo_link": "Just show me a demo"
+    },
+    "mic_check": {
+      "heading": "Let's check your microphone",
+      "body": "Say something and watch the level meter move. This makes sure Operant can hear you when you talk to it.",
+      "sample_button": "Play a sample",
+      "level_meter_label": "Microphone level",
+      "skip_button": "Skip for now",
+      "continue_button": "Sounds good",
+      "failed": "We could not hear anything. Check that your microphone is connected and try again."
+    },
+    "schedule": {
+      "heading": "Want this to run by itself?",
+      "body": "Choose when Operant should do this on its own, or run it yourself whenever you like.",
+      "options": {
+        "manual": "Only when I click run",
+        "daily": "Every day",
+        "weekly": "Every week",
+        "when_file_changes": "When a file changes",
+        "when_app_opens": "When an app opens",
+        "when_email_arrives": "When an email arrives"
+      },
+      "continue_button": "Save this schedule"
+    }
+  },
+  "errors": {
+    "checksum_mismatch": {
+      "what": "The downloaded file did not match what we expected.",
+      "why": "This can happen if the download was interrupted or the connection was not trustworthy.",
+      "action": "Try downloading again."
+    },
+    "network_error": {
+      "what": "The download could not reach the server.",
+      "why": "This usually means the internet connection dropped.",
+      "action": "Check your connection and try again."
+    },
+    "disk_space": {
+      "what": "There was not enough room to save the download.",
+      "why": "This computer is low on free space.",
+      "action": "Free up some space and try again."
+    },
+    "not_found": {
+      "what": "The download could not find the file it was looking for.",
+      "why": "The link to this file may be out of date.",
+      "action": "Try again later, or pick a different option."
+    }
+  }
+}
