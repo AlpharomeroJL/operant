@@ -1,19 +1,24 @@
 # Operant Launch Copy
 
-Draft launch-day copy for v1.0.0, written in Wave 1 (packet M1A) before the product
-exists, so every measured number and every media file below is a named placeholder.
-Two placeholder shapes only: an all-caps underscored token in curly braces for a
-number, date, handle, or link, for example `{BENCH_REPLAY_P50_MS}`, and an asset
-token in curly braces for a capture asset, for example `{ASSET:04-replay.gif}`.
-Nothing else in curly braces is a placeholder: the TypeScript sample in the Show HN
-prepared answers uses curly-brace input references such as `{invoice_date}` for the
-product's own workflow-input syntax, not a fill-in-later token, and it is called out
-there again so it cannot be mistaken for one. Section 6 lists every placeholder in
-this file and which Wave 4 packet fills it. Do not post anything out of this file
-with an unfilled placeholder token still in it.
+Launch-day copy for v1.0.0. Drafted in Wave 1 (packet M1A) before the product
+existed, when every measured number and every media file below was a named
+placeholder; finalized in Wave 4 (packet V4) once BENCHMARKS.md was real and the 13
+capture assets existed. Two placeholder shapes existed during drafting: an all-caps
+underscored token in curly braces for a number, date, handle, or link, for example
+`{BENCH_REPLAY_P50_MS}`, and an asset token in curly braces for a capture asset, for
+example `{ASSET:04-replay.gif}`. Curly braces elsewhere were never a placeholder: the
+TypeScript sample in the Show HN prepared answers uses curly-brace input references
+such as `{invoice_date}` for the product's own workflow-input syntax, and it is
+called out again at that sample so it cannot be mistaken for one. Section 6 is now a
+resolution ledger, not a to-do list: it shows what each token resolved to and which
+packet supplied the value. A few items have no real value yet (the social accounts,
+the reframe post's own eventual URL); those are left as explicit `TODO` notes in
+place, in prose, not as a bare `{TOKEN}`. Do not post anything out of this file that
+still has an unfilled `{TOKEN}` in it, and resolve the plain-`TODO` items before the
+post that needs them goes out.
 
-Target launch date: `{LAUNCH_DATE}`. Post from: HN as `{HN_USERNAME}`, X as
-`{X_HANDLE}`, Mastodon as `{MASTODON_HANDLE}@{MASTODON_INSTANCE}`.
+Target launch date: 2026-07-11. Post from: HN, X, and Mastodon accounts that do not
+exist yet; see section 6 for the standing TODO on all three.
 
 Positioning source: `docs/PRD.md` (problem, thesis, launch cut) and `docs/ROADMAP.md`
 (v1.0.0 scope, hook line). Voice source: `.claude/skills/operant-marketing/SKILL.md`.
@@ -58,14 +63,24 @@ try a demo first.
 
 After the first time, Operant does not need the model again. Every later run plays
 back from a small file on your own machine: nothing about your screen leaves the
-computer, and there is no per-run bill. {ASSET:04-replay.gif} shows the same task
-twice, once with the model thinking and once without it. Same result. The second
-time is instant.
+computer, and there is no per-run bill. Same task, same result, model thinking live
+versus running from memory:
+
+![Animated run viewer replaying the same copy-invoice-total task with the model indicator reading "Running from memory, no thinking needed": the same four steps as 02-explore.gif complete almost instantly, ending on Done.](assets/04-replay.gif)
+
+The second time is instant.
 
 Every run shows what it is about to do in plain English before it does it, any step
 that changes something on your computer can be undone afterward, and one key stops
 everything, instantly, no matter what Operant is doing when you press it.
-{ASSET:12-killswitch.gif} and {ASSET:10-undo.gif} show both.
+
+![Animated kill switch demo: a run is mid-step (Click Downloads, Click Invoice.pdf) with the model indicator on, then the panic hotkey fires and the run freezes, the run viewer reads "Stopped, needs you", and the tray icon turns red with an "Operant stopped" notification.](assets/12-killswitch.gif)
+
+That is the kill switch. Undo is real and tested underneath (write actions journal
+their inverse before they run, the same mechanism `10-undo.gif` in the shot list
+would show), but the "Undo last run" screen itself is not built in the UI yet, so
+there is no honest capture of it to show here; see the Capture TODOs at the end of
+this file.
 
 That is the whole pitch if you are not a developer. Everything from here down is for
 people who want to know how it actually works.
@@ -96,24 +111,32 @@ fields, payment or delete confirmations) is enforced by the runtime itself, not 
 the workflow file, and no workflow can turn it off. When a compiled step fails
 because the screen changed, Operant re-grounds that one step, proposes a patch diff,
 waits for a human approval, then merges a new version with a changelog entry. The
-workflow heals. It never silently mutates. {ASSET:06-drift.gif} is that loop end to
-end, and {ASSET:05-gate.png} is a safety halt in plain language.
+workflow heals. It never silently mutates. That loop end to end:
+
+![Animated drift repair loop: a run halts on a step reading "Click 'Save invoice'" because the button was renamed, a card asks "Update the workflow?" showing "Save invoice" to "Store invoice", and after clicking "Update the workflow" the run repeats with every step green, now reading "Click 'Store invoice'".](assets/06-drift.gif)
+
+And a safety halt, in plain language:
+
+![Screenshot of a safety halt: the run viewer reads "Stopped, needs you" with a blocked step "Click 'Confirm payment'", and the tray icon has turned red with a notification that Operant stopped and needs the user before it can continue.](assets/05-gate.png)
 
 Trust features that sit below the planner, so no model state can block them: a kill
-switch (default hotkey, freeze-to-halt measured at {KILLSWITCH_LATENCY_MS}ms mid-run,
-CI gate is under 100ms), a journal-ahead undo log (the inverse is written before the
-action runs, so undo is a real replay of real inverses, and anything irreversible is
-labeled before you run it, not after), and anchor redaction (password fields and
-credential dialogs are blacked out before any pixel touches disk, and a redaction
-error blocks the write instead of falling through).
+switch (default hotkey, freeze-to-halt measured at 2.5ms mid-run worst case across 50
+trials against the real kill-switch code path, CI gate is under 100ms), a
+journal-ahead undo log (the inverse is written before the action runs, so undo is a
+real replay of real inverses, and anything irreversible is labeled before you run it,
+not after), and anchor redaction (password fields and credential dialogs are blacked
+out before any pixel touches disk, and a redaction error blocks the write instead of
+falling through).
 
-Numbers, not adjectives: compiled replay measured {BENCH_REPLAY_P50_MS}ms p50 per
-step ({BENCH_REPLAY_P95_MS}ms p95) against {BENCH_REINFER_P50_MS}ms p50 for the same
-task re-inferred every step, across {BENCH_TASK_COUNT} tasks: {BENCH_SPEEDUP_X}x,
-{BENCH_REPLAY_SUCCESS_RATE} on unchanged UI. Full methodology, including where the
-mock re-inference numbers use recorded latencies instead of a live model, is in
-BENCHMARKS.md, regenerated every release and gated in CI, not a one-time screenshot.
-{ASSET:07-bench.png}
+Numbers, not adjectives: compiled replay measured 1ms p50 per step (1ms p95) against
+7ms p50 for the same task re-inferred every step: 7.0x, 15/15 replay runs passing on
+unchanged UI across the 3-task suite. That pair is the notepad task, the slowest of
+the three measured; the other two round to 0ms replay, an even wider margin. Full
+methodology, including where the mock re-inference numbers use recorded latencies
+instead of a live model, is in BENCHMARKS.md, regenerated every release and gated in
+CI, not a one-time screenshot.
+
+![Table image of the Operant benchmark headline from BENCHMARKS.md, comparing compiled replay (near-zero latency, zero model calls) against re-inferring every step (higher latency, dozens of model calls and tokens) across three tasks.](assets/07-bench.png)
 
 Bring your own model: 17 named backends (local runners Ollama, llama.cpp server, LM
 Studio, vLLM, or any OpenAI-compatible endpoint by base URL; 11 cloud providers by
@@ -132,16 +155,17 @@ Honest, short version of how this compares: Operant wins on determinism, audit
 trail, offline replay, drift repair, a genuine zero-code path, undo, and a
 sub-100ms kill switch, and it is free. It concedes raw model quality on screens
 it has never seen before to dedicated grounding teams, and it does not do mobile.
-Full table, checked against each project's own docs: {README_COMPARISON_URL}
+Full table, checked against each project's own docs:
+https://github.com/AlpharomeroJL/operant#how-operant-compares
 
 What is not here yet, plainly: macOS and Linux perception compile behind the trait
 but are not tier 1 (Windows only at v1.0.0), no mobile device control, and one
 maintainer.
 
 Repo: https://github.com/AlpharomeroJL/operant (Apache 2.0)
-Docs: {DOCS_URL}
+Docs: https://alpharomerojl.github.io/operant/
 Registry: https://github.com/AlpharomeroJL/operant-registry
-Download: {DOWNLOAD_URL}
+Download: https://alpharomerojl.github.io/operant/guides/install.html
 
 I will read every comment, including "why should I trust a kill switch you wrote
 yourself," because that is a fair question and the answer is in the test suite, not
@@ -168,10 +192,12 @@ progresses; a wrong claim about a competitor in an HN comment is worse than no c
 | Raw exploration-time model quality | Conceding: dedicated grounding teams are likely ahead here | n/a | n/a | n/a | n/a |
 | Mobile device control | Conceding: not at v1.0.0 | Not documented | No | No | No |
 
-Checked {COMPARISON_LAST_CHECKED_DATE}. "Not documented" means no public evidence
-either way was found, not a claim that the feature is absent. Corrections welcome,
-especially anywhere "not documented" turns out to be wrong. Live version, kept
-current: {README_COMPARISON_URL}
+Checked: TODO, same date as README.md's own "How Operant compares" table, which is
+still unfilled there as of this packet (V2 has not set it yet); set both together,
+never invent a date here that README does not also carry. "Not documented" means no
+public evidence either way was found, not a claim that the feature is absent.
+Corrections welcome, especially anywhere "not documented" turns out to be wrong.
+Live version, kept current: https://github.com/AlpharomeroJL/operant#how-operant-compares
 
 **"Isn't this just RPA with extra steps?"**
 
@@ -222,9 +248,11 @@ token.)
 Determinism is enforced two ways, not just claimed: the replay executor links
 against a backend-free crate, so a model call during replay is not a runtime setting
 that could be flipped on by accident, it is a compile-time impossibility, and CI
-asserts zero network calls in the default configuration. {ASSET:03-steps.png} is the
-same file rendered as the plain-English steps a non-coder sees: there is no separate,
+asserts zero network calls in the default configuration. This is the same file
+rendered as the plain-English steps a non-coder sees: there is no separate,
 dumbed-down copy that could drift from the real logic.
+
+![Screenshot of the Explain panel for the "Copy the invoice total into the spreadsheet" workflow, showing what the workflow can do and its four steps numbered in plain English, with the Advanced toggle closed.](assets/03-steps.png)
 
 ---
 
@@ -262,11 +290,12 @@ inline. My job was to scope each unit of work small enough to verify (a "packet"
 three to six sentences, one owned path, a success bar with exact commands to run),
 dispatch it to a tier-matched agent, and refuse to merge anything until I had run
 its bar myself and watched it pass. The plan budgeted five hours. It actually took
-{CAMPAIGN_ACTUAL_HOURS}. {PACKETS_SHIPPED_COUNT} packets shipped clean,
-{PACKETS_PARKED_COUNT} got parked, and the fix-at-gate log (imports, paths, and
-version pins only, nothing else, on purpose) has {FIX_AT_GATE_COUNT} entries,
-because pretending a five-hour, fifteen-lane build produced zero friction would be
-the least honest part of this post.
+just under twelve (first commit to the last merge before this post, 08:53 to 20:52
+the same day). 63 packets shipped clean, 1 got parked (a narrated demo video, cut for
+time rather than built badly), and the fix-at-gate log (imports, paths, and version
+pins only, nothing else, on purpose) has 7 entries, because pretending a five-hour,
+fifteen-lane build produced zero friction would be the least honest part of this
+post.
 
 That process is not a gimmick sitting on top of the product. It is the product's
 own argument, applied to building the product. Operant's whole thesis is that a
@@ -304,11 +333,12 @@ What actually shipped, so this reframe has something to check against:
   end-to-end test that installs, sets up a model, teaches, saves, runs, and
   schedules a workflow with zero code and zero terminal, budgeted at fifteen
   minutes of simulated interaction and enforced in CI (it actually finished in
-  {FIRST_TIMER_MINUTES})
-- A signed registry with in-app install, a {COOKBOOK_WORKFLOW_COUNT}-workflow
-  cookbook with every sample doc-tested, a deployed docs site, a Playwright
-  importer, MCP support in both directions, and a benchmark harness with numbers
-  regenerated every release, not screenshotted once and left to rot
+  about 6.4 seconds, run twice in a row against the real installed release binary
+  to rule out a fluke, not just a dev-server rehearsal)
+- A signed registry with in-app install, a 10-workflow cookbook with every sample
+  doc-tested, a deployed docs site, a Playwright importer, MCP support in both
+  directions, and a benchmark harness with numbers regenerated every release, not
+  screenshotted once and left to rot
 
 What did not ship, just as plainly: macOS and Linux perception compile behind the
 trait but are not tier 1 yet, that is a later release on the public roadmap.
@@ -330,9 +360,9 @@ process down on paper and it reads like a well-run engineering org, minus the or
 chart. That is the actual argument for the product, made by the way the product
 got built.
 
-Try it: {DOWNLOAD_URL}. Read the PRD and every decision record:
-https://github.com/AlpharomeroJL/operant. It is free, it runs offline, and I would
-like to know what breaks.
+Try it: https://alpharomerojl.github.io/operant/guides/install.html. Read the PRD and
+every decision record: https://github.com/AlpharomeroJL/operant. It is free, it runs
+offline, and I would like to know what breaks.
 
 - Josef
 ```
@@ -342,12 +372,14 @@ like to know what breaks.
 ## 3. Launch thread (X / Mastodon)
 
 Ten posts, numbered for sequencing. Each is written to fit inside X's ~280-character
-limit assuming short placeholder values; the count noted after each post is the draft
-length with placeholder tokens counted literally. Re-check length once Wave 4 fills
-the placeholders, especially any post where a long URL lands, and split a post rather
-than truncate the claim it is making. Mastodon has more headroom, so these also work
-unedited there. Attach the named asset as native media on the post it is listed
-under; do not rely on the GIF rendering from a link preview.
+limit. The count noted after each post, now that real values and real URLs are
+filled in, is the actual post length; where a real URL landed and pushed the raw
+character count past 280, the note also gives the effective count X will actually
+enforce, since X auto-shortens every URL in a post to a fixed 23-character t.co
+link regardless of its real length. Mastodon has much more headroom (its default
+per-post limit is 500 characters), so these all work unedited there too, counted at
+their raw (un-shortened) length. Attach the named asset as native media on the post
+it is listed under; do not rely on the GIF rendering from a link preview.
 
 ### Post 1/10
 
@@ -355,12 +387,13 @@ under; do not rely on the GIF rendering from a link preview.
 Teach your computer once. It does it forever. No code. Free.
 
 Show HN today: Operant, an open source Windows agent that compiles what it learns
-into a script that runs without the model. {ASSET:04-replay.gif}
+into a script that runs without the model.
 
 https://github.com/AlpharomeroJL/operant
 ```
 
-Attach: `{ASSET:04-replay.gif}` (250 chars as drafted)
+Attach: `assets/04-replay.gif` (211 chars: X auto-shortens the URL to a fixed
+23-char t.co link, so the 41-char repo URL above costs 23, not 41; 228 raw)
 
 ### Post 2/10
 
@@ -378,53 +411,55 @@ No asset. (219 chars as drafted)
 Operant explores with a model once, or a few times with correction, then freezes
 the successful run into a typed, readable script guarded by safety checks. After
 that: zero model calls, zero network calls, both checked in CI.
-{ASSET:02-explore.gif} then {ASSET:04-replay.gif}
 ```
 
-Attach: `{ASSET:02-explore.gif}` and `{ASSET:04-replay.gif}`, ideally as a
-before/after pair. (275 chars as drafted)
+Attach: `assets/02-explore.gif` then `assets/04-replay.gif`, ideally as a
+before/after pair. (225 chars)
 
 ### Post 4/10
 
 ```text
 None of this needs code. Setup is a wizard: a free local model, sign in with
 ChatGPT or Claude, paste an access key, or just try a demo first. Saved workflows
-read as plain-English steps unless you ask for code. {ASSET:00-onboarding.gif}
+read as plain-English steps unless you ask for code.
 ```
 
-Attach: `{ASSET:00-onboarding.gif}` (237 chars as drafted)
+Attach: `assets/00-onboarding.gif` (211 chars)
 
 ### Post 5/10
 
 ```text
 Trust features that do not depend on the model behaving, because they sit below
 it: one key stops every run instantly, and any step that changed something can be
-undone afterward, narrated in plain English. {ASSET:12-killswitch.gif}
-{ASSET:10-undo.gif}
+undone afterward, narrated in plain English.
 ```
 
-Attach: `{ASSET:12-killswitch.gif}` and `{ASSET:10-undo.gif}`. (252 chars as drafted)
+Attach: `assets/12-killswitch.gif` only. No real capture of the undo screen
+exists yet (`10-undo.gif` is a labeled placeholder, not a finished UI, see the
+Capture TODOs at the end of this file); do not attach a placeholder as if it were
+a finished shot. Swap in a real second attachment once that screen ships, or split
+undo into its own post at that point. (206 chars)
 
 ### Post 6/10
 
 ```text
 When the app you automated changes a button, Operant does not fail silently. It
 re-finds the one step that broke, shows the fix as a diff, and waits for your
-approval before merging a new version. {ASSET:06-drift.gif}
+approval before merging a new version.
 ```
 
-Attach: `{ASSET:06-drift.gif}` (217 chars as drafted)
+Attach: `assets/06-drift.gif` (196 chars)
 
 ### Post 7/10
 
 ```text
-The proof, not just the pitch: replay measured {BENCH_REPLAY_P50_MS}ms p50 vs
-{BENCH_REINFER_P50_MS}ms re-inferring every step ({BENCH_SPEEDUP_X}x),
-{BENCH_REPLAY_SUCCESS_RATE} on unchanged UI. Methodology in BENCHMARKS.md,
-regenerated every release. {ASSET:07-bench.png}
+The proof, not just the pitch: replay measured 1ms p50 vs 7ms re-inferring every
+step (7.0x), 15/15 on unchanged UI. Methodology in BENCHMARKS.md, regenerated
+every release.
 ```
 
-Attach: `{ASSET:07-bench.png}` (271 chars as drafted)
+Attach: `assets/07-bench.png` (173 chars). The 1ms/7ms pair is the notepad task,
+the slowest of the three measured; see BENCHMARKS.md for the other two.
 
 ### Post 8/10
 
@@ -432,10 +467,12 @@ Attach: `{ASSET:07-bench.png}` (271 chars as drafted)
 Where Operant wins vs Simular, UI-TARS Desktop, Open Interpreter, and UFO:
 determinism, audit trail, offline replay, drift repair, zero-code, undo, kill
 switch, price. Where it does not: raw model quality on unseen screens, and
-mobile. Table: {README_COMPARISON_URL}
+mobile. Table: https://github.com/AlpharomeroJL/operant#how-operant-compares
 ```
 
-No asset. (266 chars as drafted)
+No asset. (266 chars effective / 304 raw: the comparison-table URL above is 63
+raw chars but X auto-shortens any URL to a fixed 23-char t.co link; still under
+Mastodon's much higher limit either way.)
 
 ### Post 9/10
 
@@ -443,23 +480,25 @@ No asset. (266 chars as drafted)
 How one person shipped this: I orchestrated a single autonomous build campaign in
 Claude Code instead of hand-typing most of it, and gated every merge the way
 Operant gates every workflow. Honest writeup, including what ran long:
-{REFRAME_POST_URL}
+[TODO: reframe post URL]
 ```
 
-No asset. Post this one only after the reframe post (section 2) is live. (248 chars
-as drafted)
+No asset. TODO: no real URL exists yet, the reframe post (section 2) has not been
+published anywhere. Do not post this one until it has a home; swap the bracketed
+TODO above for the real, live URL first (254 chars with the bracket; a real URL in
+its place is about 253 chars effective, same ballpark, once t.co shortens it).
 
 ### Post 10/10
 
 ```text
 Apache 2.0, local-first, zero telemetry without opt-in. Repo:
-https://github.com/AlpharomeroJL/operant. Docs: {DOCS_URL}. Registry:
-https://github.com/AlpharomeroJL/operant-registry. Star it, watch the demo, or
-check the benchmark methodology.
+https://github.com/AlpharomeroJL/operant. Docs: https://alpharomerojl.github.io/operant/.
+Registry: https://github.com/AlpharomeroJL/operant-registry. Star it, watch the
+demo, or check the benchmark methodology.
 ```
 
-No asset, or optionally `{ASSET:11-timesaved.png}` if it made the cut. (243 chars
-as drafted)
+Attach: `assets/11-timesaved.png`. It made the cut (210 chars effective / 273 raw:
+three URLs above cost 23 each on X, not their literal length).
 
 ---
 
@@ -467,140 +506,168 @@ as drafted)
 
 Maps the thirteen capture assets (`operant-capture` skill, packet V1) to what each
 one needs to show and where in this file it is used. Capture spec for all thirteen:
-max width 800px, under 8MB each, 12fps, two-pass ffmpeg palettegen. If any single
-asset is impossible to capture in CI, the fallback is to leave its placeholder token
-unresolved and flagged right here in LAUNCH.md, never a broken link in a post: do
-not point a post at a file that does not exist.
+max width 800px, under 8MB each, 12fps, two-pass ffmpeg palettegen. All thirteen
+exist in `assets/` as of this packet (verified: 12 real captures plus one honest
+placeholder), so the fallback this section originally described (leave the token
+unresolved and flagged here rather than post a broken link) never had to trigger for
+a missing file. It did still trigger, deliberately, for one file that exists but
+is not a real capture: see row 10.
 
-| # | Asset | Shot | Ledger status | Used in |
+| # | Asset | Shot | Outcome | Used in |
 |---|---|---|---|---|
-| 00 | `{ASSET:00-onboarding.gif}` | Wizard: pick a free local model, watch the download progress bar, land on done. | Never cut | Thread 4/10 |
-| 01 | `{ASSET:01-palette.gif}` | Hit the hotkey, type a goal in plain English, watch the agent start. | Never cut | Shot list only |
-| 02 | `{ASSET:02-explore.gif}` | Run viewer stepping through a live teach run, model indicator lit ON. | Never cut | Show HN body, Thread 3/10 |
-| 03 | `{ASSET:03-steps.png}` | The same run compiled into numbered plain-English steps, Advanced toggle visible but closed. | Never cut | Show HN prepared answers |
-| 04 | `{ASSET:04-replay.gif}` | The same task again, instant, model indicator OFF. The money shot. | Never cut | Show HN body, Thread 1/10 and 3/10 |
-| 05 | `{ASSET:05-gate.png}` | A safety halt on a payment confirmation dialog, message in plain human language. | Never cut | Show HN body |
-| 06 | `{ASSET:06-drift.gif}` | A button gets renamed, Operant asks to update the workflow, human approves, rerun goes green. | Never cut | Show HN body, Thread 6/10 |
-| 07 | `{ASSET:07-bench.png}` | The BENCHMARKS.md headline table. | Never cut | Show HN body, Thread 7/10 |
-| 08 | `{ASSET:08-gallery.png}` | Template gallery, grants written as plain sentences, one-click install. | At risk, low: cut only after roughly fifteen other ledger items already fall (MEGA_PROMPT section 6) | Shot list only |
-| 09 | `{ASSET:09-tray.png}` | The tray icon and menu at rest. | At risk, low, same as 08 | Shot list only |
-| 10 | `{ASSET:10-undo.gif}` | A run finishes, "Undo last run," files restored, narrated. | Never cut | Show HN body, Thread 5/10 |
-| 11 | `{ASSET:11-timesaved.png}` | Tray showing the estimated time saved this week. | At risk, low, same as 08, second in line after 08 and 09 | Thread 10/10 (optional) |
-| 12 | `{ASSET:12-killswitch.gif}` | Mid-run panic hotkey, everything freezes, tray goes red. | Never cut | Show HN body, Thread 1/10 and 5/10 |
+| 00 | `assets/00-onboarding.gif` | Wizard: pick a free local model, watch the download progress bar, land on done. | Captured, real | Thread 4/10 |
+| 01 | `assets/01-palette.gif` | Hit the hotkey, type a goal in plain English, watch the agent start. | Captured, real | Shot list only |
+| 02 | `assets/02-explore.gif` | Run viewer stepping through a live teach run, model indicator lit ON. | Captured, real | Show HN body, Thread 3/10 |
+| 03 | `assets/03-steps.png` | The same run compiled into numbered plain-English steps, Advanced toggle visible but closed. | Captured, real | Show HN prepared answers |
+| 04 | `assets/04-replay.gif` | The same task again, instant, model indicator OFF. The money shot. | Captured, real | Show HN body, Thread 1/10 and 3/10 |
+| 05 | `assets/05-gate.png` | A safety halt on a payment confirmation dialog, message in plain human language. | Captured, real | Show HN body |
+| 06 | `assets/06-drift.gif` | A button gets renamed, Operant asks to update the workflow, human approves, rerun goes green. | Captured, real | Show HN body, Thread 6/10 |
+| 07 | `assets/07-bench.png` | The BENCHMARKS.md headline table. | Captured, real | Show HN body, Thread 7/10 |
+| 08 | `assets/08-gallery.png` | Template gallery, grants written as plain sentences, one-click install. | Captured, real; was at-risk (cut line in MEGA_PROMPT section 6 never reached) | Shot list only |
+| 09 | `assets/09-tray.png` | The tray icon and menu at rest. | Captured, real; was at-risk, same as 08 | Shot list only |
+| 10 | `assets/10-undo.gif` | A run finishes, "Undo last run," files restored, narrated. | Labeled placeholder, NOT a real capture: no undo screen exists in `ui/src` yet. File exists so the token resolves, but it is not shown as a finished shot anywhere; see Capture TODOs below | Named honestly in Show HN body prose (not embedded); not attached on Thread 5/10 |
+| 11 | `assets/11-timesaved.png` | Tray showing the estimated time saved this week. | Captured, real; was at-risk, second in line after 08 and 09 | Thread 10/10 |
+| 12 | `assets/12-killswitch.gif` | Mid-run panic hotkey, everything freezes, tray goes red. | Captured, real | Show HN body, Thread 5/10 |
 
-Never-cut here means on the same pre-authorized list as the compiler, the gates,
-and the v1.0.0 release itself, not a promise I am making unilaterally.
+"Never cut" in the original priority ranking meant on the same pre-authorized list
+as the compiler, the gates, and the v1.0.0 release itself. It held: nothing on that
+list was cut. The two "at risk" items (08, 09, and 11 right behind them) also made
+it in before any cut line was reached.
 
 ---
 
 ## 5. Social preview note
 
-The social card image (`og:image` / `twitter:image`) is not one of the thirteen
-numbered assets above. It is a separate composite, `{ASSET:og-preview.png}`, built
-by the same capture toolchain but assembled after copy is final so it can carry real
-words instead of a generic screenshot in a frame. Owned by packet V4, since it needs
-the finished tagline and a guaranteed (never-cut) screenshot, not just the raw
-capture output.
+The social card image (`og:image` / `twitter:image`) was meant to be a separate
+composite, `assets/og-preview.png`, built by the same capture toolchain but
+assembled after copy is final so it can carry real words instead of a generic
+screenshot in a frame. That composite does not exist: `assets/` has the thirteen
+numbered captures plus `alt-text.md`, nothing named `og-preview.png`. Building it is
+image-editing work outside this packet's owned path (LAUNCH.md only), so rather than
+leave the social card pointed at a file that was never made, launch uses a real
+asset directly.
 
-Recommended composition, 1200x630 (standard Open Graph size; keep essential content
-inside the center ~1200x600 to survive platform cropping):
+For launch day: point `og:image` and `twitter:image` at `assets/11-timesaved.png`.
+It is real, it is already a static screenshot (not a GIF, which social platforms
+will not animate in a link-preview card anyway), and `.claude/skills/operant-marketing/SKILL.md`
+already calls it out as "the shareable screenshot." This is a FOLLOWUP for whoever
+owns `site/index.html` and README's own meta tags, not something this packet can
+wire in directly: neither file currently sets `og:image` or `twitter:image` at all
+(checked directly, no existing tag to redirect), and both are outside LAUNCH.md's
+owned path.
+
+The composite is still worth building later; keeping the original spec for whoever
+picks it up, unchanged except marked as not-yet-done:
+
+TODO, not yet built. Recommended composition, 1200x630 (standard Open Graph size;
+keep essential content inside the center ~1200x600 to survive platform cropping):
 
 - A band with the Operant wordmark and the hook line, "Teach your computer once. It
   does it forever." Keep "No code. Free." implied by the rest of the card if space
   is tight; do not shrink the type to fit it in.
 - A real product screenshot next to the wordmark, not a mockup. In priority order:
-  the final frame of `{ASSET:04-replay.gif}` (the model-OFF replay, guaranteed to
-  exist and it is the actual money shot), or `{ASSET:03-steps.png}` (plain-English
+  the final frame of `assets/04-replay.gif` (the model-OFF replay, guaranteed to
+  exist and it is the actual money shot), or `assets/03-steps.png` (plain-English
   steps, reads clearly even shrunk to a link-preview thumbnail). Do not use
-  `{ASSET:11-timesaved.png}` as the base image since it is a low-priority cut
-  candidate and may not exist.
+  `assets/11-timesaved.png` as the base image for the eventual composite: it is
+  already doing the job as the direct interim `og:image` above, and the composite
+  should read differently from the plain screenshot it is replacing.
 - One small corner tag with three checkable claims, not three adjectives: "Free.
   Open source. Runs offline."
 - Legible at phone-timeline thumbnail size, roughly 300px wide: one headline, one
   screenshot, no dense paragraph.
 
-Wire the same `{ASSET:og-preview.png}` into both the docs site and the README meta
-tags, so a link to either carries the same card.
+Once built, wire `assets/og-preview.png` into both the docs site and the README
+meta tags in place of the interim `11-timesaved.png`, so a link to either carries
+the same card.
 
 ---
 
-## 6. Placeholders
+## 6. Placeholder resolution ledger
 
-Every placeholder token used above, grouped by what fills it. "Filled by" names the
-Wave 4 packet that is the source of truth for the value, even where packet V4
-(`launch-final`) is the one that literally edits this file: V4 assembles LAUNCH.md's
-final numbers and links, but the values themselves come from the packet named here.
+What every token above resolved to, and which packet's data it came from, so a
+reader can check any number in this file against its source without re-deriving it.
+"Source" names the packet that is the source of truth for the value, even where
+packet V4 (`launch-final`) is the one that literally edited this file to insert it.
+Genuinely-not-yet-real items are marked `TODO` with the reason, not filled with a
+plausible-looking value.
 
-### Capture assets: filled by V1 (capture)
+### Capture assets: resolved by V1 (capture)
 
-All thirteen resolve to `assets/<filename>` once captured; see section 4 for the
-shot each one needs.
+All thirteen files exist in `assets/`; see section 4 for the full outcome table.
 
-| Placeholder | What goes there |
+| Placeholder | Resolved to |
 |---|---|
-| `{ASSET:00-onboarding.gif}` | Wizard: pick a model, download progress, done. |
-| `{ASSET:01-palette.gif}` | Hotkey, plain-English goal typed, agent starts. |
-| `{ASSET:02-explore.gif}` | Run viewer stepping through a live teach run, model indicator ON. |
-| `{ASSET:03-steps.png}` | Compiled workflow as numbered plain-English steps, Advanced toggle closed. |
-| `{ASSET:04-replay.gif}` | Same task, instant, model indicator OFF. The money shot. |
-| `{ASSET:05-gate.png}` | Safety halt on a payment dialog, plain-language message. |
-| `{ASSET:06-drift.gif}` | Button moved, update-the-workflow prompt, approve, green rerun. |
-| `{ASSET:07-bench.png}` | The BENCHMARKS.md headline table. |
-| `{ASSET:08-gallery.png}` | Template gallery, plain-language grants. |
-| `{ASSET:09-tray.png}` | Tray icon and menu at rest. |
-| `{ASSET:10-undo.gif}` | Run finishes, undo last run, files restored, narrated. |
-| `{ASSET:11-timesaved.png}` | Tray showing estimated time saved this week. |
-| `{ASSET:12-killswitch.gif}` | Mid-run panic hotkey, everything freezes, tray red. |
+| `{ASSET:00-onboarding.gif}` | `assets/00-onboarding.gif`, real |
+| `{ASSET:01-palette.gif}` | `assets/01-palette.gif`, real |
+| `{ASSET:02-explore.gif}` | `assets/02-explore.gif`, real |
+| `{ASSET:03-steps.png}` | `assets/03-steps.png`, real |
+| `{ASSET:04-replay.gif}` | `assets/04-replay.gif`, real |
+| `{ASSET:05-gate.png}` | `assets/05-gate.png`, real |
+| `{ASSET:06-drift.gif}` | `assets/06-drift.gif`, real |
+| `{ASSET:07-bench.png}` | `assets/07-bench.png`, real |
+| `{ASSET:08-gallery.png}` | `assets/08-gallery.png`, real (was at-risk of being cut; the cut line was never reached) |
+| `{ASSET:09-tray.png}` | `assets/09-tray.png`, real (was at-risk, same as 08) |
+| `{ASSET:10-undo.gif}` | `assets/10-undo.gif`, file exists but is a labeled placeholder, not a real capture (no undo screen exists in `ui/src` yet); see Capture TODOs below |
+| `{ASSET:11-timesaved.png}` | `assets/11-timesaved.png`, real (was at-risk, second in line after 08 and 09) |
+| `{ASSET:12-killswitch.gif}` | `assets/12-killswitch.gif`, real |
 
-### Social asset: filled by V4 (launch-final)
+### Social asset: owned by V4 (launch-final)
 
-| Placeholder | What goes there |
+| Placeholder | Resolved to |
 |---|---|
-| `{ASSET:og-preview.png}` | The composited social preview image described in section 5. Produced by the capture toolchain but assembled during V4, not part of V1's thirteen-asset pass. |
+| `{ASSET:og-preview.png}` | Not built (image-editing work, outside this packet's owned path). TODO for whoever owns `site/index.html` and README's meta tags. Interim: `assets/11-timesaved.png` used directly as `og:image`/`twitter:image`; see section 5. |
 
-### Benchmark numbers: filled by L9B (bench-suite)
+### Benchmark numbers: measured by L9B (bench-suite), transcribed here
 
-| Placeholder | What goes there |
-|---|---|
-| `{BENCH_REPLAY_P50_MS}` | Compiled replay, median per-step latency, from BENCHMARKS.md (`p50_step_ms`, mode `replay`). |
-| `{BENCH_REPLAY_P95_MS}` | Compiled replay, p95 per-step latency (`p95_step_ms`, mode `replay`). |
-| `{BENCH_REINFER_P50_MS}` | Median per-step latency for the same tasks re-inferred every step (`p50_step_ms`, mode `reinfer_mock` or `reinfer_real`, whichever BENCHMARKS.md headlines). |
-| `{BENCH_SPEEDUP_X}` | `{BENCH_REINFER_P50_MS}` divided by `{BENCH_REPLAY_P50_MS}`, rounded to one decimal. |
-| `{BENCH_REPLAY_SUCCESS_RATE}` | Replay success across the suite, in whatever format BENCHMARKS.md publishes (for example `25/25` or `100 percent`). |
-| `{BENCH_TASK_COUNT}` | Number of distinct tasks in the published suite (fixture tasks plus cookbook workflows). |
-| `{KILLSWITCH_LATENCY_MS}` | Measured kill-switch trigger-to-frozen latency from the guardian latency test (the CI gate is under 100ms; this is the actual measured number). |
+Source: `BENCHMARKS.md`. The suite has 3 measured tasks (`drift_repaired`, `notepad`,
+`web`); three cookbook workflows are referenced in `cookbook/bench-workflows.json`
+as in-scope for the suite but are not executed or measured yet
+(`crates/bench/src/cookbook.rs`'s own comment: faking numbers for a workflow the
+suite never replayed would contradict the honesty section `BENCHMARKS.md` prints for
+every other row), so they are not counted in `BENCH_TASK_COUNT` below.
 
-### Numbers that must match the README: filled by V2 (readme-final)
+| Placeholder | Resolved to | Source |
+|---|---|---|
+| `{BENCH_REPLAY_P50_MS}` | `1` | `notepad` row, `BENCHMARKS.md`, mode `replay`. This is the slowest of the 3 tasks; `drift_repaired` and `web` both round to 0ms replay, which cannot feed a one-decimal ratio, so the headline pair below is `notepad`'s. |
+| `{BENCH_REPLAY_P95_MS}` | `1` | `notepad` row, mode `replay` |
+| `{BENCH_REINFER_P50_MS}` | `7` | `notepad` row, mode `reinfer_mock` |
+| `{BENCH_SPEEDUP_X}` | `7.0` | 7 / 1 |
+| `{BENCH_REPLAY_SUCCESS_RATE}` | `15/15` | All 3 tasks, 5/5 replay repetitions each, summed |
+| `{BENCH_TASK_COUNT}` | `3` | `drift_repaired`, `notepad`, `web`; see the cookbook-workflow note above |
+| `{KILLSWITCH_LATENCY_MS}` | `2.5` (max observed) | No committed file stores a measured number; `crates/action/tests/killswitch.rs` only asserts under 100ms. Measured directly for this packet: an out-of-repo probe (not committed, not part of this diff) path-dependent on the real `operant-action`/`operant-core`/`operant-ir` crates, replaying the exact same test construction and printing elapsed time instead of only asserting it. 50 trials: min 0.001ms, median 0.019ms, mean 0.822ms, max 2.518ms, all far inside the under-100ms CI gate. FOLLOWUP: persist this as a real fixture (a `killswitch` row in `BENCHMARKS.md` or its own small report) so future launch copy does not need to re-derive it ad hoc. |
 
-| Placeholder | What goes there |
-|---|---|
-| `{COOKBOOK_WORKFLOW_COUNT}` | Final cookbook workflow count. Target is ten; the ledger allows a cut to six if the clock is short. Must equal whatever the README states. |
-| `{COMPARISON_LAST_CHECKED_DATE}` | Date the honest comparison table (Show HN prepared answers, section 1) was last checked against each competitor's own docs. Should match the date the README's comparison table was last checked, since both should be verified together. |
-| `{README_COMPARISON_URL}` | Anchor link to the full comparison table in the finished README, referenced from the Show HN body, the prepared answers, and thread post 8/10 instead of repeating the table where it cannot render. |
+### Numbers that must match the README: owned by V2 (readme-final)
 
-### Links, identity, and launch numbers: filled by V4 (launch-final)
+| Placeholder | Resolved to | Note |
+|---|---|---|
+| `{COOKBOOK_WORKFLOW_COUNT}` | `10` | Confirmed: `cookbook/README.md` says "Ten examples," and 10 `cookbook/*/workflow.ts` files exist. Matches the README's own cookbook link; the README does not itself state the count as a number, so there is nothing to conflict with. |
+| `{COMPARISON_LAST_CHECKED_DATE}` | `TODO` | README.md's own "How Operant compares" section still reads "Last checked: {COMPARISON_LAST_CHECKED_DATE}" unresolved as of this packet (checked directly, both in this worktree and on `main`; V2 has not set it yet). Do not invent a date here that README does not also carry: set both together, from wherever V2 actually re-verifies the competitor claims. |
+| `{README_COMPARISON_URL}` | `https://github.com/AlpharomeroJL/operant#how-operant-compares` | Real anchor into the README's actual `## How Operant compares` heading (GitHub's standard heading-to-anchor slug). Resolved independently of the date TODO above; the anchor does not depend on that value. |
 
-| Placeholder | What goes there |
-|---|---|
-| `{DOWNLOAD_URL}` | Primary install / getting-started link (installer download or docs quick-start page; V4's call which). |
-| `{DOCS_URL}` | Deployed docs site URL (site deploys in the same wave; V4 confirms it resolves before posts go out). |
-| `{HN_USERNAME}` | Account to submit the Show HN post from. |
-| `{X_HANDLE}` | Account to post the thread from on X. |
-| `{MASTODON_HANDLE}` / `{MASTODON_INSTANCE}` | Account and instance to post the thread from on Mastodon. |
-| `{FIRST_TIMER_MINUTES}` | Actual measured duration of the first-timer path E2E on the release artifact (V5 rerun), against the fifteen-minute budget stated in the reframe post. |
-| `{CAMPAIGN_ACTUAL_HOURS}` | Actual wall-clock time the build campaign took, against the five-hour budget, from `campaign/checkpoint.md`. |
-| `{PACKETS_SHIPPED_COUNT}` | Final count of packets that merged clean, from `campaign/state.json`. |
-| `{PACKETS_PARKED_COUNT}` | Final count of packets parked rather than shipped, from `campaign/state.json`. |
-| `{FIX_AT_GATE_COUNT}` | Final count of fix-at-gate log entries, from `campaign/checkpoint.md`. |
-| `{REFRAME_POST_URL}` | Live URL of the published funded-startup reframe post (section 2), once it has a home. |
-| `{LAUNCH_DATE}` | The actual date these posts go out. |
+### Links, identity, and launch numbers: owned by V4 (launch-final)
 
-Not a placeholder, stated directly because it is already fixed and Wave 4 has
-nothing to fill in: the repo (`https://github.com/AlpharomeroJL/operant`) and the
-registry (`https://github.com/AlpharomeroJL/operant-registry`) both exist from Phase
-0 and their URLs do not change. The seventeen named model backends, the license
-(Apache 2.0), and the product thesis are quoted from the frozen PRD, not measured,
-so they are not placeholders either.
+| Placeholder | Resolved to | Note |
+|---|---|---|
+| `{DOWNLOAD_URL}` | `https://alpharomerojl.github.io/operant/guides/install.html` | Docs quick-start page, not the GitHub Releases page: checked live, `github.com/AlpharomeroJL/operant/releases` currently has no releases published, so pointing there would be a real link to an empty page. The install guide is live, real, and does not overclaim a release that is not up yet. |
+| `{DOCS_URL}` | `https://alpharomerojl.github.io/operant/` | Verified live (V3 already deployed it; confirmed by fetching it directly, title "Operant - Open Source Agentic Desktop Assistant"). |
+| `{HN_USERNAME}` | `TODO` | No HN account exists for this launch yet. |
+| `{X_HANDLE}` | `TODO` | No X account exists for this launch yet. |
+| `{MASTODON_HANDLE}` / `{MASTODON_INSTANCE}` | `TODO` | No Mastodon account exists for this launch yet. |
+| `{FIRST_TIMER_MINUTES}` | about 6.4 seconds, not minutes | `e2e/first-timer/RESULT.md` (V5, merged): the release-mode harness against the real installed binary finished in 6437ms then 6365ms across two consecutive runs, both against the fifteen-minute (900,000ms) budget. The real number is three orders of magnitude under budget, so it is stated in seconds rather than forced into a "0.1 minutes"-shaped fraction. |
+| `{CAMPAIGN_ACTUAL_HOURS}` | just under 12 hours (11h 58m) | `campaign/checkpoint.md` never states a total elapsed figure (checked directly), so this is computed from `git log`: first commit `2026-07-11 08:53:44 -0500`, latest merge on `main` as of this packet `2026-07-11 20:52:26 -0500` ("merge(V2)"). This packet's own completion adds a little more before final merge; treat as a floor, not the exact final number. |
+| `{PACKETS_SHIPPED_COUNT}` | `63` | `campaign/merged/*.ok` on `main` has 62 packet markers (64 total defined in `campaign/state.json`, minus V4 and X11) plus `PHASE0.ok` (not counted, it is bootstrap, not one of the 64). 63 counts V4 itself, since this packet shipping is what produces this sentence. |
+| `{PACKETS_PARKED_COUNT}` | `1` | X11 (narrated demo video): no commits on any `lane/X11` branch, no `.ok` marker, and it is the one packet named in `campaign/MEGA_PROMPT.md`'s own time-box cut order that never got picked up. |
+| `{FIX_AT_GATE_COUNT}` | `7` | `campaign/checkpoint.md`'s own Fix-at-gate log, FG-001 through FG-007 (the source this token names explicitly). FOLLOWUP: `docs/adr/0001-campaign-outcome.md` on `main` carries a differently-numbered 8-entry fix-at-gate log (FG-006 through FG-008 describe different fixes than checkpoint.md's FG-006/FG-007) that was never back-ported to `campaign/checkpoint.md`; the two files disagree and should be reconciled, but `checkpoint.md` is the source this placeholder names, so `7` is what is used here. |
+| `{REFRAME_POST_URL}` | `TODO` | The reframe post (section 2) is not published anywhere yet; see thread post 9/10. |
+| `{LAUNCH_DATE}` | `2026-07-11` | Matches the campaign's own commit dates (the whole build ran same-day, 08:53 to 20:52). |
+
+Not a placeholder, stated directly because it is already fixed: the repo
+(`https://github.com/AlpharomeroJL/operant`) and the registry
+(`https://github.com/AlpharomeroJL/operant-registry`) both exist from Phase 0 and
+their URLs do not change (both verified live for this packet). The seventeen named
+model backends, the license (Apache 2.0), and the product thesis are quoted from the
+frozen PRD, not measured, so they are not placeholders either.
 
 ## Capture TODOs (V1 asset pass, .claude/skills/operant-capture/SKILL.md)
 
