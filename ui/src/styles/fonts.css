@@ -1,0 +1,56 @@
+/*
+ * Bundled font faces (docs/specs/design.md section 2: "UI and display face:
+ * Instrument Sans (bundled, variable)", "Numeric and step data: IBM Plex Mono",
+ * "No font ships that is not bundled").
+ *
+ * Every src below is a LOCAL, vendored asset under ui/src/assets/fonts/, not a
+ * remote webfont: this app is air-gapped (scripts/check_airgap.mjs; the default
+ * configuration must make zero unexpected network calls), so a webfont <link>
+ * or @import from Google Fonts / a CDN is not an option. Vite fingerprints and
+ * bundles each url() below into dist/ at build time, so the fonts load offline
+ * from the packaged app with no network fetch. Both families are SIL OFL 1.1
+ * licensed; the license text ships next to each family's files (see the OFL.txt
+ * in each subfolder).
+ *
+ * Imported by ui/src/styles/base.css. The font-family stacks that reference
+ * these families live in ui/src/theme/tokens.ts (FONT.family / FONT.familyMono),
+ * the single source of truth, mirrored into ui/src/styles/tokens.css.
+ */
+
+/* UI and display face. One variable file spanning the weight (400-700) and
+   width (75-100%) axes; the app paints regular/medium/semibold (400/500/600,
+   tokens.ts FONT.weight) at normal width, all covered by this single face. */
+@font-face {
+  font-family: "Instrument Sans";
+  src: url(../assets/fonts/instrument-sans/InstrumentSans-Variable.woff2) format("woff2");
+  font-weight: 400 700;
+  font-stretch: 75% 100%;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Numeric and step data face (timers, counts, hashes). Three static weights,
+   one per weight the app uses (tokens.ts FONT.weight): regular/medium/semibold. */
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url(../assets/fonts/ibm-plex-mono/IBMPlexMono-Regular.woff2) format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url(../assets/fonts/ibm-plex-mono/IBMPlexMono-Medium.woff2) format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  src: url(../assets/fonts/ibm-plex-mono/IBMPlexMono-SemiBold.woff2) format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}

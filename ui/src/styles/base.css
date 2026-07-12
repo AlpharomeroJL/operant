@@ -1,4 +1,9 @@
 @import "./tokens.css";
+/* Bundled @font-face rules for the two vendored families the type tokens name
+   (Instrument Sans, IBM Plex Mono). Local assets only, no runtime webfont
+   fetch; see ui/src/styles/fonts.css for the air-gap rationale. Must stay above
+   the first non-@import rule below (CSS orders all @import first). */
+@import "./fonts.css";
 
 * {
   box-sizing: border-box;
