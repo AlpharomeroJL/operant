@@ -241,3 +241,17 @@ export const doctorStrings = {
 export const undoEntryStrings = {
   undoThisRun: "Undo this run",
 };
+
+// The shell-level "Save as workflow" entry beside a completed teach run in
+// the flight recorder (docs/specs/ipc-bridge.md's A5 survey: "saveAsWorkflow
+// -> compile"). The wizard's guided task has its own Save as workflow button
+// for onboarding; this is the everyday one, for a teach run started from the
+// running app (the command palette, an empty-state Teach button) once it is
+// done, so "describe it and it does it" can end in a saved workflow every
+// time, not only on the first run. Same one-shared-label pattern as
+// undoEntryStrings above; the verb says exactly what happens
+// (docs/specs/design.md section 4). "workflow" is user-facing vocabulary, not
+// glossary-internal, so this stays out of Advanced mode.
+export const saveWorkflowEntryStrings = {
+  saveAsWorkflow: "Save as workflow",
+};

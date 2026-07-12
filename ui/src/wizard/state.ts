@@ -6,16 +6,21 @@
 // ui/src/settings/state.ts): runs under plain `node --test`; ui/src/main.ts
 // binds it to the page and ui/src/wizard/view.ts renders it.
 //
-// The guided task and the "Just show me a demo" link both run against the
-// bus a live run would use (ui/src/wizard/guidedTask.ts), through an
-// internal ui/src/runViewer/state.ts instance the same way main.ts's own Run
-// screen does, so the two stay in sync for free: the main shell's tray and
-// run viewer see the wizard's own run exactly like any other run, with zero
-// duplicated step-rendering logic.
+// The guided task and the "Just show me a demo" link both teach through the
+// teach client's start_explore (ui/src/teach/client.ts), the same command
+// every teach entry point invokes, and watch it through an internal
+// ui/src/runViewer/state.ts instance the same way main.ts's own Run screen
+// does, so the two stay in sync for free: the main shell's tray and run
+// viewer see the wizard's own run exactly like any other run, with zero
+// duplicated step-rendering logic. Save as workflow then hands that run to
+// the same client's compile_run, so the wizard's guided teach is a full
+// goal -> explore -> watch -> compiled-workflow pass through the one seam,
+// not a wizard-private shortcut.
 
 import type { BusClient } from "../bus/mockClient.ts";
 import { createRunViewer, type RunViewerSnapshot } from "../runViewer/state.ts";
-import { runGuidedTask } from "./guidedTask.ts";
+import { GUIDED_TASK_GOAL, GUIDED_TASK_STEPS, GUIDED_TASK_WINDOW } from "./guidedTask.ts";
+import { createMockTeachClient, type TeachClient } from "../teach/client.ts";
 import { detectProviderFromKey, type Provider } from "./accessKey.ts";
 import {
   startDownload,
@@ -245,6 +250,14 @@ export interface CreateWizardOptions {
   download?: DownloadSimOptions;
   /** Delay between guided-task steps, ms. Tests pass something tiny. */
   guidedTaskStepDelayMs?: number;
+  /**
+   * The teach client that carries the guided task's start_explore and Save as
+   * workflow's compile_run (ui/src/teach/client.ts). Defaults to a mock client
+   * over `bus`; ui/src/main.ts passes the one shared client so the wizard's
+   * teach and the palette's teach go through the same seam. Tests can inject a
+   * fake to assert the exact commands.
+   */
+  teachClient?: TeachClient;
 }
 
 export interface Wizard {
@@ -487,6 +500,7 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
   const vramMinMb = opts.vramMinMb ?? 4000;
   const vramSlowMb = opts.vramSlowMb ?? 6000;
   const downloadOpts = opts.download ?? {};
+  const teachClient = opts.teachClient ?? createMockTeachClient(bus);
 
   let state: InternalState = {
     screen: "welcome",
@@ -644,7 +658,16 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
 
   function beginGuidedTask(demo: boolean): void {
     state.guidedTask.stop?.();
-    const { stop } = runGuidedTask(bus, { demo, stepDelayMs: opts.guidedTaskStepDelayMs });
+    // The guided task is a real start_explore: a goal plus the practice-page
+    // window, the same command the palette submits, with the guided steps as
+    // the mock's canned trajectory (a real core would produce them from the
+    // goal live).
+    const { stop } = teachClient.startExplore({
+      goal: GUIDED_TASK_GOAL,
+      windowProcess: GUIDED_TASK_WINDOW,
+      script: GUIDED_TASK_STEPS,
+      stepDelayMs: opts.guidedTaskStepDelayMs,
+    });
     state = { ...state, screen: "guided_task", guidedTask: { demo, saved: false, stop } };
     emit();
   }
@@ -675,14 +698,10 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
     if (state.screen !== "guided_task" || state.guidedTask.demo || state.guidedTask.saved) return;
     const runSnap = runViewerInternal.getSnapshot();
     if (runSnap.runState !== "done") return;
-    const name = "first-task";
-    bus.publish("workflow.compiled", {
-      name,
-      version: "1.0.0",
-      manifest_path: `workflows/${name}.ts`,
-      dsl_path: `workflows/${name}.ts`,
-      source_run_id: runSnap.runId ?? "",
-    });
+    // The compile handoff: the run just watched becomes a saved workflow
+    // through compile_run, which echoes workflow.compiled so the library picks
+    // it up. A stable name keeps the first workflow easy to find.
+    teachClient.compileRun(runSnap.runId ?? "", { name: "first-task" });
     state = { ...state, guidedTask: { ...state.guidedTask, saved: true }, screen: "schedule" };
     emit();
   }
