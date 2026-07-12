@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates the fixture material ui/src-tauri/tests/updater_fixture.rs reads
+// Generates the fixture material ui/src-tauri/tests/updater_signature.rs reads
 // with include_str!/include_bytes!: a throwaway Ed25519 test keypair (never
 // the real release signing key from release/KEYS.md, and never itself
 // written to disk) signs a fake "artifact" using the exact minisign wire

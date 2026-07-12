@@ -3,6 +3,7 @@
 # keeps the shell's heavy GUI dependency tree (wry, tao, webview2) out of
 # every other lane's `cargo build --workspace`.
 [workspace]
+resolver = "2"
 
 [package]
 name = "operant-shell"
@@ -31,41 +32,25 @@ serde_json = "1"
 tauri-plugin-updater = "2"
 tauri-plugin-notification = "2"
 tokio = { version = "1", features = ["time"] }
-# Only pulled in by `--features fixture-check` (see that feature's doc
-# comment and src/bin/signed_artifact_check.rs's module doc): a fixture HTTP
-# server (tiny_http) and the Url type tauri_plugin_updater's endpoints() take
-# (url is otherwise only a transitive dependency, not nameable directly).
-tiny_http = { version = "0.12", optional = true }
-url = { version = "2", optional = true }
 
-[features]
-# Builds `cargo run --bin signed_artifact_check --features fixture-check`: a
-# real, runnable verification of the full check -> staged download -> Ed25519
-# signature verification round trip against a local fixture HTTP server, plus
-# a tampered-manifest rejection check, using the real tauri_plugin_updater
-# crate end to end (nothing reimplemented or mocked at the network or
-# signature layer).
-#
-# This is a `[[bin]]`, not a `#[test]` under tests/: in this environment,
-# confirmed by direct experiment, any `cargo test`-built binary (an
-# integration test OR an `[[example]]`, i.e. anything landing under
-# target/<profile>/deps/ or target/<profile>/examples/) that calls
-# tauri::Builder::build() crashes at process load with
-# STATUS_ENTRYPOINT_NOT_FOUND. That reproduces with zero updater-specific
-# code (a bare tauri::Builder::default().build(tauri::generate_context!())
-# already triggers it, with no plugins registered at all), while the
-# identical call as a plain `[[bin]]` target (landing directly in
-# target/<profile>/, the same place the real operant-shell.exe lands and
-# runs successfully) does not crash. So this is a pre-existing
-# environment/toolchain characteristic of this sandboxed machine, not a
-# defect in this packet's code; see this lane's return notes for the full
-# isolation trail. Off by default so a normal `cargo build` / `cargo tauri
-# build` never compiles or ships this.
-fixture-check = ["dep:tiny_http", "dep:url", "tokio/rt", "tokio/macros"]
-
-[[bin]]
-name = "signed_artifact_check"
-required-features = ["fixture-check"]
+[dev-dependencies]
+# The `test` feature gives us tauri::test::{mock_builder, mock_context,
+# noop_assets} and MockRuntime, so tests/updater_signature.rs can build a real
+# Tauri app without the Wry runtime. This matters on two counts: the Wry event
+# loop (tao) must be created on the main thread, but cargo runs each test on a
+# worker thread, and a cargo-test binary that links tao at all crashes at load
+# on Windows unless build.rs embeds the Common-Controls v6 manifest (see
+# build.rs and docs/adr/0001-tauri-test-binaries-common-controls-manifest.md).
+# MockRuntime sidesteps the main-thread requirement.
+tauri = { version = "2", features = ["test"] }
+# Used only by tests/updater_signature.rs: a fixture HTTP server (tiny_http)
+# and the Url type tauri_plugin_updater's endpoints() takes (url is otherwise
+# only a transitive dependency, not nameable directly). tokio's rt and macros
+# features back the #[tokio::test] runtime the async check/download flow runs
+# on; the non-test build keeps only the `time` feature above.
+tiny_http = "0.12"
+url = "2"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [profile.release]
 lto = "thin"
