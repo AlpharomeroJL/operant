@@ -1,0 +1,115 @@
+/* Settings (docs/specs/design.md section 3.3): "Sidebar sections: General,
+   Thinking engines (with probe badges), Voice, Privacy ..., Appearance
+   ..., Advanced." Reuses shared design tokens (ui/src/styles/tokens.css)
+   and several already-styled shared classes from ui/src/styles/base.css
+   (op-panel__title, op-button, op-field__label/__input, op-badge,
+   op-settings__section/__section-body/__toggle/__profile-line/__hint, all
+   predating this restyle) for the pieces that already looked right; this
+   file only adds the sidebar nav/layout and the pieces unique to this
+   restyle (probe badges row, appearance swatches, subsection headings). */
+
+.op-settings {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--op-space-6);
+}
+
+.op-settings__nav {
+  flex: 0 0 180px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-1);
+  position: sticky;
+  top: 0;
+}
+
+.op-settings__nav-button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: var(--op-space-2) var(--op-space-3);
+  border-radius: var(--op-radius-control);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--op-color-text-muted);
+  cursor: pointer;
+  transition: background var(--op-motion-base) var(--op-motion-easing);
+}
+
+.op-settings__nav-button:hover {
+  color: var(--op-color-text);
+}
+
+.op-settings__nav-button[aria-pressed="true"] {
+  background: var(--op-color-bg-sunken);
+  border-color: var(--op-color-border);
+  color: var(--op-color-text);
+  font-weight: var(--op-font-weight-medium);
+}
+
+.op-settings__content {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Thinking engines' probe badges (design.md section 3.3): short at-a-glance
+   labels for the same probe result op-settings__profile-line already
+   explains in full sentences just below. */
+.op-settings__badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-2);
+  margin: var(--op-space-2) 0;
+}
+
+/* Appearance's dark/light/system control: three quiet, equal buttons rather
+   than a dropdown, so the current choice is always visible at a glance
+   (matches the header's own op-mode-toggle pressed-state treatment). */
+.op-settings__swatches {
+  display: flex;
+  gap: var(--op-space-2);
+  margin-bottom: var(--op-space-4);
+}
+
+.op-settings__swatch {
+  padding: var(--op-space-2) var(--op-space-4);
+  border-radius: var(--op-radius-control);
+  border: 1px solid var(--op-color-border-strong);
+  background: var(--op-color-bg-elevated);
+  cursor: pointer;
+}
+
+.op-settings__swatch[aria-pressed="true"] {
+  background: var(--op-color-accent);
+  border-color: var(--op-color-accent);
+  color: var(--op-color-accent-text);
+}
+
+/* General groups three previously top-level sections (Emergency stop
+   shortcut, Backup and export, Updates) under one sidebar entry; each keeps
+   its own quiet sub-heading so the grouping reads as three neighboring
+   topics, not one merged block. */
+.op-settings__subsection + .op-settings__subsection {
+  margin-top: var(--op-space-5);
+}
+
+.op-settings__subsection-title {
+  margin: 0 0 var(--op-space-2);
+  font-size: var(--op-font-size-sm);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 720px) {
+  .op-settings {
+    flex-direction: column;
+  }
+
+  .op-settings__nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+    position: static;
+  }
+}

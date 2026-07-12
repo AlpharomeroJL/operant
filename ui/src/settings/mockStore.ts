@@ -30,6 +30,12 @@ export interface SettingsState {
   // bridge to the Rust shell yet, so flipping this here does not yet change
   // what ui/src-tauri actually does. See docs/KNOWN_ISSUES.md.
   autoUpdateEnabled: boolean;
+  // D6 (docs/specs/design.md section 3.3's Settings > Appearance: "dark/
+  // light/system and an accent sync toggle"). Same gap as autoUpdateEnabled
+  // above: this shell has no OS-level accent-color bridge yet, so flipping
+  // this only persists the preference; it does not yet repaint the signal
+  // color from the Windows accent color.
+  accentSyncEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: SettingsState = {
@@ -42,6 +48,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   watchBufferCount: 0,
   lastBackupAt: null,
   autoUpdateEnabled: true,
+  accentSyncEnabled: false,
 };
 
 export interface BackupPayload {

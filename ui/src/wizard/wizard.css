@@ -1,28 +1,81 @@
-/* Wizard-only styles (docs/specs/zero-code.md's five onboarding screens).
-   Reuses the shared design tokens (ui/src/styles/tokens.css) and several
-   already-styled shared classes (op-panel__title, op-button, op-field__input,
+/* Wizard (docs/specs/design.md section 3.3): "a full-window calm layout,
+   one decision per screen, progress as three quiet dots." Reuses shared
+   design tokens (ui/src/styles/tokens.css) and several already-styled
+   shared classes (op-panel__title, op-button, op-field__input,
    op-field__label, op-status, op-step-list, op-step, op-step__sentence) so
    the wizard looks like the rest of the shell without redefining them here;
-   this file only adds the classes unique to the wizard's own screens. */
+   this file only adds the classes unique to the wizard's own screens.
 
-.op-wizard {
-  max-width: 640px;
-  width: 92%;
-  max-height: 88vh;
+   .op-wizard-shell is the fixed, full-viewport takeover (ui/src/main.ts's
+   #op-wizard-backdrop carries this class instead of the small floating
+   .op-modal-backdrop card every other overlay in this shell uses):
+   design.md section 3's Wizard entry deliberately breaks from that
+   floating-card pattern, since first-run setup is the one flow long and
+   sequential enough to deserve the whole window rather than a dialog on
+   top of one. .op-wizard is the plain content column inside it, no longer
+   a bordered card of its own now that nothing dimmed sits behind it. */
+
+.op-wizard-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   overflow-y: auto;
-  padding: var(--op-space-6);
-  border-radius: var(--op-radius-lg);
-  border: 1px solid var(--op-color-border);
-  background: var(--op-color-bg-elevated);
-  /* design.md section 2: dark theme uses hairlines instead of shadows
-     (--op-shadow-modal is `none` there); the border above carries the edge. */
-  box-shadow: var(--op-shadow-modal);
+  background: var(--op-color-bg);
+  padding: var(--op-space-7) var(--op-space-5);
 }
 
-.op-wizard__step {
-  margin: 0 0 var(--op-space-4);
-  font-size: var(--op-font-size-sm);
-  color: var(--op-color-text-muted);
+/* Matches every other backdrop's hidden behavior (ui/src/styles/base.css's
+   .op-modal-backdrop[hidden] rule); kept here instead of appended there so
+   this wizard-only surface never has to touch a file every other lane in
+   the campaign also appends to. One class plus one attribute outranks the
+   plain .op-wizard-shell rule above on specificity alone, so this is safe
+   regardless of source order. */
+.op-wizard-shell[hidden] {
+  display: none;
+}
+
+.op-wizard {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-5);
+}
+
+/* design.md section 3's "three quiet dots." Decorative: the group itself
+   carries the accessible name and value (role="progressbar",
+   ui/src/wizard/view.ts's renderProgressDots), the same pattern the
+   local-model download bar further down already uses for the same reason. */
+.op-wizard__progress {
+  display: flex;
+  justify-content: center;
+  gap: var(--op-space-2);
+}
+
+.op-wizard__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--op-color-border-strong);
+}
+
+.op-wizard__dot[data-state="done"] {
+  background: var(--op-color-text-muted);
+}
+
+/* The one amber light this screen spends (design.md section 1: "active
+   state" is one of the three sanctioned uses of the signal color), never a
+   large fill: an 8px dot, the same size as every other dot here. */
+.op-wizard__dot[data-state="active"] {
+  background: var(--op-color-accent);
+}
+
+.op-wizard__dot[data-state="upcoming"] {
+  background: transparent;
+  border: 1px solid var(--op-color-border-strong);
 }
 
 .op-wizard__screen {

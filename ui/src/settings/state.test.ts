@@ -51,12 +51,13 @@ test("purge zeroes the watched buffer and is visible on the next snapshot", () =
   assert.equal(settings.getSnapshot().state.watchBufferCount, 0);
 });
 
-test("no model connected yet reads as a plain one-liner", () => {
+test("no model connected yet reads as a plain one-liner, with no probe badges", () => {
   const settings = createSettings();
   assert.deepEqual(settings.getSnapshot().modelProfileLines, ["No model connected yet."]);
+  assert.deepEqual(settings.getSnapshot().modelProfileBadges, []);
 });
 
-test("setBackendProfile updates the plain-language profile lines and the model label", () => {
+test("setBackendProfile updates the plain-language profile lines, the probe badges, and the model label", () => {
   const settings = createSettings();
   const profile: BackendProfile = {
     backend_id: "anthropic",
@@ -73,6 +74,18 @@ test("setBackendProfile updates the plain-language profile lines and the model l
   assert.equal(snap.state.modelLabel, "Claude");
   assert.equal(snap.modelProfileLines.length, 4);
   assert.match(snap.modelProfileLines[0], /can see images/);
+  assert.deepEqual(snap.modelProfileBadges, ["Sees the screen", "Takes actions", "About 24,600 words", "Answers as it goes"]);
+});
+
+test("accent sync defaults off and can be toggled on and back off", () => {
+  const settings = createSettings();
+  assert.equal(settings.getSnapshot().state.accentSyncEnabled, false);
+
+  settings.setAccentSync(true);
+  assert.equal(settings.getSnapshot().state.accentSyncEnabled, true);
+
+  settings.setAccentSync(false);
+  assert.equal(settings.getSnapshot().state.accentSyncEnabled, false);
 });
 
 test("chord recording: a full chord saves and stops recording; a bare key does not", () => {

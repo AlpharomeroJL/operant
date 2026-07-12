@@ -189,6 +189,22 @@ export const settingsStrings = {
   backupSectionTitle: "Backup and export",
   updatesSectionTitle: "Updates",
   advancedToggle: "Advanced",
+
+  // D6 (docs/specs/design.md section 3.3): the restyled Settings screen's
+  // own sidebar section labels ("Sidebar sections: General, Thinking
+  // engines (with probe badges), Voice, Privacy ..., Appearance ...,
+  // Advanced."). Appended rather than replacing modelSectionTitle and
+  // advancedToggle above, same append-only rule as dashboardStrings'
+  // placeholderBody elsewhere in this file: modelSectionTitle is superseded
+  // by thinkingEnginesSectionTitle in ui/src/settings/view.ts but stays
+  // defined, unrenamed, since ui/src/palette/quickActions.ts's own settings
+  // entries still read it. voiceSectionTitle/privacySectionTitle already
+  // matched design.md's own wording verbatim, so this screen's sidebar
+  // reuses those two directly instead of adding synonyms.
+  generalSectionTitle: "General",
+  thinkingEnginesSectionTitle: "Thinking engines",
+  appearanceSectionTitle: "Appearance",
+  advancedSectionTitle: "Advanced",
 };
 
 export const doctorStrings = {

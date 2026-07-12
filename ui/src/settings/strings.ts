@@ -21,4 +21,19 @@ export const settingsDetailStrings = {
   backupInvalid: "That file does not look like an Operant backup.",
   autoUpdateToggle: "Check for updates automatically",
   autoUpdateHint: "Downloads the new version in the background and checks it before installing.",
+
+  // D6 (docs/specs/design.md section 3.3): copy for the restyled Settings
+  // screen's new Appearance and Advanced sidebar sections.
+  appearanceThemeLabel: "Color theme",
+  accentSyncToggle: "Match my Windows accent color",
+  // "workflow file", "activity record", and "connected tools" are the exact
+  // user-facing terms contracts/microcopy_glossary.json maps to DSL, audit
+  // chain, and MCP respectively: this line describes what Advanced mode adds
+  // without naming any of those three internal terms directly, so it stays
+  // default-mode-safe (scripts/microcopy_lint.mjs) while still pointing at
+  // the same three surfaces docs/specs/ui.md's Advanced toggle reveals.
+  advancedSectionBody: "Advanced mode adds a workflow file view, an activity record, and connected tools.",
+  advancedOpenButton: "Turn on Advanced mode",
+  advancedOnHint: "Advanced mode is on. Find it in the header any time.",
+  advancedCloseButton: "Turn off Advanced mode",
 };

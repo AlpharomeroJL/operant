@@ -25,6 +25,7 @@ export const setupPathStrings = {
     local: {
       title: "Descarga un cerebro gratuito",
       body: "Obtén un modelo que se ejecuta directamente en esta computadora. Gratis y privado, y continúa funcionando sin internet una vez que se descargue.",
+      sizeLabel: (size: string) => `Esta descarga pesa aproximadamente ${size}.`,
       diskCheckLabel: "Comprobando espacio libre en esta computadora.",
       diskCheckOk: "Tienes suficiente espacio para esto.",
       diskCheckLow: (needed: string) => `Esta computadora está baja en espacio. Libera ${needed} e intenta de nuevo.`,
@@ -128,6 +129,7 @@ export const downloadErrorStrings = {
 export const wizardShellStrings = {
   dialogLabel: "Comenzar con Operant",
   stepLabel: (n: number, total: number) => `Paso ${n} de ${total}`,
+  progressLabel: "Progreso de la configuración",
 };
 
 export const paletteStrings = {

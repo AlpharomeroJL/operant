@@ -12,13 +12,15 @@ import {
   type SettingsState,
   type BackupPayload,
 } from "./mockStore.ts";
-import { describeBackendProfile, type BackendProfile } from "./backendProfile.ts";
+import { describeBackendProfile, backendProfileBadges, type BackendProfile } from "./backendProfile.ts";
 import { chordPartsFromEvent, formatChord, isUsableChord, type ChordKeyEvent } from "./chord.ts";
 import { settingsDetailStrings as D } from "./strings.ts";
 
 export interface SettingsSnapshot {
   state: SettingsState;
   modelProfileLines: string[];
+  /** D6: docs/specs/design.md section 3.3's "probe badges", short at-a-glance labels for the same probe result modelProfileLines already explains in full sentences. Empty when nothing is connected yet. */
+  modelProfileBadges: string[];
   recordingChord: boolean;
   lastBackupLabel: string;
 }
@@ -37,6 +39,7 @@ export interface SettingsView {
   setWatchAndSuggest(on: boolean): void;
   purgeWatchedData(): void;
   setAutoUpdateEnabled(on: boolean): void;
+  setAccentSync(on: boolean): void;
   startChordRecording(): void;
   recordChordKey(event: ChordKeyEvent): RecordChordResult;
   cancelChordRecording(): void;
@@ -62,6 +65,7 @@ export function createSettings(bus?: BusClient, opts: CreateSettingsOptions = {}
     return {
       state: s,
       modelProfileLines: describeBackendProfile(profile),
+      modelProfileBadges: backendProfileBadges(profile),
       recordingChord: recording,
       lastBackupLabel: s.lastBackupAt ? D.backupLastLabel(s.lastBackupAt) : D.backupNever,
     };
@@ -111,6 +115,9 @@ export function createSettings(bus?: BusClient, opts: CreateSettingsOptions = {}
     },
     setAutoUpdateEnabled(on) {
       store.set("autoUpdateEnabled", on);
+    },
+    setAccentSync(on) {
+      store.set("accentSyncEnabled", on);
     },
     startChordRecording() {
       recording = true;

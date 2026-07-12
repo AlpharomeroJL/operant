@@ -48,7 +48,21 @@ export interface WizardMountOptions {
   onFinishSchedule?: () => void;
 }
 
-const SCREEN_ORDER: WizardSnapshot["screen"][] = ["welcome", "setup_path", "mic_check", "guided_task", "schedule"];
+// design.md section 3: "progress as three quiet dots." The five screens
+// group into three calmer phases for this indicator: get set up (welcome,
+// choosing an engine), try it (the mic check and the guided first task),
+// and schedule it. wizardShellStrings.stepLabel's existing "Step {n} of
+// {total}" copy is reused unmodified for the dots' own accessible name and
+// value (renderProgressDots below), just called with PHASE_COUNT (3) in
+// place of the old per-screen total.
+const SCREEN_PHASE: Record<WizardSnapshot["screen"], number> = {
+  welcome: 0,
+  setup_path: 0,
+  mic_check: 1,
+  guided_task: 1,
+  schedule: 2,
+};
+const PHASE_COUNT = 3;
 
 // The wizard has exactly one Escape-worthy affordance: canceling an
 // in-progress local model download (the one operation a person might start
@@ -82,6 +96,32 @@ function screenHeading(text: string): HTMLHeadingElement {
   return h;
 }
 
+/**
+ * design.md section 3's "three quiet dots": one done/active/upcoming dot per
+ * phase (SCREEN_PHASE above), decorative (aria-hidden) since the group as a
+ * whole carries the accessible name and value via role="progressbar", the
+ * same pattern the local-model download bar below already uses for the same
+ * reason (a set of purely visual marks needs one accessible number, not one
+ * announcement per mark).
+ */
+function renderProgressDots(screen: WizardSnapshot["screen"]): HTMLElement {
+  const phase = SCREEN_PHASE[screen];
+  const track = el("div", "op-wizard__progress");
+  track.setAttribute("role", "progressbar");
+  track.setAttribute("aria-label", wizardShellStrings.progressLabel);
+  track.setAttribute("aria-valuemin", "1");
+  track.setAttribute("aria-valuemax", String(PHASE_COUNT));
+  track.setAttribute("aria-valuenow", String(phase + 1));
+  track.setAttribute("aria-valuetext", wizardShellStrings.stepLabel(phase + 1, PHASE_COUNT));
+  for (let i = 0; i < PHASE_COUNT; i++) {
+    const dot = el("span", "op-wizard__dot");
+    dot.dataset.state = i < phase ? "done" : i === phase ? "active" : "upcoming";
+    dot.setAttribute("aria-hidden", "true");
+    track.append(dot);
+  }
+  return track;
+}
+
 function renderWelcome(snap: WizardSnapshot, opts: WizardMountOptions): HTMLElement {
   const root = el("section", "op-wizard__screen");
   root.append(screenHeading(snap.welcome.heading));
@@ -105,6 +145,7 @@ function localCard(card: LocalCardSnapshot, opts: WizardMountOptions): HTMLEleme
   title.id = titleId;
   root.append(title);
   root.append(el("p", "op-wizard-card__body", card.body));
+  root.append(el("p", "op-wizard-card__check", card.sizeLabel));
 
   if (card.diskLabel) root.append(el("p", "op-wizard-card__check", card.diskLabel));
   if (card.compatLabel) root.append(el("p", "op-wizard-card__check", card.compatLabel));
@@ -383,9 +424,7 @@ export function mountWizard(container: HTMLElement, snapshot: WizardSnapshot, op
   root.setAttribute("aria-modal", "true");
   root.setAttribute("aria-label", wizardShellStrings.dialogLabel);
 
-  const stepIndex = SCREEN_ORDER.indexOf(snapshot.screen);
-  const progress = el("p", "op-wizard__step", wizardShellStrings.stepLabel(stepIndex + 1, SCREEN_ORDER.length));
-  root.append(progress);
+  root.append(renderProgressDots(snapshot.screen));
 
   switch (snapshot.screen) {
     case "welcome":

@@ -291,6 +291,23 @@ test("local model download: not enough disk space blocks the flow with the short
   wizard.dispose();
 });
 
+test("local model download: the card always shows the download's own size (design.md section 3.3), regardless of phase", () => {
+  const bus = createMockBusClient();
+  const wizard = createWizard(bus, { diskNeededBytes: 4_000_000_000 });
+  // Before any check has run (diskLabel/compatLabel are still null), sizeLabel is already present.
+  assert.equal(wizard.getSnapshot().setupPath.local.sizeLabel, "This download is about 4 GB.");
+
+  wizard.continueWelcome();
+  wizard.startLocalDownload();
+  assert.equal(
+    wizard.getSnapshot().setupPath.local.sizeLabel,
+    "This download is about 4 GB.",
+    "the size line does not change once a download starts",
+  );
+
+  wizard.dispose();
+});
+
 test("local model download: a compatibility failure blocks the flow and disables Download (hardware cannot change)", () => {
   const bus = createMockBusClient();
   const wizard = createWizard(bus, { vramMb: 1000, vramMinMb: 4000, vramSlowMb: 6000 });
