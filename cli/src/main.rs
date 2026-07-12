@@ -30,6 +30,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("run") => finish(commands::run::run(&args[1..])),
+        Some("capabilities") => finish(commands::capabilities::run(&args[1..])),
         Some("explore") => finish(commands::explore::run(&args[1..])),
         Some("compile") => finish(commands::compile::run(&args[1..])),
         Some("import") => finish(commands::import::run(&args[1..])),
@@ -48,7 +49,7 @@ fn main() -> ExitCode {
         None => {
             println!("operant 1.0.0");
             println!(
-                "usage: operant <run|explore|compile|import|dry-run|list|install|publish|bench|doctor|explain> [args]"
+                "usage: operant <run|capabilities|explore|compile|import|dry-run|list|install|publish|bench|doctor|explain> [args]"
             );
             ExitCode::SUCCESS
         }

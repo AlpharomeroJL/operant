@@ -1,3 +1,4 @@
+pub mod capabilities;
 pub mod compile;
 pub mod doctor;
 pub mod dry_run;
