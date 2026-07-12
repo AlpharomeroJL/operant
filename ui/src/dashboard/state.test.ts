@@ -3,10 +3,21 @@ import assert from "node:assert/strict";
 import { createMockBusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_REPLAY, RUN_MODE_EXPLORE } from "../bus/types.ts";
 import { createDashboard, SPARKLINE_WIDTH, SPARKLINE_HEIGHT } from "./state.ts";
+import type { DashboardSource } from "./source.ts";
 import { createMockRegistry } from "../library/mockRegistry.ts";
 import { commonStrings, dashboardStrings } from "../strings/default.ts";
 import { dashboardCopyStrings } from "./strings.ts";
 import { WEEKLY_METRICS_FIXTURE } from "./mockMetrics.ts";
+
+/** A fake real data source: empty by default (the honest empty state), overridable per method. */
+function fakeSource(over: Partial<DashboardSource> = {}): DashboardSource {
+  return {
+    getWeeklyMetrics: async () => [],
+    getRecentRuns: async () => [],
+    getUpcomingRuns: async () => [],
+    ...over,
+  };
+}
 
 test("hero line and sparkline render from the fixture metrics: design.md's own '3.2 hours this week' example", () => {
   const bus = createMockBusClient();
@@ -253,4 +264,150 @@ test("subscribe notifies on a new recent run; dispose stops both the bus subscri
   bus.publish("run.started", { run_id: "r2", goal: "run", mode: RUN_MODE_REPLAY, workflow_name: "backup-photos" });
   bus.publish("run.completed", { run_id: "r2", outcome: "ok", steps: 1, wall_ms: 10 });
   assert.equal(notified, before);
+});
+
+// --- B6 real data source (contracts/ipc.md get_metrics / list_runs / get_run / list_triggers) ---
+
+test("real source: hero, sparkline, Up next, and Recent runs all come from the source, not the ./mockMetrics fixtures", async () => {
+  const bus = createMockBusClient();
+  const source = fakeSource({
+    getWeeklyMetrics: async () => [
+      { week: "a", minutesSaved: 30 },
+      { week: "b", minutesSaved: 120 },
+    ],
+    getRecentRuns: async () => [{ runId: "run_1", title: "Copy the invoice total", outcome: "ok", steps: 4, completedAtMs: 1_000_000 }],
+    getUpcomingRuns: async () => [{ workflowName: "weekly-report-email", whenLabel: "tomorrow at 9 am" }],
+  });
+  // An empty registry: Up next falls back to the raw workflow name, proving the source (not a fixture) drove the row.
+  const dashboard = createDashboard(bus, { source, now: () => 1_000_000, registry: createMockRegistry([]) });
+  await dashboard.refresh();
+
+  const snap = dashboard.getSnapshot();
+  assert.deepEqual(snap.sparklineValues, [30, 120]);
+  assert.equal(snap.heroLine, "Operant saved you 2 hours this week");
+  assert.equal(snap.upNext.length, 1);
+  assert.equal(snap.upNext[0].title, "weekly-report-email");
+  assert.equal(snap.upNext[0].whenLabel, "tomorrow at 9 am");
+  assert.equal(snap.recentRuns.length, 1);
+  assert.equal(snap.recentRuns[0].title, "Copy the invoice total");
+  assert.equal(snap.recentRuns[0].outcomeLabel, "Run complete, 4 steps");
+  assert.equal(snap.recentRuns[0].whenLabel, "just now");
+  assert.equal(snap.empty, false);
+  dashboard.dispose();
+});
+
+test("real source with nothing recorded: honest EMPTY hero and empty state, never the fixture's 3.2 hours", async () => {
+  const bus = createMockBusClient();
+  const dashboard = createDashboard(bus, { source: fakeSource(), now: () => 1_000_000 });
+  await dashboard.refresh();
+
+  const snap = dashboard.getSnapshot();
+  assert.equal(snap.heroLine, dashboardStrings.heroEmpty);
+  assert.notEqual(snap.heroLine, "Operant saved you 3.2 hours this week");
+  assert.deepEqual(snap.sparklineValues, []);
+  assert.equal(snap.sparklinePoints.length, 0);
+  assert.equal(snap.sparklineSummary, dashboardStrings.sparklineEmpty);
+  assert.equal(snap.upNext.length, 0);
+  assert.equal(snap.recentRuns.length, 0);
+  assert.equal(snap.empty, true);
+  dashboard.dispose();
+});
+
+test("real source: an empty Up next (list_triggers not_implemented) shows the 'nothing scheduled' state, with Recent runs still present", async () => {
+  const bus = createMockBusClient();
+  const source = fakeSource({
+    getWeeklyMetrics: async () => [{ week: "a", minutesSaved: 60 }],
+    getRecentRuns: async () => [{ runId: "r1", title: "Back up photos", outcome: "ok", steps: 2, completedAtMs: 1_000_000 }],
+    getUpcomingRuns: async () => [], // the adapter already turned not_implemented into []
+  });
+  const dashboard = createDashboard(bus, { source, now: () => 1_000_000 });
+  await dashboard.refresh();
+
+  const snap = dashboard.getSnapshot();
+  assert.equal(snap.upNext.length, 0);
+  assert.equal(snap.upNextEmptyLabel, "Nothing scheduled yet.");
+  assert.equal(snap.recentRuns.length, 1);
+  // Recent runs present, so this is not the whole-dashboard first-run invite.
+  assert.equal(snap.empty, false);
+  dashboard.dispose();
+});
+
+test("real source: a metrics-only dashboard (runs recorded, nothing scheduled or recent) still shows the real hero, never fixtures", async () => {
+  const bus = createMockBusClient();
+  const source = fakeSource({ getWeeklyMetrics: async () => [{ week: "this week", minutesSaved: 90 }] });
+  const dashboard = createDashboard(bus, { source, now: () => 1_000_000 });
+  await dashboard.refresh();
+
+  const snap = dashboard.getSnapshot();
+  assert.equal(snap.heroLine, "Operant saved you 1.5 hours this week");
+  assert.deepEqual(snap.sparklineValues, [90]);
+  dashboard.dispose();
+});
+
+test("dev fallback: with no source the dashboard uses ./mockMetrics fixtures and refresh() is a no-op", async () => {
+  const bus = createMockBusClient();
+  const dashboard = createDashboard(bus);
+  const before = dashboard.getSnapshot();
+  assert.equal(before.heroLine, "Operant saved you 3.2 hours this week");
+
+  await dashboard.refresh(); // no source: must not change anything
+  const after = dashboard.getSnapshot();
+  assert.equal(after.heroLine, before.heroLine);
+  assert.deepEqual(after.sparklineValues, WEEKLY_METRICS_FIXTURE.map((m) => m.minutesSaved));
+  assert.equal(after.upNext.length, 2); // the fixture Up next
+  dashboard.dispose();
+});
+
+test("real source: a run completing live on the bus prepends to the seeded Recent runs, deduped by run id", async () => {
+  const bus = createMockBusClient();
+  const source = fakeSource({
+    getRecentRuns: async () => [{ runId: "seed1", title: "Seeded run", outcome: "ok", steps: 4, completedAtMs: 900_000 }],
+  });
+  const registry = createMockRegistry(); // default seed so titleFor resolves the live run's name
+  const dashboard = createDashboard(bus, { source, registry, now: () => 1_000_000 });
+  await dashboard.refresh();
+  assert.equal(dashboard.getSnapshot().recentRuns.length, 1);
+
+  bus.publish("run.started", { run_id: "live1", goal: "run", mode: RUN_MODE_REPLAY, workflow_name: "backup-photos" });
+  bus.publish("run.completed", { run_id: "live1", outcome: "ok", steps: 2, wall_ms: 100 });
+  const afterLive = dashboard.getSnapshot();
+  assert.equal(afterLive.recentRuns.length, 2);
+  assert.equal(afterLive.recentRuns[0].workflowName, "backup-photos"); // newest first
+
+  // A live completion for the already-seeded run must replace it, not duplicate it.
+  bus.publish("run.started", { run_id: "seed1", goal: "run", mode: RUN_MODE_REPLAY, workflow_name: "copy-invoice-total" });
+  bus.publish("run.completed", { run_id: "seed1", outcome: "ok", steps: 4, wall_ms: 100 });
+  const deduped = dashboard.getSnapshot();
+  assert.equal(deduped.recentRuns.length, 2, "seed1 is replaced in place, not added a second time");
+  assert.equal(deduped.recentRuns.filter((r) => r.title === "Seeded run").length, 0, "the seeded row is superseded by its live completion");
+  dashboard.dispose();
+});
+
+test("refresh: a newer refresh supersedes an older one still in flight (latest query wins)", async () => {
+  const bus = createMockBusClient();
+  let release: () => void = () => {};
+  const slowFirst = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let call = 0;
+  const source = fakeSource({
+    getWeeklyMetrics: async () => {
+      call += 1;
+      if (call === 1) {
+        await slowFirst; // hold the first load open until the second has resolved
+        return [{ week: "stale", minutesSaved: 999 }];
+      }
+      return [{ week: "fresh", minutesSaved: 60 }];
+    },
+  });
+  const dashboard = createDashboard(bus, { source, now: () => 1_000_000 });
+
+  const first = dashboard.refresh(); // token 1, blocked
+  await dashboard.refresh(); // token 2, resolves now
+  assert.deepEqual(dashboard.getSnapshot().sparklineValues, [60]);
+
+  release();
+  await first; // token 1 finishes but is stale, so it must not overwrite token 2
+  assert.deepEqual(dashboard.getSnapshot().sparklineValues, [60]);
+  dashboard.dispose();
 });
