@@ -1,10 +1,10 @@
 # Operant Roadmap
 
-Version numbers are release milestones, not semver majors. v1.0.0 is the output of the single autonomous build campaign (campaign/MEGA_PROMPT.md). Later versions exist both as a real plan and as architectural pressure: nothing in them may require breaking a v1 contract.
+Version numbers are release milestones, not semver majors. v1.0.0 is the initial release. Later versions exist both as a real plan and as architectural pressure: nothing in them may require breaking a v1 contract.
 
 ---
 
-## v1.0.0: shipped at end of the build campaign
+## v1.0.0: initial release
 
 **Hook: "Explore once with a model. Replay forever without one."**
 

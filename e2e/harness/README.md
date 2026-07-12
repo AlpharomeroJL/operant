@@ -15,10 +15,9 @@ Playwright config or an ffmpeg pipeline per feature.
   with ffmpeg's `gdigrab` device, since Playwright cannot see windows
   outside its own browser.
 - **GIF pipeline**: `src/gif.mjs` runs ffmpeg's two-pass palettegen recipe
-  (palette pass, then paletteuse) documented in
-  `.claude/skills/operant-capture/SKILL.md`: max width 800px, 12 fps, under
-  8 MB. Callers pass any source video (browser recording or the native
-  `gdigrab` capture) and get a checked GIF back.
+  (palette pass, then paletteuse): max width 800px, 12 fps, under 8 MB.
+  Callers pass any source video (browser recording or the native `gdigrab`
+  capture) and get a checked GIF back.
 
 ## Run
 

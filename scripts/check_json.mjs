@@ -1,7 +1,7 @@
 // Validates that every contract schema is a parseable JSON Schema and every
 // fixture JSON parses. Deep schema validation of fixtures against schemas is
 // covered by the Rust round-trip tests (operant-ir); this is the fast structural
-// gate that catches malformed contract edits before a lane builds against them.
+// gate that catches malformed contract edits before code builds against them.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
@@ -22,7 +22,7 @@ function walk(dir, out = []) {
 let failed = 0;
 let count = 0;
 
-// 1. All contract schemas parse and declare $schema.
+// All contract schemas parse and declare $schema.
 for (const f of walk("contracts")) {
   count++;
   let doc;
@@ -39,15 +39,6 @@ for (const f of walk("contracts")) {
       failed++;
     }
   }
-}
-
-// 2. Campaign state parses (resume protocol depends on it).
-try {
-  JSON.parse(readFileSync("campaign/state.json", "utf8"));
-  count++;
-} catch (e) {
-  console.error(`check-json: campaign/state.json invalid: ${e.message}`);
-  failed++;
 }
 
 if (failed) {

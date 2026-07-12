@@ -2,7 +2,7 @@
 
 **Operant**: an open source, local-first agentic desktop assistant. It perceives the screen through accessibility trees and vision, acts through synthesized input and app adapters, plans with a pluggable LLM (local or API key), speaks and listens through a bundled local voice stack, and, critically, compiles every successful run into a deterministic, invariant-gated script that replays without inference.
 
-Owner: Josef Long. License: Apache 2.0. Free and open source. This PRD describes the full product; section 9 defines the launch cut (v1.0.0), which ships at the end of a single autonomous build campaign. Horizon versions (v10, v50) exist to force the architecture wide enough that nothing built at launch is ever rewritten.
+Owner: Josef Long. License: Apache 2.0. Free and open source. This PRD describes the full product; section 9 defines the launch cut (v1.0.0). Horizon versions (v10, v50) exist to force the architecture wide enough that nothing built at launch is ever rewritten.
 
 ---
 
@@ -130,7 +130,7 @@ North star: compiled workflow executions per week. Activation: percent of new us
 
 Compose with the perception giants (UI-TARS-class grounders are a supported backend, not a rival) and differentiate on the compilation and invariant layer, Windows-native depth, offline voice, radical local privacy, and the published determinism benchmark. Against Simular: the same neuro-symbolic thesis, open source, local, free. Distribution runs through the founder's build-in-public engine; every ADR is a post, the benchmark is the launch story.
 
-## 9. Launch cut: v1.0.0 (ships at end of the build campaign)
+## 9. Launch cut: v1.0.0
 
 Everything above EXCEPT: macOS/Linux perception implementations (traits compile, backends stubbed), Python DSL emission (TS only at launch), wake word if squeezed (push-to-talk always), commerce (free product; the Pro/teams stack is a flagged skeleton), registry moderation tooling (signing and local approval only). Explicitly IN for v1.0.0: the entire zero-code layer (onboarding wizard, plain-English workflow view, demo mode, template gallery, human error handling, doctor, tour), the guardian set (kill switch, undo journal, anchor redaction), the insight set (time-saved ledger, opt-in watch-and-suggest v0), workflow composition v0, the Playwright importer, full drift repair loop, benchmark harness with published numbers, registry v0 with `operant install` and in-app installs, 10-workflow cookbook, deployed docs site, MCP both directions, voice, vision fallback with anchor replay, all adapters in FR-A2, signed installer with live updater, the open source hygiene kit, the TTS-narrated demo video, and the README capture suite. The first-timer path E2E is a release blocker equal in rank to the safety suite. The browser playground and i18n scaffold ride along if the clock allows (they lead the ledger).
 

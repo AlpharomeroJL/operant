@@ -67,6 +67,6 @@ Package layout and Playwright config mirror `e2e/harness`: fixed default
 port, single worker, `postinstall` installs the Chromium browser. Screenshot
 capture into `.output/` follows the same convention as
 `e2e/harness/tests/webapp.spec.mjs`. `e2e/harness`'s GIF pipeline
-(`src/gif.mjs`) is available for richer capture later (see
-`.claude/skills/operant-capture/SKILL.md`) but is not wired in here: it needs
-`ffmpeg` on `PATH`, and this suite's pass/fail bar does not depend on it.
+(`src/gif.mjs`) is available for richer capture later but is not wired in
+here: it needs `ffmpeg` on `PATH`, and this suite's pass/fail bar does not
+depend on it.

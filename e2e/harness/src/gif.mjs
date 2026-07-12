@@ -1,9 +1,7 @@
-// ffmpeg two-pass palettegen GIF pipeline (see
-// .claude/skills/operant-capture/SKILL.md for the recipe this implements):
-// max width 800px, under 8 MB, 12 fps. Pass 1 builds an optimized palette
-// from the source video; pass 2 applies it. Two passes give noticeably
-// cleaner color than a single-pass gif encode, which matters for UI
-// screenshots (text edges, thin borders).
+// ffmpeg two-pass palettegen GIF pipeline: max width 800px, under 8 MB, 12 fps.
+// Pass 1 builds an optimized palette from the source video; pass 2 applies it.
+// Two passes give noticeably cleaner color than a single-pass gif encode, which
+// matters for UI screenshots (text edges, thin borders).
 
 import { execFile } from 'node:child_process';
 import { mkdtemp, rm, stat } from 'node:fs/promises';

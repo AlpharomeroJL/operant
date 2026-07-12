@@ -2,8 +2,8 @@
 
 Alt text for the thirteen README/LAUNCH.md capture assets in this folder.
 Use these verbatim as the `alt` attribute (HTML) or the `[alt text]` part of
-a markdown image link. See `.claude/skills/operant-capture/SKILL.md` and
-`LAUNCH.md`'s asset ledger (section 6) for what each asset is for.
+a markdown image link. See the capture recipe and `LAUNCH.md`'s asset ledger
+(section 6) for what each asset is for.
 
 | File | Real or placeholder | Alt text |
 |---|---|---|

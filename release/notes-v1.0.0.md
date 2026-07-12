@@ -51,6 +51,6 @@ OS signature.
 This build ships the full v1.0.0 launch cut. A few items are fixture or mock verified in
 CI (vision and voice grounding), the demo video is captioned rather than voiced (the voice
 sidecar ships a mock TTS), and one launch asset is a labeled placeholder. Known issues and
-the full outcome are documented in `docs/adr/0001-campaign-outcome.md`.
+the full outcome are documented in `CHANGELOG.md` and `docs/KNOWN_ISSUES.md`.
 
 Apache-2.0. Docs: https://alpharomerojl.github.io/operant/

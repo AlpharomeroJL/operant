@@ -37,10 +37,9 @@ pub enum FsError {
 
 /// Where a trashed file goes. `delete` never unlinks outright: it always
 /// goes through this seam so the file stays recoverable. The real OS
-/// Recycle Bin binding plus the undo journal itself belongs to the X2
-/// backlog lane (`campaign/MEGA_PROMPT.md`: "recycle-bin semantics...
-/// undo_journal table"); this trait is what that lane implements against.
-/// [`SoftTrash`] is the default, dependency-free backend used until then.
+/// Recycle Bin binding plus the undo journal itself use this trait:
+/// recycle-bin semantics with an undo_journal table for recovery.
+/// [`SoftTrash`] is the default, dependency-free backend.
 pub trait TrashStrategy: Send + Sync {
     /// Move `path` out of place. Returns where it went, when the backend
     /// can report a location (a real OS recycle bin often cannot).

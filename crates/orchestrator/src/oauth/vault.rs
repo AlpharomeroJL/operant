@@ -4,9 +4,8 @@
 //! test in this crate uses; [`WindowsCredentialVault`] is the real thing,
 //! behind the off-by-default `real-vault` Cargo feature so the default
 //! build never links the `windows` crate, matching `operant-action`'s
-//! `real-input` and this crate's own `real-transport` convention
-//! (`campaign/checkpoint.md`: "Heavy platform deps (`windows` crate) are
-//! added per-crate behind a feature").
+//! `real-input` and this crate's own `real-transport` convention: heavy
+//! platform deps (`windows` crate) are added per-crate behind a feature.
 
 use std::collections::HashMap;
 use std::sync::Mutex;

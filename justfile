@@ -1,6 +1,8 @@
-# Operant campaign command surface.
-# `just ci` is the merge gate. Lanes run `just gate <id>`; the orchestrator runs
-# `just gate <id>` itself before merging (trust nothing a command can check).
+# Operant command surface.
+# `just verify` is the full local gate. There is no hosted CI: this machine is
+# the only gate, so `just verify` must be green before every push. Run
+# `just setup` once to install the pre-push hook that enforces it. `just ci` is
+# the core build, test, and lint subset that `verify` builds on.
 
 set windows-shell := ["powershell.exe", "-NoProfile", "-Command"]
 
@@ -10,9 +12,27 @@ export CARGO_TARGET_DIR := env_var_or_default("CARGO_TARGET_DIR", "D:/dev/operan
 default:
     @just --list
 
-# Full CI: the machine-enforced gate. Green here means mergeable.
+# Core gate: workspace build, tests, and the content linters. `just verify` is
+# the full gate that adds the determinism proof and the UI suite on top.
 ci: build test check-json check-emdash check-microcopy check-airgap
     @echo "CI GREEN"
+
+# The full local gate. There is no hosted CI, so this must be green before every
+# push; the pre-push hook installed by `just setup` enforces it. As new checks
+# land (raw-hex token lint, visual-regression diff, benchmark-regression
+# threshold) they are added to this recipe's dependency list.
+verify: ci golden ui
+    @echo "VERIFY GREEN"
+
+# One-time developer setup: point git at the committed hooks so the pre-push hook
+# runs `just verify` and blocks a push that is not green, then check the toolchain.
+setup:
+    git config core.hooksPath hooks
+    @echo "pre-push hook installed via core.hooksPath = hooks"
+    just --version
+    cargo --version
+    node --version
+    @echo "setup OK: run 'just verify' before pushing"
 
 build:
     cargo build --workspace
@@ -39,14 +59,6 @@ check-airgap:
 # Markdown lint (best-effort; requires markdownlint-cli via npx, skipped offline).
 check-markdown:
     -npx --no-install markdownlint-cli "**/*.md" --ignore node_modules --ignore target
-
-# Create an isolated worktree for a lane. Orchestrator calls this before dispatch.
-lane id:
-    git worktree add lanes/{{id}} -b lane/{{id}} main
-
-# Run a lane's gate. Delegates to the lane's own bar script if present, else full CI.
-gate id:
-    @if (Test-Path "scratch/lanes/{{id}}/gate.ps1") { powershell -NoProfile -File "scratch/lanes/{{id}}/gate.ps1" } else { just ci }
 
 # Golden path: the standalone e2e crate proving explore -> compile -> replay with zero model calls.
 golden:

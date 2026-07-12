@@ -1,0 +1,13 @@
+#!/bin/sh
+# Operant pre-push gate.
+#
+# There is no hosted CI for this project: this machine is the only gate. This
+# hook blocks a push unless the full local suite (`just verify`) is green.
+#
+# Installed by `just setup`, which sets git's core.hooksPath to this directory.
+# To push in an emergency despite a red gate, a human can pass --no-verify, but
+# that is a deliberate override, not the norm.
+set -e
+
+echo "pre-push: running 'just verify' (local gate; no hosted CI) ..."
+just verify

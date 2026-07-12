@@ -1,6 +1,6 @@
 # Contract: Bus Events
 
-The typed, versioned pub/sub vocabulary of the Operant runtime (C1). Every component speaks only these events. Append-only during the campaign: new topics and new OPTIONAL payload fields may be added; nothing is renamed or removed. Serialization is JSON via serde.
+The typed, versioned pub/sub vocabulary of the Operant runtime (C1). Every component speaks only these events. Append-only in released versions: new topics and new OPTIONAL payload fields may be added; nothing is renamed or removed. Serialization is JSON via serde.
 
 ## Envelope
 
@@ -114,7 +114,7 @@ Subscribers match on exact topic or prefix (`run.*`). Delivery is in-process ord
 
 ## Versioning rules
 
-1. The envelope `v` bumps only on envelope shape change (never during the campaign).
+1. The envelope `v` bumps only on envelope shape change (never in a released version).
 2. Payload evolution: add optional fields only. A consumer must ignore unknown fields.
 3. New topics may be added freely; consumers subscribe by explicit topic or prefix and must not crash on unknown topics.
 4. Breaking need: ADR, envelope version bump, fixtures in both versions (per operant-contracts skill).

@@ -1,6 +1,6 @@
 # Contract: Model Backend
 
-The single trait every model provider implements (C6), and the quirk-table format that parameterizes the one OpenAI-compatible client. Append-only during the campaign.
+The single trait every model provider implements (C6), and the quirk-table format that parameterizes the one OpenAI-compatible client. Append-only in released versions.
 
 ## Trait
 

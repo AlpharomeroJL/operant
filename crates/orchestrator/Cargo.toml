@@ -59,9 +59,9 @@ sha2 = "0.10"
 # Real Windows Credential Manager (oauth::vault::WindowsCredentialVault).
 # Optional so the default build (and every test in this crate, which only
 # ever constructs oauth::MockVault) never has to compile it. Mirrors
-# operant-action's `real-input` feature and this crate's own
-# `real-transport` above (campaign/checkpoint.md: "Heavy platform deps
-# (`windows` crate) are added per-crate behind a feature").
+# operant-action's `real-input` feature and this crate's own `real-transport`
+# above: heavy platform deps (`windows` crate) are added per-crate behind a
+# feature.
 windows = { version = "0.58", optional = true, features = [
   "Win32_Foundation",
   "Win32_Security_Credentials",

@@ -10,16 +10,14 @@ Operant is a Rust workspace with the following structure:
 - `contracts/` - versioned schemas, fixtures, and glossaries
 - `cookbook/` - example workflows
 - `docs/` - product documentation
-- `campaign/` - build orchestration (see `RESUME.md`)
 
 For the product vision and architecture, start with:
 - `docs/PRD.md` - full product specification and requirements
 - `docs/ARCHITECTURE.md` - component breakdown, data model, trade-offs
-- `campaign/RESUME.md` - how to continue multi-session work safely
 
 ## Building and testing
 
-The merge gate is `just ci`, which runs:
+There is no hosted CI for this project: your machine is the gate. Run `just setup` once after cloning to install a pre-push hook that enforces it. The full local gate is `just verify` (the core checks plus the determinism proof and the UI suite). `just ci` is the core subset it builds on, and runs:
 
 ```powershell
 just build
@@ -34,10 +32,10 @@ To build locally:
 ```powershell
 cargo build --workspace
 cargo test --workspace
-just ci                   # Full gate before you push
+just verify               # full local gate: ci + golden + ui
 ```
 
-All commits must pass `just ci`. The CI check runs against every PR.
+Every push must be green on `just verify`. The pre-push hook installed by `just setup` enforces this, so nothing reaches the remote unverified.
 
 ## The contract-first rule
 
@@ -47,7 +45,7 @@ Operant speaks a versioned, typed vocabulary. Everything that crosses a componen
 - `microcopy_glossary.json` - internal terms mapped to user-facing language
 - `fixtures/` - sample data and test cases that win over generated output
 
-**Append-only invariant**: once a contract exists, only new optional fields may be added. Nothing is renamed or removed. This lets lanes work in parallel without merge conflicts. When you touch a contract, coordinate with the campaign lead.
+**Append-only invariant**: once a contract exists, only new optional fields may be added. Nothing is renamed or removed. This lets parallel work proceed without merge conflicts. When you touch a contract, call it out clearly in your pull request.
 
 **Fixtures win**: test output must match versioned fixtures exactly. If you change behavior that affects a fixture, regenerate with `just fixtures` and commit both the code change and the updated fixture.
 
@@ -90,16 +88,15 @@ When you submit a PR:
 
 The PR description can reference relevant sections of PRD.md or ARCHITECTURE.md.
 
-## Contributing as a lane
+## Working in parallel
 
-Operant uses `git worktree` lanes for parallel contribution. The campaign orchestration (`campaign/MEGA_PROMPT.md` and `campaign/frontier.mjs`) dispatches work into isolated lanes on dedicated branches. Each lane:
-1. Branches from `main` on `lane/<id>`
-2. Works in a worktree at `lanes/<id>/`
-3. Gates with `just gate <id>` before merge
-4. Merges back to `main` only when green
-5. Marks completion with `campaign/merged/<id>.ok`
+`main` is always buildable, which is what makes parallel work safe. A typical change:
+1. Branch from `main`.
+2. If you want an isolated checkout, use a `git worktree` (optional).
+3. Run `just verify` and get it green.
+4. Open a pull request; merge back to `main` only when green.
 
-To understand this flow, see `campaign/RESUME.md`. Lanes make parallel work safe because `main` is always buildable.
+Keeping `main` green at all times is the rule that lets several changes proceed at once without stepping on each other.
 
 ## Reporting issues and questions
 
@@ -136,7 +133,6 @@ Look for issues marked `good-first-issue` or reach out in Discussions.
 
 - Product: `docs/PRD.md`, `docs/ARCHITECTURE.md`
 - Build: `justfile`, `scripts/`
-- Campaign orchestration: `campaign/RESUME.md`, `campaign/MEGA_PROMPT.md`
 - Open a Discussion or comment on an issue
 
 Thank you for building with us.

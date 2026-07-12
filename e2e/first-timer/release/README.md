@@ -1,9 +1,9 @@
-# First-Timer Golden Path E2E, Release Target (V5 / NFR-7)
+# First-Timer Golden Path E2E, Release Target (NFR-7)
 
 Reruns `e2e/first-timer`'s golden path (see the parent `README.md`) against the
-actual installed release binary instead of the Vite dev server, per
-`campaign/MEGA_PROMPT.md`'s V5 packet: "rerun E1C against the RELEASE
-artifact (installed via the signed installer)."
+actual installed release binary instead of the Vite dev server to validate the
+first-timer experience against the released build: download the installer,
+install it, and use the app.
 
 ## Why this is a separate script, not a Playwright config change
 
@@ -66,10 +66,9 @@ comment block at the top of `run.mjs` for the full checkpoint list.
 
    `run.mjs` does not install anything itself; it only drives whatever is
    already at `OPERANT_APP_PATH` (default:
-   `%LOCALAPPDATA%\Programs\Operant\operant-shell.exe`). This mirrors this
-   packet's real intent: prove the path a first-timer actually takes
-   (download the signed installer, run it, then use the app), not a dev
-   build wearing the release path's clothes.
+   `%LOCALAPPDATA%\Programs\Operant\operant-shell.exe`). This verifies the
+   real first-timer flow: download the signed installer, run it, and use the
+   app, not a dev build wearing the release path's clothes.
 
    Uninstalling afterward (`"%LOCALAPPDATA%\Programs\Operant\uninstall.exe" /CURRENTUSER /S`)
    does not hit the same wall: verified in this lane, it runs non-elevated,

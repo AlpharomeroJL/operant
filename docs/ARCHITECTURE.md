@@ -1,5 +1,5 @@
 # Operant Architecture
-Companion to PRD.md. Components map 1:1 to build lanes and packets in campaign/MEGA_PROMPT.md. Everything in this document ships in v1.0.0 unless marked [stub at launch].
+Companion to PRD.md. Everything in this document ships in v1.0.0 unless marked [stub at launch].
 ---
 ## 1. System overview
 
@@ -138,7 +138,7 @@ Trust hardware for a desktop agent, all implemented below the planner so no mode
 ### C14. SDK, CLI, MCP (both directions)
 TypeScript SDK (the DSL runtime, semver from day one). CLI: `operant run|compile|dry-run|list|install|bench`. MCP server exposes compiled workflows as tools to any MCP client; MCP client registers external MCP servers as C4 adapters.
 ### C15. Release, updater, docs site
-Signed single-source NSIS installer (never dual-source; ADR-0194 lineage). Ed25519-signed update manifests, endpoint live in release builds with a CI assertion (ADR-0193 lineage). Reproducible build doc, SBOM. Docs site built from `docs/` and deployed to GitHub Pages in the campaign. Commerce (Stripe, license keys, Resend) exists as a feature-flagged worker skeleton only; the product is free.
+Signed single-source NSIS installer (never dual-source; ADR-0194 lineage). Ed25519-signed update manifests, endpoint live in release builds with a CI assertion (ADR-0193 lineage). Reproducible build doc, SBOM. Docs site built from `docs/` and deployed to GitHub Pages. Commerce (Stripe, license keys, Resend) exists as a feature-flagged worker skeleton only; the product is free.
 ### C16. Registry v0
 Git-backed index repo of signed workflow manifests. `operant install <name>`: fetch, verify Ed25519 signature against the publisher key, stage with grants displayed, require local approval; unsigned or unverified workflows run in dry-run only. Publishing: `operant publish` produces a signed manifest PR. Moderation and web of trust are post-launch.
 ### C17. Benchmark harness
