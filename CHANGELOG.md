@@ -25,6 +25,14 @@ screen, and a working auto-updater. See `docs/specs/design.md`.
   project's own release server is still in progress.
 - A correction made in the middle of a run now folds into the saved workflow the
   same way a correction recorded ahead of time does.
+- The uninstaller's "remove saved data" prompt now clears the real per-user data
+  directories (`%APPDATA%\dev.operant.shell` and
+  `%LOCALAPPDATA%\dev.operant.shell`) instead of a nonexistent `Operant` folder,
+  and is hardened so an empty or non-absolute path variable can never widen the
+  delete beyond those two identifier-scoped folders. It removes them only when
+  you accept the prompt; declining keeps them, and No is the default. The
+  end-to-end check on a real install-and-uninstall is pending release
+  smoke-testing (steps in `release/nsis/VERIFY-UNINSTALL.md`).
 
 ## [1.0.0] - 2026-07-11
 

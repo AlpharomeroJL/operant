@@ -38,14 +38,18 @@ As items are fixed they are struck from this list and noted in the changelog.
   existing copy triggers a single Windows permission (UAC) prompt that a person
   has to click. Uninstalling does not have this prompt.
 
-- **The uninstaller's "remove saved data" prompt now targets the correct
-  folders, pending an end-to-end check.** The prompt that offers to also remove
-  your saved workflows and recordings now clears the real per-user data
-  directories (`%APPDATA%\dev.operant.shell` and `%LOCALAPPDATA%\dev.operant.shell`);
-  an earlier build checked a folder Operant does not use, so it could leave that
-  data in place. Your data is never removed unexpectedly. The corrected path is in
-  the installer script but not yet confirmed by a full install-and-uninstall run,
-  which is part of release smoke-testing.
+- ~~**The uninstaller's "remove saved data" prompt deleted a folder Operant does not use, so it could leave your data behind.**~~
+  **Fixed in code; pending the end-to-end install-and-uninstall smoke.** The
+  prompt that offers to also remove your saved workflows and recordings now
+  clears exactly the two real per-user data directories the app writes to
+  (`%APPDATA%\dev.operant.shell` and `%LOCALAPPDATA%\dev.operant.shell`); an
+  earlier build cleared a nonexistent `Operant` folder instead. The hook is
+  hardened so a missing path variable can never widen the delete: it removes
+  only those two identifier-scoped folders, and only when you accept the prompt.
+  Declining keeps them, and No is the default, so your data is never removed
+  unexpectedly. What remains is the routine confirmation on a real installer,
+  part of release smoke-testing; the exact steps are in
+  `release/nsis/VERIFY-UNINSTALL.md`.
 
 ## Replay
 

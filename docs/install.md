@@ -80,4 +80,8 @@ Reinstalling over an existing copy triggers one Windows permission (UAC)
 prompt; this is separate from the SmartScreen warning above and is normal
 for any installer that writes to a protected location. Uninstalling does
 not trigger a UAC prompt. The uninstaller also offers to remove your saved
-data; see `docs/KNOWN_ISSUES.md` for its current verification status.
+data (your workflows and recordings): choose Yes to delete exactly the two
+per-user Operant data folders (`%APPDATA%\dev.operant.shell` and
+`%LOCALAPPDATA%\dev.operant.shell`), or No, the default, to keep them on disk.
+Nothing else is removed either way. See `docs/KNOWN_ISSUES.md` for the one
+remaining end-to-end verification note.
