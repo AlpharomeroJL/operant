@@ -9,6 +9,19 @@ test("defaults: watch-and-suggest is off, kill switch chord is the guardian spec
   assert.equal(store.get().killSwitchChord, "Ctrl+Alt+Shift+Space");
 });
 
+test("defaults: automatic update checks are on", () => {
+  const store = createMockSettingsStore();
+  assert.equal(store.get().autoUpdateEnabled, true);
+});
+
+test("automatic update checks can be turned off and back on", () => {
+  const store = createMockSettingsStore();
+  store.set("autoUpdateEnabled", false);
+  assert.equal(store.get().autoUpdateEnabled, false);
+  store.set("autoUpdateEnabled", true);
+  assert.equal(store.get().autoUpdateEnabled, true);
+});
+
 test("a toggle set on the store persists: reading it back returns the new value", () => {
   const store = createMockSettingsStore();
   store.set("watchAndSuggestEnabled", true);

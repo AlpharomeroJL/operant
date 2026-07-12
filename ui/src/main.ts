@@ -448,6 +448,7 @@ function renderSettingsPanel(): void {
     onCancelChordRecording: () => settings.cancelChordRecording(),
     onExportBackup: () => downloadBackup(settings.exportBackup()),
     onImportBackupFile: importBackupFile,
+    onAutoUpdateToggle: (on) => settings.setAutoUpdateEnabled(on),
   });
 }
 

@@ -13,10 +13,22 @@ As items are fixed they are struck from this list and noted in the changelog.
   steps and screenshots are in the install docs, and obtaining a code-signing
   certificate is planned; see docs/signing.md.
 
-- **Automatic updates are not active yet.** The updater is configured but not
-  wired into this build, so it does not check for or install updates on its own.
-  To update, download the latest installer from the releases page. Wiring the
-  updater is in progress.
+- **Automatic updates are wired in, but not yet proven against a live
+  release.** Operant now checks for updates on start and every 24 hours,
+  downloads a staged copy, and verifies its Ed25519 signature against the
+  embedded key (release/KEYS.md) before trusting it; once verified, a
+  notification asks you to restart, and restarting (or quitting normally)
+  installs it. This defaults to on, and air-gapped or offline runs never make
+  the check at all. A Settings > Updates toggle exists in the app's UI, but it
+  is not yet connected to this: today it only changes what the Settings
+  screen itself remembers, the same gap every other Settings toggle in this
+  build has until the app's own backend is wired in. The check, download, and
+  signature verification are tested end to end against a local fixture update
+  server, including a tampered manifest that is correctly rejected. What is
+  not yet proven: a real update against this project's actual release server,
+  and a real install swapping files on a live desktop, both of which need a
+  published release to test against. To update in the meantime, downloading
+  the latest installer from the releases page still works.
 
 - **Reinstalling shows one Windows permission prompt.** Reinstalling over an
   existing copy triggers a single Windows permission (UAC) prompt that a person
