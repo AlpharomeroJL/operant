@@ -223,6 +223,209 @@ input:disabled {
   flex: 1;
 }
 
+/* Flight recorder (docs/specs/design.md section 3): the run viewer's signature
+   surface. Filmstrip of redacted thumbnails, mode chips, selectable step rows
+   with mono durations, and an inline safety-check card. All color from tokens;
+   ui/src/runViewer/view.ts builds the markup, ui/src/runViewer/state.ts the
+   state. The base .op-step-list / .op-step__sentence / .op-status__dot classes
+   above are shared with the wizard's demo list and are left untouched. */
+.op-run-viewer__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--op-space-3);
+  margin-bottom: var(--op-space-2);
+}
+
+.op-run-viewer__head .op-panel__title {
+  margin-bottom: 0;
+}
+
+.op-run-viewer__mode {
+  margin: 0 0 var(--op-space-3);
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
+/* Mode chips. design.md section 1's thesis: one warm color, reserved for
+   recording/active. The REC chip is the amber exception (a small light, never
+   a fill); the replay chip is deliberately quiet ink, "determinism looks
+   quiet." */
+.op-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--op-space-2);
+  padding: var(--op-space-1) var(--op-space-3);
+  border-radius: var(--op-radius-pill);
+  font-size: var(--op-font-size-xs);
+  font-weight: var(--op-font-weight-medium);
+  white-space: nowrap;
+  flex: none;
+}
+
+.op-chip--rec {
+  font-family: var(--op-font-family-mono);
+  letter-spacing: 0.05em;
+  background: color-mix(in srgb, var(--op-color-accent) 16%, transparent);
+  color: var(--op-color-accent);
+  border: 1px solid color-mix(in srgb, var(--op-color-accent) 40%, transparent);
+}
+
+.op-chip__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--op-color-accent);
+  flex: none;
+}
+
+.op-chip--exact {
+  background: var(--op-color-bg-sunken);
+  color: var(--op-color-text-muted);
+  border: 1px solid var(--op-color-border);
+}
+
+/* Filmstrip: a horizontal, auto-following strip of redacted thumbnails above
+   the step list. Scrolls on its own overflow so the panel never grows wide. */
+.op-filmstrip {
+  display: flex;
+  gap: var(--op-space-2);
+  overflow-x: auto;
+  padding: var(--op-space-2) 0 var(--op-space-3);
+  margin-bottom: var(--op-space-3);
+}
+
+.op-filmstrip__frame {
+  position: relative;
+  flex: 0 0 auto;
+  width: 96px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-1);
+  padding: var(--op-space-2);
+  border: 1px solid var(--op-color-border);
+  border-radius: var(--op-radius-md);
+  background: var(--op-color-bg-sunken);
+  cursor: pointer;
+  transition: border-color var(--op-motion-base) var(--op-motion-easing),
+    background var(--op-motion-base) var(--op-motion-easing);
+}
+
+.op-filmstrip__frame[data-selected="true"] {
+  border-color: var(--op-color-focus-ring);
+  background: var(--op-color-bg-elevated);
+}
+
+/* The redacted thumbnail: blacked-out lines only, no captured pixels
+   (design.md section 3, "no sensitive pixels ship"). Widths come from
+   ui/src/runViewer/thumbnails.ts, a hash of the step id. */
+.op-filmstrip__thumb {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--op-space-1);
+  height: 44px;
+  padding: var(--op-space-1) var(--op-space-2);
+  border-radius: var(--op-radius-md);
+  background: var(--op-color-bg);
+  overflow: hidden;
+}
+
+.op-filmstrip__bar {
+  height: 6px;
+  border-radius: var(--op-radius-pill);
+  background: var(--op-color-border-strong);
+  opacity: 0.45;
+}
+
+.op-filmstrip__index {
+  font-family: var(--op-font-family-mono);
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A thin status bar along the bottom of each frame, the same status colors as
+   the step dots, so the strip reads at a glance. */
+.op-filmstrip__frame::after {
+  content: "";
+  display: block;
+  height: 3px;
+  border-radius: var(--op-radius-pill);
+  background: var(--op-color-status-idle);
+}
+
+.op-filmstrip__frame[data-state="ok"]::after {
+  background: var(--op-color-status-done);
+}
+
+.op-filmstrip__frame[data-state="failed"]::after {
+  background: var(--op-color-status-halted);
+}
+
+.op-filmstrip__frame[data-state="retried"]::after {
+  background: var(--op-color-status-warning);
+}
+
+/* Selectable step rows: the sentence, a mono duration, a status dot, and a
+   two-way scrub highlight shared with the filmstrip frame for the same step. */
+.op-step-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-2);
+}
+
+.op-step-row {
+  display: flex;
+  align-items: center;
+  gap: var(--op-space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--op-space-2) var(--op-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--op-radius-md);
+  background: var(--op-color-bg-sunken);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color var(--op-motion-base) var(--op-motion-easing);
+}
+
+.op-step-row[data-selected="true"] {
+  border-color: var(--op-color-focus-ring);
+}
+
+.op-step-row__time {
+  margin-left: auto;
+  font-family: var(--op-font-family-mono);
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A failed safety check, inline in the list, never a modal (design.md section
+   3). Danger-tinted but quiet: a bordered note, not an alarm. */
+.op-safety-card {
+  margin-left: var(--op-space-5);
+  padding: var(--op-space-3) var(--op-space-4);
+  border: 1px solid color-mix(in srgb, var(--op-color-danger) 45%, var(--op-color-border));
+  border-radius: var(--op-radius-md);
+  background: color-mix(in srgb, var(--op-color-danger) 10%, transparent);
+}
+
+.op-safety-card__title {
+  margin: 0 0 var(--op-space-1);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-danger);
+}
+
+.op-safety-card__body {
+  margin: 0;
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
 .op-advanced-panel {
   margin: 0 var(--op-space-5) var(--op-space-5);
   border-top: 1px dashed var(--op-color-border-strong);

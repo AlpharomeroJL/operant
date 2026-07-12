@@ -5,9 +5,9 @@ import { createMockBusClient } from "./bus/mockClient.ts";
 import type { BusEvent } from "./bus/types.ts";
 import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
 import { createRunViewer } from "./runViewer/state.ts";
+import { mountRunViewer } from "./runViewer/view.ts";
 import {
   paletteStrings,
-  runViewerStrings,
   commonStrings,
   navStrings,
   dashboardStrings,
@@ -76,20 +76,7 @@ root.innerHTML = `
           <span id="op-run-status-label"></span>
         </p>
       </section>
-      <section class="op-panel" aria-labelledby="op-run-viewer-heading">
-        <h2 class="op-panel__title" id="op-run-viewer-heading"></h2>
-        <p><span id="op-model-indicator"></span></p>
-        <ol class="op-step-list" id="op-step-list"></ol>
-        <div>
-          <button type="button" class="op-button" id="op-stop-button"></button>
-          <button type="button" class="op-button" id="op-pause-button"></button>
-        </div>
-        <form class="op-palette op-intervene" id="op-intervene-form" hidden>
-          <label class="op-visually-hidden" id="op-intervene-label" for="op-intervene-input"></label>
-          <input class="op-palette__input" id="op-intervene-input" type="text" autocomplete="off" />
-          <button type="submit" class="op-button" id="op-intervene-submit"></button>
-        </form>
-      </section>
+      <div id="op-run-viewer-mount"></div>
     </main>
     <section class="op-panel op-screen" id="op-screen-library" hidden aria-label="Library">
       <div id="op-library-mount"></div>
@@ -141,15 +128,13 @@ const paletteSubmit = byId<HTMLButtonElement>("op-palette-submit");
 const paletteForm = byId<HTMLFormElement>("op-palette-form");
 const runStatusDot = byId<HTMLSpanElement>("op-run-status-dot");
 const runStatusLabel = byId<HTMLSpanElement>("op-run-status-label");
-const runViewerHeading = byId<HTMLHeadingElement>("op-run-viewer-heading");
-const modelIndicator = byId<HTMLSpanElement>("op-model-indicator");
-const stepList = byId<HTMLOListElement>("op-step-list");
-const stopButton = byId<HTMLButtonElement>("op-stop-button");
-const pauseButton = byId<HTMLButtonElement>("op-pause-button");
-const interveneForm = byId<HTMLFormElement>("op-intervene-form");
-const interveneLabel = byId<HTMLLabelElement>("op-intervene-label");
-const interveneInput = byId<HTMLInputElement>("op-intervene-input");
-const interveneSubmit = byId<HTMLButtonElement>("op-intervene-submit");
+// The flight recorder (docs/specs/design.md section 3) is built by
+// ui/src/runViewer/view.ts's mountRunViewer into this mount point, rather than
+// the hand-wired inline markup this screen used before: adopting that view is
+// the small main.ts follow-up ui/src/runViewer/view.ts's header comment flagged
+// (the filmstrip, mode chips, scrub sync, and inline safety-check card all live
+// in that one tested view now instead of being duplicated here).
+const runViewerMount = byId<HTMLElement>("op-run-viewer-mount");
 const advancedPanel = byId<HTMLElement>("op-advanced-panel");
 const advancedHeading = byId<HTMLHeadingElement>("op-advanced-heading");
 const advancedDsl = byId<HTMLElement>("op-advanced-editor");
@@ -183,11 +168,6 @@ paletteLabel.textContent = paletteStrings.placeholder;
 paletteInput.placeholder = paletteStrings.placeholder;
 paletteInput.title = paletteStrings.hint;
 paletteSubmit.textContent = paletteStrings.submit;
-runViewerHeading.textContent = runViewerStrings.title;
-stopButton.textContent = runViewerStrings.stop;
-interveneLabel.textContent = runViewerStrings.intervenePlaceholder;
-interveneInput.placeholder = runViewerStrings.intervenePlaceholder;
-interveneSubmit.textContent = runViewerStrings.interveneSubmit;
 advancedHeading.textContent = advancedStrings.toggleLabel;
 navDashboard.textContent = navStrings.dashboard;
 navLibrary.textContent = navStrings.library;
@@ -319,40 +299,33 @@ function renderAdvancedTools(): void {
 function renderRunViewer(): void {
   const snapshot = runViewer.getSnapshot();
 
+  // The compact run-state indicator that sits next to the palette launcher.
   runStatusDot.dataset.state = snapshot.runState;
   runStatusLabel.textContent = snapshot.runStateLabel;
-  modelIndicator.textContent = snapshot.modelIndicatorLabel;
 
-  stepList.textContent = "";
-  for (const step of snapshot.steps) {
-    const li = document.createElement("li");
-    li.className = "op-step";
-
-    const dot = document.createElement("span");
-    dot.className = "op-status__dot";
-    dot.dataset.state = step.status;
-    dot.setAttribute("aria-hidden", "true");
-
-    const statusText = document.createElement("span");
-    statusText.className = "op-visually-hidden";
-    statusText.textContent = runViewerStrings.stepStatus[step.status];
-
-    const label = document.createElement("span");
-    label.className = "op-step__sentence";
-    label.textContent = step.sentence;
-
-    li.append(dot, statusText, label);
-    stepList.append(li);
-  }
-
-  stopButton.disabled = !snapshot.canStop;
-  pauseButton.disabled = !snapshot.canPause;
-  pauseButton.textContent = snapshot.pauseButtonLabel;
-
-  interveneForm.hidden = !snapshot.showIntervene;
-  if (!snapshot.showIntervene) {
-    interveneInput.value = "";
-  }
+  // The flight recorder itself (filmstrip, mode chip, streaming step list with
+  // inline safety-check cards, Stop/Pause, intervene) is rebuilt from the
+  // snapshot by the shared view; scrub selection and Stop/Pause's demo-timer
+  // freeze are wired through these callbacks.
+  mountRunViewer(runViewerMount, snapshot, {
+    onStop: () => {
+      stopDemo?.();
+      stopDemo = null;
+      runViewer.stop();
+    },
+    onTogglePause: () => {
+      if (runViewer.getSnapshot().runState === "running") {
+        // A paused run must not keep quietly finishing in the background: freeze
+        // the demo's own timers so nothing more streams in until resumed.
+        stopDemo?.();
+      }
+      runViewer.togglePause();
+    },
+    onIntervene: (text) => {
+      runViewer.intervene(text);
+    },
+    onSelectStep: (stepId) => runViewer.select(stepId),
+  });
 }
 
 function closeExplain(): void {
@@ -557,27 +530,8 @@ paletteForm.addEventListener("submit", (event) => {
   }
 });
 
-stopButton.addEventListener("click", () => {
-  stopDemo?.();
-  stopDemo = null;
-  runViewer.stop();
-});
-
-pauseButton.addEventListener("click", () => {
-  if (runViewer.getSnapshot().runState === "running") {
-    // A paused run must not keep quietly finishing in the background: freeze
-    // the demo's own timers so nothing more streams in until resumed.
-    stopDemo?.();
-  }
-  runViewer.togglePause();
-});
-
-interveneForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  if (runViewer.intervene(interveneInput.value)) {
-    interveneInput.value = "";
-  }
-});
+// Stop, Pause, intervene, and filmstrip scrubbing are wired through
+// mountRunViewer's callbacks in renderRunViewer() above, not to static ids.
 
 document.addEventListener("keydown", (event) => {
   if (settings.getSnapshot().recordingChord) {
