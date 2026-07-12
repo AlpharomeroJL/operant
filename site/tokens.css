@@ -1,0 +1,86 @@
+/*
+ * GENERATED FILE. Do not hand-edit.
+ *
+ * Docs-site design tokens, exported from ui/src/theme/tokens.ts (the single
+ * source of truth for every color and size in Operant, docs/specs/design.md
+ * section 2, BINDING) by scripts/build_site_tokens.mjs. Re-run
+ * `node scripts/build_site_tokens.mjs` (or `just site`, which does that for
+ * you) after editing tokens.ts; nothing here is invented by hand.
+ *
+ * Dark is the default theme (design.md section 1: instrument calm, one warm
+ * signal color, "Dark theme (the default)"): the bare :root block below is
+ * dark, with a prefers-color-scheme: light override for a system-light OS.
+ * site/style.css paints from these --op-* custom properties and should never
+ * need to repeat a literal hex.
+ *
+ * Neither Instrument Sans nor IBM Plex Mono ships as a vendored file in this
+ * repo yet (see tokens.ts's own FONT comment for the open sub-item), and this
+ * site is offline-friendly by design: no remote font fetch. So
+ * --op-font-family(-mono) below fall back to the closest already-installed
+ * system faces, same as the app.
+ */
+
+:root {
+  --op-bg0: #101114;
+  --op-bg1: #17181c;
+  --op-bg2: #1e2026;
+  --op-hairline: #2a2d34;
+  --op-ink: #ecedef;
+  --op-ink-secondary: #9da2ab;
+  --op-signal: #e8a13c;
+  --op-signal-hover: #f2b355;
+  --op-on-signal-ink: #1a1204;
+  --op-success: #3fb27f;
+  --op-danger: #e5484d;
+  --op-info: #5b8def;
+  --op-ink-disabled: rgba(157, 162, 171, 0.45);
+
+  --op-font-family: "Instrument Sans", -apple-system, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+  --op-font-family-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --op-font-size-xs: 0.75rem;
+  --op-font-size-sm: 0.8125rem;
+  --op-font-size-base: 0.9375rem;
+  --op-font-size-md: 1.0625rem;
+  --op-font-size-lg: 1.375rem;
+  --op-font-size-xl: 1.75rem;
+  --op-line-height-tight: 1.25;
+  --op-line-height-base: 1.5;
+  --op-font-weight-regular: 400;
+  --op-font-weight-medium: 500;
+  --op-font-weight-semibold: 600;
+
+  --op-space-1: 4px;
+  --op-space-2: 8px;
+  --op-space-3: 12px;
+  --op-space-4: 16px;
+  --op-space-5: 24px;
+  --op-space-6: 32px;
+  --op-space-7: 48px;
+  --op-space-8: 64px;
+
+  --op-radius-control: 6px;
+  --op-radius-card: 8px;
+  --op-radius-pill: 999px;
+
+  --op-motion-fast: 100ms;
+  --op-motion-standard: 160ms;
+  --op-motion-easing: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+  --op-bg0: #f7f7f5;
+  --op-bg1: #ffffff;
+  --op-bg2: #f1f1ee;
+  --op-hairline: #e3e3de;
+  --op-ink: #1b1c1e;
+  --op-ink-secondary: #5c5f66;
+  --op-signal: #e8a13c;
+  --op-signal-hover: #f2b355;
+  --op-on-signal-ink: #1a1204;
+  --op-success: #3fb27f;
+  --op-danger: #e5484d;
+  --op-info: #5b8def;
+  --op-ink-disabled: rgba(92, 95, 102, 0.45);
+  }
+}

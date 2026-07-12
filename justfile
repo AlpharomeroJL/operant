@@ -104,3 +104,11 @@ sign *args:
 package:
     cd ui; npm ci; cd src-tauri; cargo tauri build -b nsis --ci
     just sign
+
+# Regenerate site/tokens.css from ui/src/theme/tokens.ts (docs/specs/design.md
+# section 2), then stage site/ (minus playground/, a separate sub-project with
+# its own build) into dist/site/, the deployable docs site.
+# To go live once: repo Settings -> Pages -> Deploy from a branch -> gh-pages -> / (root); after that, publish each new build by replacing gh-pages' contents with dist/site/'s.
+site:
+    node scripts/build_site_tokens.mjs
+    node scripts/build_site.mjs
