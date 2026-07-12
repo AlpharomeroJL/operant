@@ -52,10 +52,11 @@ gate id:
 golden:
     cd e2e/golden-path; cargo test
 
-# UI gate: TypeScript typecheck (node --test only strips types, it does not typecheck) plus tests.
-# Run `cd ui; npm install` once first.
+# UI gate: TypeScript typecheck (tsc, since node --test only strips types) plus the
+# test suite via `npm test` (which sets up the jsdom DOM env through testHooks).
+# Run `cd ui; npm install` once first (pulls jsdom + axe-core for the a11y tests).
 ui:
-    cd ui; npm run typecheck; node --test
+    cd ui; npm run typecheck; npm test
 
 # Regenerate signed/binary fixtures (deterministic; keypair guarded).
 fixtures:
