@@ -1,11 +1,16 @@
-//! Operant CLI (C14, FR-O4): run | compile | dry-run | list | install |
-//! publish | bench | doctor | explain.
+//! Operant CLI (C14, FR-O4): run | compile | import | dry-run | list |
+//! install | publish | bench | doctor | explain.
 //!
 //! L13A wired `run`, `compile`, `dry-run`, `list`, `doctor`, and `explain`
 //! against the already-merged crates (`operant-compiler`, `operant-replay`,
 //! `operant-doctor`). L7B wires `install` and `publish` against
 //! `operant-registry` (R1B/R1A). `bench` (L9B) is a later lane's verb and
 //! stays unimplemented here.
+//!
+//! X9 adds `import`: `operant import playwright <spec.ts>` parses a basic
+//! subset of a Playwright spec, maps it onto the `browser` namespace's
+//! Action IR (`operant-action`, L9A), and compiles it through the same
+//! `operant-compiler` (L8A) pipeline `compile` uses.
 //!
 //! Every verb is headless and deterministic: no verb prompts, polls, or
 //! blocks on anything but the filesystem, `git` (for `publish`'s branch and
@@ -26,6 +31,7 @@ fn main() -> ExitCode {
         }
         Some("run") => finish(commands::run::run(&args[1..])),
         Some("compile") => finish(commands::compile::run(&args[1..])),
+        Some("import") => finish(commands::import::run(&args[1..])),
         Some("dry-run") => finish(commands::dry_run::run(&args[1..])),
         Some("list") => finish(commands::list::run(&args[1..])),
         Some("doctor") => finish(commands::doctor::run(&args[1..])),
@@ -39,7 +45,7 @@ fn main() -> ExitCode {
         None => {
             println!("operant 1.0.0");
             println!(
-                "usage: operant <run|compile|dry-run|list|install|publish|bench|doctor|explain> [args]"
+                "usage: operant <run|compile|import|dry-run|list|install|publish|bench|doctor|explain> [args]"
             );
             ExitCode::SUCCESS
         }
