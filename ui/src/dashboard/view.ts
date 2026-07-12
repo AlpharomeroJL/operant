@@ -9,6 +9,17 @@
 import type { DashboardSnapshot, UpNextRow, RecentRunRow } from "./state.ts";
 import { SPARKLINE_WIDTH, SPARKLINE_HEIGHT } from "./state.ts";
 
+export interface DashboardMountOptions {
+  /**
+   * H1: the empty state's one specific action (docs/specs/design.md section
+   * 4's copy rule). ui/src/main.ts wires this to the same command palette
+   * ui/src/palette/ already opens from anywhere in the shell, so "Teach your
+   * first workflow" here starts the identical teach flow as typing a fresh
+   * goal into the palette by hand.
+   */
+  onTeach?: () => void;
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (className) node.className = className;
@@ -84,8 +95,25 @@ function sectionEl(headingId: string, headingText: string, body: HTMLElement): H
   return section;
 }
 
+/**
+ * H1: the empty state's one specific action (docs/specs/design.md section 3's
+ * Wizard finish screen copy, reused here: "a single amber 'Teach your first
+ * workflow' button"; section 4's copy rule, "Empty states invite one specific
+ * action"). `.op-button--primary` is the app's one existing amber-fill
+ * button style (ui/src/styles/base.css, painted from the signal/accent
+ * token, ui/src/theme/tokens.ts) -- the same class Library's own primary Run
+ * button already uses, so this is not a new color, just its first use as a
+ * standalone call to action rather than a per-card row button.
+ */
+function emptyActionButton(label: string, onTeach?: () => void): HTMLButtonElement {
+  const button = el("button", "op-button op-button--primary", label);
+  button.type = "button";
+  button.addEventListener("click", () => onTeach?.());
+  return button;
+}
+
 /** Mount the dashboard into `container`, clearing it first (same rebuild-from-scratch pattern as every other screen under ui/src). */
-export function mountDashboard(container: HTMLElement, snapshot: DashboardSnapshot): HTMLElement {
+export function mountDashboard(container: HTMLElement, snapshot: DashboardSnapshot, opts: DashboardMountOptions = {}): HTMLElement {
   container.textContent = "";
   const root = el("section", "op-dashboard");
   root.setAttribute("aria-labelledby", "op-dashboard-heading");
@@ -95,7 +123,9 @@ export function mountDashboard(container: HTMLElement, snapshot: DashboardSnapsh
   root.append(heading, heroEl(snapshot));
 
   if (snapshot.empty) {
-    root.append(el("p", "op-empty", snapshot.emptyLabel));
+    const empty = el("div", "op-empty-state");
+    empty.append(el("p", "op-empty", snapshot.emptyLabel), emptyActionButton(snapshot.emptyActionLabel, opts.onTeach));
+    root.append(empty);
   } else {
     root.append(sectionEl("op-dashboard-upnext-heading", snapshot.upNextTitle, listOrEmpty(snapshot.upNext, upNextRowEl, snapshot.upNextEmptyLabel)));
     root.append(

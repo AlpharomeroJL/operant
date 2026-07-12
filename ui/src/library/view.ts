@@ -31,6 +31,8 @@ export interface LibraryMountOptions {
   onReorder?: (name: string, beforeName: string | null) => void;
   /** design.md section 3, Library: "Search filters live." */
   onSearchChange?: (query: string) => void;
+  /** H1: the empty state's one specific action, shown only when the library has zero saved workflows (see LibrarySnapshot.emptyActionLabel). Wired in ui/src/main.ts to the same command palette ui/src/dashboard/view.ts's own empty-state button opens. */
+  onTeach?: () => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -158,7 +160,17 @@ export function mountLibrary(container: HTMLElement, snapshot: LibrarySnapshot, 
   root.append(heading, searchEl(snapshot, opts));
 
   if (snapshot.empty) {
-    root.append(el("p", "op-empty", snapshot.emptyLabel));
+    const empty = el("div", "op-empty-state");
+    empty.append(el("p", "op-empty", snapshot.emptyLabel));
+    // H1 (docs/specs/design.md section 4: "Empty states invite one specific
+    // action"): only when the library is genuinely empty, never for a
+    // search that simply matched nothing (LibrarySnapshot.emptyActionLabel's
+    // own header comment).
+    if (snapshot.emptyActionLabel) {
+      const teach = actionButton(snapshot.emptyActionLabel, "op-button op-button--primary", "library-teach", () => opts.onTeach?.());
+      empty.append(teach);
+    }
+    root.append(empty);
   } else {
     const grid = el("div", "op-library__grid");
     for (const card of snapshot.cards) grid.append(cardEl(card, opts));

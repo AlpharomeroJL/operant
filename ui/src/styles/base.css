@@ -517,6 +517,20 @@ input:disabled {
   font-size: var(--op-font-size-sm);
 }
 
+/* H1 (docs/specs/design.md section 4: "Empty states invite one specific
+   action"): pairs the quiet .op-empty note above with its one action button.
+   Used by the dashboard, library, and runs screens' empty states
+   (ui/src/dashboard/view.ts, ui/src/library/view.ts,
+   ui/src/runViewer/view.ts). .op-empty itself is untouched above, still used
+   alone where a screen has text but no action to offer (Library's
+   no-search-results note). */
+.op-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--op-space-3);
+}
+
 /* Change card: ui/src/render/workflowView.ts's drift offer card, and reused
    by ui/src/grants/view.ts's grant prompt for the same Allow/Deny row shape. */
 .op-change-card {

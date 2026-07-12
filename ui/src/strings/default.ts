@@ -13,6 +13,16 @@ export const commonStrings = {
   appName: "Operant",
   loading: "One moment",
   errorGeneric: "Something went wrong. Try again, or check your setup.",
+  // H1 (docs/specs/design.md section 4's copy rule "Empty states invite one
+  // specific action", and section 3's Wizard finish screen: "the first
+  // dashboard with a single amber 'Teach your first workflow' button").
+  // Every screen's empty state funnels into the identical first action
+  // (open the command palette and teach it something), so this one phrase is
+  // shared verbatim across the dashboard/library/runs empty states
+  // (ui/src/dashboard/view.ts, ui/src/library/view.ts,
+  // ui/src/runViewer/view.ts) rather than each screen inventing its own
+  // wording for what is, underneath, always the same action.
+  teachFirstWorkflow: "Teach your first workflow",
 };
 
 // Labels for the shell's top-level screen switcher: docs/specs/design.md
@@ -132,6 +142,12 @@ export const runViewerStrings = {
   // 4's error rule: what happened, then one thing to do, calm, no apology.
   gateFailedTitle: "A safety check didn't pass",
   gateFailedBody: "Operant stopped before finishing this step. Look at what it was about to do, then decide whether to keep going.",
+  // H1: this screen's own empty state, before any run has ever started
+  // (docs/specs/design.md section 4's copy rule "Empty states invite one
+  // specific action"). Mirrors workflowLibraryStrings.empty's tone just
+  // below; the action itself is commonStrings.teachFirstWorkflow, shared
+  // across all three empty states this packet touches.
+  emptyInvite: "Nothing has run yet. Teach it something to see it happen here.",
 };
 
 // The run viewer's own human-language run states. idle and running and

@@ -4,6 +4,11 @@
 
 import type { TourStep, TourSnapshot } from "./state.ts";
 import { tourStrings } from "./strings.ts";
+// Per-module stylesheet (same pattern as ui/src/wizard/view.ts's own
+// "./wizard.css" import): keeps this surface's CSS out of the shared
+// ui/src/styles/base.css, which every other lane in the campaign also
+// appends to.
+import "./tour.css";
 
 export interface TourCalloutOptions {
   onDismiss?: () => void;
@@ -27,12 +32,14 @@ interface CalloutContent {
 
 function calloutContentFor(step: TourStep): CalloutContent | null {
   switch (step) {
-    case "palette":
-      return { title: tourStrings.paletteTitle, message: tourStrings.paletteMessage };
-    case "runViewer":
-      return { title: tourStrings.runViewerTitle, message: tourStrings.runViewerMessage };
+    case "dashboard":
+      return { title: tourStrings.dashboardTitle, message: tourStrings.dashboardMessage };
     case "library":
       return { title: tourStrings.libraryTitle, message: tourStrings.libraryMessage };
+    case "runs":
+      return { title: tourStrings.runsTitle, message: tourStrings.runsMessage };
+    case "settings":
+      return { title: tourStrings.settingsTitle, message: tourStrings.settingsMessage };
     case "done":
       return null;
   }

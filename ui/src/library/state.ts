@@ -8,7 +8,7 @@ import type { BusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_REPLAY, type BusEvent } from "../bus/types.ts";
 import { renderWorkflow, type RenderedWorkflow } from "../../../sdk/ts/src/render/index.js";
 import { createMockRegistry, type MockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
-import { workflowLibraryStrings } from "../strings/default.ts";
+import { commonStrings, workflowLibraryStrings } from "../strings/default.ts";
 import { libraryStrings } from "./strings.ts";
 import { assignGlyph } from "./glyph.ts";
 
@@ -37,6 +37,16 @@ export interface LibrarySnapshot {
   cards: LibraryCard[];
   empty: boolean;
   emptyLabel: string;
+  /**
+   * H1 (docs/specs/design.md section 4's copy rule, "Empty states invite one
+   * specific action"). Set only when the library truly has zero saved
+   * workflows -- null while `empty` is true only because a search matched
+   * nothing (workflowLibraryStrings.noMatches), since "teach a workflow" is
+   * not the right invite when the person already has some and just typed a
+   * search that missed. ./view.ts renders a button only when this is
+   * non-null.
+   */
+  emptyActionLabel: string | null;
   /** design.md section 3, Library: "Search filters live." The text currently typed into the search field; round-tripped back into the input's value so ui/src/styles/focusPreserve.ts's rebuild-carries-focus mechanism keeps it in place across a re-render. */
   searchQuery: string;
   searchLabel: string;
@@ -189,6 +199,7 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
       cards,
       empty: cards.length === 0,
       emptyLabel: noSearchMatches ? workflowLibraryStrings.noMatches : workflowLibraryStrings.empty,
+      emptyActionLabel: allCards.length === 0 ? commonStrings.teachFirstWorkflow : null,
       searchQuery,
       searchLabel: workflowLibraryStrings.searchLabel,
       searchPlaceholder: workflowLibraryStrings.searchPlaceholder,
