@@ -64,6 +64,11 @@ See `campaign/RESUME.md` for the one-move continue procedure.
   immediately before every `just ci` gate run (lane and post-merge main alike). A real fix would
   make those crates resolve fixtures relative to the workspace root at runtime instead, or stop
   sharing `CARGO_TARGET_DIR` across worktrees; parked as a followup, not worth a lane on its own.
+- FG-006 (X9 merge): L7B (install/publish verbs) and X9 (import verb) both added CLI verb entries
+  to `cli/src/commands/mod.rs` and `cli/src/main.rs` concurrently; merging X9 after L7B produced a
+  textual conflict in the module list, the doc-comment verb summary, and the usage string. Resolved
+  by combining both additions (all five verbs listed together); the `match` dispatch arms themselves
+  had already auto-merged cleanly since each lane appended a distinct arm. No logic changes.
 
 ## Packet ledger
 
