@@ -18,6 +18,16 @@ export interface BusClient {
 }
 
 /**
+ * The one prefix-filter every BusClient shares: "*" matches every topic, an
+ * exact topic matches itself, and a bare namespace ("run") matches "run.*".
+ * createRealClient (ui/src/bus/realClient.ts) reuses this exact rule so a real
+ * subscription and a mocked one deliver to identical subscribers.
+ */
+export function matchesTopic(prefix: string, topic: string): boolean {
+  return prefix === "*" || topic === prefix || topic.startsWith(`${prefix}.`);
+}
+
+/**
  * A mocked bus client standing in for the real C1 event bus
  * (contracts/bus_events.md) so the shell renders end to end with no backend
  * process running. The envelope shape (v, seq, ts, topic, payload) matches
@@ -38,7 +48,7 @@ export function createMockBusClient(): BusClient {
     } as BusEvent;
 
     for (const { prefix, fn } of listeners) {
-      if (prefix === "*" || topic === prefix || topic.startsWith(`${prefix}.`)) {
+      if (matchesTopic(prefix, topic)) {
         fn(envelope);
       }
     }
