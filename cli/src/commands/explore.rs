@@ -130,6 +130,16 @@ fn run_loop<S: Synthesizer>(
 ) -> Result<RunSummary> {
     let explore = ExploreLoop::new(perceiver, planner, executor, opts.window_process.clone());
     let mut control = NoControl;
+    // The summary's HaltReason is opaque (bare `Error`), so surface the step
+    // failure and halt payloads, which carry the real message, to stderr.
+    for topic in ["run.step.failed", "run.halted"] {
+        let sub = bus.subscribe(topic);
+        std::thread::spawn(move || {
+            for env in sub.rx.iter() {
+                eprintln!("[explore] {}: {}", env.topic, env.payload);
+            }
+        });
+    }
     rt.block_on(explore.run(bus, recorder, &opts.goal, &mut control))
         .context("the explore loop failed with an infrastructure error")
 }
