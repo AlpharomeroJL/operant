@@ -1,0 +1,17 @@
+{
+  "name": "operant-e2e-first-timer",
+  "version": "1.0.0",
+  "description": "Release-blocking E2E: the zero-code first-timer golden path (wizard demo path, demo run, guided teach, compile, run, schedule) driven against the real ui/ shell in a headless browser, asserting the Advanced toggle never opens and the whole scripted interaction finishes well inside a 15-minute budget.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "postinstall": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
