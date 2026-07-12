@@ -75,6 +75,7 @@ export interface ThemeTokens {
   statusRunning: string;
   statusHalted: string;
   statusWarning: string;
+  statusDone: string;
   focusRing: string;
 }
 
@@ -94,6 +95,7 @@ function projectThemeTokens(colors: ColorRoles): ThemeTokens {
     statusRunning,
     statusHalted,
     statusWarning,
+    statusDone,
     focusRing,
   } = colors;
   return {
@@ -111,6 +113,7 @@ function projectThemeTokens(colors: ColorRoles): ThemeTokens {
     statusRunning,
     statusHalted,
     statusWarning,
+    statusDone,
     focusRing,
   };
 }

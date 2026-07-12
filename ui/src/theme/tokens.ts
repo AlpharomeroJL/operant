@@ -69,14 +69,24 @@ export const LIGHT_PALETTE: DesignPalette = {
   inkSecondary: "#5c5f66",
   // design.md section 2 lists Signal and Semantic as a single value each,
   // not a light/dark pair (unlike Surfaces and Ink, which are listed
-  // separately per theme): the identity color and success/danger/info read
-  // the same regardless of theme.
-  signal: DARK_PALETTE.signal,
+  // separately per theme). signalHover/onSignalInk/danger still read the
+  // same regardless of theme.
+  //
+  // signal/success/info do not, as of H2 (a11y-and-contrast): design.md's
+  // fixed values, used as a small status-dot fill, measured 1.93:1-2.85:1
+  // against this theme's bg1/bg2 (below WCAG 1.4.11's 3:1 non-text minimum;
+  // see ../styles/contrast.test.ts's nonTextPairs). Each of the three below
+  // is the DARK_PALETTE hue and saturation unchanged, lightness reduced
+  // until a dot clears 3:1 against both bg1 (#ffffff) and bg2 (#f1f1ee),
+  // so amber/green/blue stay identifiable, just deeper. Dark theme is
+  // untouched: DARK_PALETTE's values already clear 3:1 there. See
+  // docs/specs/design.md section 2 for the one-line note on this split.
+  signal: "#c17a17",
   signalHover: DARK_PALETTE.signalHover,
   onSignalInk: DARK_PALETTE.onSignalInk,
-  success: DARK_PALETTE.success,
+  success: "#379b6f",
   danger: DARK_PALETTE.danger,
-  info: DARK_PALETTE.info,
+  info: "#5387ee",
 };
 
 export const PALETTES: Record<ThemeName, DesignPalette> = {
