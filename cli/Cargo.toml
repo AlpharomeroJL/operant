@@ -19,8 +19,13 @@ operant-recorder.workspace = true
 operant-registry.workspace = true
 operant-bench.workspace = true
 operant-doctor.workspace = true
+# `import playwright` (X9) replays mapped web steps against a
+# `FixtureBrowser` (crates/action/src/adapters/browser, L9A) to build the
+# Action IR the compiler consumes.
+operant-action.workspace = true
 # `run`/`dry-run` build the pre/post EvalContext `operant-replay`'s
 # Replayer needs to evaluate a compiled workflow's gates headless.
 operant-gates.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true
