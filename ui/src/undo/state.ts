@@ -5,9 +5,12 @@
 // reverse." Pure and DOM-free, same split as ui/src/runViewer/state.ts and
 // ui/src/grants/state.ts, so it runs under plain `node --test`.
 //
-// Reads the existing undo-journal shape via ./mockJournal.ts (a fixture
-// today; see that file's header for the honest reason why) rather than
-// inventing a new backend, and publishes the two bus topics
+// Reads the undo-journal shape via the journalForRun seam below
+// (CreateUndoScreenOptions), which defaults to ./mockJournal.ts's fixture
+// (see that file's header for the honest reason why); ui/src/main.ts feeds
+// this seam ./undo/realJournal.ts's real per-run source ahead of the
+// fixture (F1b), so a run with a real published journal renders that
+// instead, fixture otherwise. Publishes the two bus topics
 // contracts/bus_events.md already reserves for this feature
 // (undo.previewed, undo.applied, ui/src/bus/types.ts) with real data derived
 // from whatever journal was loaded, so a listener (the Advanced audit

@@ -230,6 +230,7 @@ mod tests {
             run_id: "r1".into(),
             entries: 2,
             irreversible: 0,
+            items: Vec::new(),
         })
         .unwrap();
 

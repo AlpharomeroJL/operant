@@ -10,16 +10,27 @@
 // a clipboard-restore inverse, and an irreversible marker for a step with no
 // safe inverse (email send, form submit, side-effectful shell).
 //
-// HONEST GAP, flagged rather than hidden: contracts/bus_events.md's
-// undo.previewed carries only entry/irreversible COUNTS (ui/src/bus/types.ts's
-// UndoPreviewedPayload), and no bus topic today carries a completed run's
-// actual per-item journal content the way run.step.proposed carries a real
-// ActionIR for a live run's steps. So there is no live per-run data for this
-// screen to read yet: journalForRun below is a fixture standing in for a
-// real crates/recorder -> bus (or IPC) -> ui/src/undo wire. Wiring that
-// bridge is the remaining piece this packet does not invent a backend for;
-// ui/src/undo/state.ts's `journalForRun` option is the seam a later packet
-// swaps this fixture out through, same shape kept, real data behind it.
+// F1b CLOSED THE CONTRACT HALF OF THIS GAP: contracts/bus_events.md's
+// undo.previewed now carries an optional `items` field
+// (ui/src/bus/types.ts's UndoJournalItemWire[]) with the real per-item
+// journal content, and crates/recorder's Recorder::publish_undo_preview
+// (crates/recorder/src/undo.rs) genuinely publishes it onto a real
+// operant_core::Bus (proved end to end, real temp directory included, by
+// crates/recorder/tests/undo_journal.rs). ./realJournal.ts decodes that wire
+// shape back into this file's own UndoJournalEntry/UndoInverse, and
+// ui/src/main.ts feeds ui/src/undo/state.ts's `journalForRun` seam that real
+// source ahead of this fixture (real data wins when present).
+//
+// STILL HONEST ABOUT WHAT REMAINS: no process-boundary transport carries a
+// recorder-published bus event into this UI process yet
+// (ui/src/bus/mockClient.ts's own header: a Tauri IPC bridge onto the Rust
+// core's bus is still future work), so every run in the app as shipped today
+// still falls through to this fixture, exactly as before. The moment that
+// transport exists and forwards a real undo.previewed envelope onto this
+// same BusClient, a real run's real journal wins automatically, with no
+// further change needed in ./state.ts or ui/src/main.ts. See
+// ./realJournal.test.ts for both paths (a real payload present, and this
+// fixture fallback) proven end to end today against a plain BusClient.
 
 /** Mirrors crates/recorder/src/undo.rs's `Inverse` enum, one variant per PendingWrite kind that module documents. */
 export type UndoInverse =

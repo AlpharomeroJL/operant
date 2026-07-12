@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use operant_core::Bus;
 use operant_recorder::undo::{hash_tree, PendingWrite};
 use operant_recorder::{Recorder, RunMode};
 
@@ -113,6 +114,91 @@ fn undo_last_run_restores_temp_dir_byte_identical() {
     let second = rec.undo_last_run().unwrap();
     assert!(second.is_empty(), "re-running undo does nothing, got {second:?}");
     assert_eq!(hash_tree(dir).unwrap(), before);
+}
+
+/// F1b headline test: the recorder->bus wire this packet builds, exercised
+/// against a real temp directory end to end. A run creates, moves, and
+/// overwrites real files; the recorder publishes the REAL `undo.previewed`
+/// event (crates/core/src/bus/events.rs's `UndoPreviewed`, with its F1b
+/// `items` field) onto a REAL `operant_core::Bus`, and the published item
+/// content is checked against the run's actual paths, not a fixture. Undo is
+/// then executed from that same real journal, and the directory is hashed
+/// before the run and again after undo to prove a BYTE-IDENTICAL restore
+/// (`ui/src/undo/mockJournal.ts`'s fixture is exactly this journal shape, and
+/// `ui/src/undo/realJournal.ts` decodes exactly this wire shape; this test is
+/// the recorder-side half of that same contract, deterministic throughout: a
+/// database read, struct construction, and an in-process bus publish, never
+/// a model or network call).
+#[test]
+fn undo_previewed_bus_event_carries_real_items_and_undo_still_restores_byte_identical() {
+    let tmp = unique_temp_dir("bus-wire");
+    let dir = &tmp.0;
+
+    fs::write(dir.join("keep.txt"), b"never touched by the run").unwrap();
+    fs::write(dir.join("move_me.txt"), b"these exact bytes are about to move").unwrap();
+    fs::write(dir.join("overwrite_me.txt"), b"ORIGINAL bytes before the overwrite").unwrap();
+    let before = hash_tree(dir).unwrap();
+
+    let rec = Recorder::open_in_memory().unwrap();
+    let run_id = rec.start_run("mutate a temp directory via the real bus wire", RunMode::Explore, None).unwrap();
+
+    // create
+    let created = dir.join("created.txt");
+    rec.journal_ahead(&run_id, &PendingWrite::CreateFile { path: created.clone() }).unwrap();
+    fs::write(&created, b"made by the run").unwrap();
+
+    // move / rename
+    let moved = dir.join("moved.txt");
+    rec.journal_ahead(&run_id, &PendingWrite::MoveFile { from: dir.join("move_me.txt"), to: moved.clone() })
+        .unwrap();
+    fs::rename(dir.join("move_me.txt"), &moved).unwrap();
+
+    // overwrite (pre-image captured inside journal_ahead, before the clobber)
+    let overwrite = dir.join("overwrite_me.txt");
+    rec.journal_ahead(&run_id, &PendingWrite::OverwriteFile { path: overwrite.clone() }).unwrap();
+    fs::write(&overwrite, b"CHANGED bytes, a different length than the original").unwrap();
+
+    let after_mutations = hash_tree(dir).unwrap();
+    assert_ne!(before, after_mutations, "the run must have changed the directory");
+
+    // The recorder itself publishes the real restoration list onto a real
+    // bus: the "recorder -> bus" half of this packet's wire.
+    let bus = Bus::new();
+    let sub = bus.subscribe("undo.*");
+    rec.publish_undo_preview(&bus, &run_id).unwrap();
+
+    let env = sub.rx.try_recv().expect("undo.previewed must be published on the real bus");
+    assert_eq!(env.topic, "undo.previewed");
+    assert_eq!(env.payload["run_id"], serde_json::json!(run_id));
+    assert_eq!(env.payload["entries"], serde_json::json!(3), "one entry per journaled action");
+    assert_eq!(env.payload["irreversible"], serde_json::json!(0));
+
+    let items = env.payload["items"].as_array().expect("F1b's items field must be present");
+    assert_eq!(items.len(), 3, "one wire item per journaled action, real content, not a fixture");
+    // Newest-first: the overwrite (journaled last) previews first, and its
+    // path is this run's own real path, not canned fixture text.
+    assert_eq!(items[0]["op"], serde_json::json!("restore_overwritten"));
+    assert_eq!(items[0]["path"], serde_json::json!(overwrite.display().to_string()));
+    assert_eq!(items[1]["op"], serde_json::json!("reverse_move"));
+    assert_eq!(items[1]["moved_to"], serde_json::json!(moved.display().to_string()));
+    assert_eq!(items[1]["original"], serde_json::json!(dir.join("move_me.txt").display().to_string()));
+    assert_eq!(items[2]["op"], serde_json::json!("delete_created"));
+    assert_eq!(items[2]["path"], serde_json::json!(created.display().to_string()));
+
+    // Publishing the preview is read-only, same guarantee as preview_undo.
+    assert_eq!(hash_tree(dir).unwrap(), after_mutations, "publishing the preview must not touch the disk");
+
+    // Execute the undo from the very same real journal the bus event above
+    // was built from.
+    let narration = rec.undo_last_run().unwrap();
+    assert_eq!(narration.len(), 3, "one narration line per restoration");
+
+    let restored = hash_tree(dir).unwrap();
+    assert_eq!(restored, before, "undo via the real journal must restore the directory byte-identically");
+    assert_eq!(fs::read(dir.join("move_me.txt")).unwrap(), b"these exact bytes are about to move");
+    assert_eq!(fs::read(&overwrite).unwrap(), b"ORIGINAL bytes before the overwrite");
+    assert!(!created.exists());
+    assert!(!moved.exists());
 }
 
 #[test]
