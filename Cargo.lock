@@ -1259,6 +1259,7 @@ dependencies = [
  "operant-doctor",
  "operant-gates",
  "operant-ir",
+ "operant-perception-uia",
  "operant-recorder",
  "operant-registry",
  "operant-replay",

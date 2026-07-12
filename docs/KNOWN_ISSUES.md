@@ -46,12 +46,19 @@ As items are fixed they are struck from this list and noted in the changelog.
 
 ## Replay
 
-- **Live re-find is implemented but not yet wired into the installed app.**
-  Replay can now re-find an element by its identity at run time when a window has
-  moved, with no model calls, and this is covered by tests. Connecting it to the
-  installed app's run path and verifying it live on a real desktop (moving a
-  window between teaching and replay) is the remaining step; until then the
-  installed app replays each step at the location it was taught.
+- **Live re-find is wired into the run path; the live-desktop confirmation is
+  the remaining step.** Replay re-finds an element by its identity at run time
+  when a window has moved, with no model calls, and `operant run` now
+  constructs its replayer with a live Perceiver so a real run re-resolves each
+  click against the live desktop instead of replaying the location it was
+  taught. This real path is on only in a real build (the `real-uia` and
+  `real-input` features); the default, deterministic build still replays from
+  the taught coordinate, so the golden path stays model-free and reproducible.
+  Both the re-resolution itself and the wired run-path construction are covered
+  by headless tests. What remains is the live confirmation on a real desktop
+  (moving a window between teaching and replay): the Notepad plus Explorer 5/5
+  desktop smoke is performed separately, by the orchestrator in the main
+  session, and is not claimed here.
 
 ## Undo
 

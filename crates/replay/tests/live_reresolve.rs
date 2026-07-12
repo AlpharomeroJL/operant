@@ -12,7 +12,7 @@
 
 use std::collections::BTreeMap;
 
-use operant_action::SynthCall;
+use operant_action::{MockSynthesizer, SynthCall};
 use operant_core::perceive::{PerceptionError, Perceiver, Resolved};
 use operant_gates::EvalContext;
 use operant_ir::{Action, Manifest, Selector, Snapshot};
@@ -141,6 +141,47 @@ fn replay_reresolves_the_selector_chain_against_a_live_perceiver_not_stale_coord
     assert!(
         !points.contains(&(STALE_X, STALE_Y)),
         "the stale compiled coordinate must not be clicked once a selector re-resolves live"
+    );
+}
+
+#[test]
+fn wired_run_path_construction_reresolves_not_stale_coords() {
+    // Reproduce the EXACT construction the CLI's real run path uses
+    // (cli/src/commands/run.rs, gated behind `real-uia` + `real-input`):
+    //
+    //     Replayer::new(WindowsSynthesizer::new())
+    //         .with_perceiver(Box::new(UiaPerceiver::new()))
+    //
+    // then drive it through `replay_compiled`. Headless, the two backends that
+    // need a live desktop stand in for their real counterparts: a
+    // `MockSynthesizer` (which records the point actually clicked) for
+    // `WindowsSynthesizer`, and `MovedWindowPerceiver` (a fixture whose layout
+    // has MOVED since teach time) for `UiaPerceiver`. The construction SHAPE
+    // and the entry method are the run path's own, so this proves the wired
+    // run path lands the click on the RE-RESOLVED target rather than the stale
+    // coordinate compiled in at teach time. It does not (and cannot headlessly)
+    // exercise the real Windows/UIA backends -- that live 5/5 desktop
+    // confirmation is the orchestrator's to run.
+    let wf = workflow_from(selector_click_with_stale_coords());
+    let replayer =
+        Replayer::new(MockSynthesizer::new()).with_perceiver(Box::new(MovedWindowPerceiver));
+    let ctx = EvalContext::new();
+
+    let report = replayer
+        .replay_compiled(&wf, &BTreeMap::new(), &ctx, &ctx)
+        .expect("replay runs");
+    assert_eq!(report.steps_executed, 1);
+
+    let points = click_points(&replayer.synthesizer().calls());
+    assert_eq!(
+        points,
+        vec![(MOVED_X, MOVED_Y)],
+        "the wired run-path construction must click where the live Perceiver resolves the \
+         selector NOW, not the stale compiled coordinate"
+    );
+    assert!(
+        !points.contains(&(STALE_X, STALE_Y)),
+        "the stale teach-time coordinate must never be clicked once the run path installs a Perceiver"
     );
 }
 
