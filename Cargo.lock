@@ -1252,6 +1252,7 @@ name = "operant-cli"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "operant-action",
  "operant-bench",
  "operant-compiler",
  "operant-core",
@@ -1262,6 +1263,7 @@ dependencies = [
  "operant-registry",
  "operant-replay",
  "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
