@@ -65,6 +65,8 @@ pub enum SynthesizerError {
     Clipboard(String),
     #[error("operation not available on this backend: {0}")]
     Unavailable(String),
+    #[error("input synthesis refused: the process-global freeze (kill switch) is engaged")]
+    Frozen,
 }
 
 /// Everything the Action executor needs to turn an Action IR step into
