@@ -26,16 +26,30 @@ operant-action.workspace = true
 # `run`/`dry-run` build the pre/post EvalContext `operant-replay`'s
 # Replayer needs to evaluate a compiled workflow's gates headless.
 operant-gates.workspace = true
-# Real UIA Perceiver (`UiaPerceiver`, behind ITS `real-uia` feature) so a
-# REAL `operant run` re-resolves a click's selector chain against the live
-# desktop at run time (KI-1) instead of replaying the coordinate cached at
-# teach time. Optional so the default build never links the `windows` crate;
-# mirrors operant-action's own `real-input` feature. A Perceiver is a
-# PERCEPTION backend, never a model backend, so this keeps replay model-free.
-operant-perception-uia = { workspace = true, optional = true }
+# The `explore` verb (teach) drives operant-orchestrator's `ExploreLoop` and
+# picks its planner backend by cfg (`MockPlannerBackend` by default, the
+# opt-in `AgentBridgeBackend` under `dev-agent-bridge`). This is the ONLY verb
+# that pulls in the orchestrator; `run`/`dry-run` stay on operant-replay alone,
+# so replay's model-free crate graph (crates/replay's own guarantee and
+# scripts/check_airgap.mjs) is untouched. The orchestrator's own network
+# transport stays behind ITS `real-transport` feature, which this CLI never
+# enables.
+operant-orchestrator.workspace = true
+# Perceiver backends. FixturePerceiver (always built, no `windows` dep) is the
+# default/mock perception source for `explore`; UiaPerceiver (behind this
+# crate's `real-uia` feature -> operant-perception-uia's own `real-uia`) is the
+# live one a REAL `operant run`/`explore` re-resolves selectors against at run
+# time (KI-1). Not optional: `explore`'s default build needs FixturePerceiver.
+# A Perceiver is a PERCEPTION backend, never a model backend, so this keeps
+# replay model-free.
+operant-perception-uia.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# `explore` provides the tokio runtime the async ExploreLoop needs; every other
+# verb stays synchronous. Workspace-pinned (rt-multi-thread + time), already
+# compiled for operant-orchestrator.
+tokio.workspace = true
 
 [features]
 # A REAL run drives real Windows input (`real-input` -> operant-action's
@@ -46,13 +60,17 @@ thiserror.workspace = true
 # the deterministic mock path. The heavy `windows`-crate deps stay behind
 # these features so the default build (and `just golden`/`just ci`) never
 # links them and replay stays deterministic and model-free.
-real-uia = ["dep:operant-perception-uia", "operant-perception-uia/real-uia"]
+real-uia = ["operant-perception-uia/real-uia"]
 real-input = ["operant-action/real-input"]
 # Reserved so the "real" build matrix is uniform with the crates that DO own a
 # network transport (operant-orchestrator's `real-transport`, reqwest, used by
-# teach). The replay-only CLI has no model/network transport of its own and
-# deliberately pulls in neither reqwest nor operant-orchestrator, so this
-# feature is intentionally inert: `operant run` stays deterministic and offline
-# either way. It exists so `--features real-uia,real-input,real-transport`
-# builds the CLI instead of failing on an unknown feature.
+# teach). `operant run` has no model/network transport of its own and stays
+# deterministic and offline; this feature is intentionally inert here. It
+# exists so `--features real-uia,real-input,real-transport` builds the CLI
+# instead of failing on an unknown feature.
 real-transport = []
+# P0b proof harness: makes `operant explore` assemble the filesystem
+# `AgentBridgeBackend` planner (operant-orchestrator's own `dev-agent-bridge`)
+# instead of the scripted `MockPlannerBackend`. Opt-in only, never in a release
+# build; lets an operator act as the planner brain for a real teach run.
+dev-agent-bridge = ["operant-orchestrator/dev-agent-bridge"]

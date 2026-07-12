@@ -5,6 +5,9 @@ dist/
 build/
 *.wasm.map
 
+# `operant explore` default output (trajectory.json + recorder.sqlite3)
+out/
+
 # campaign working areas (never committed)
 lanes/
 scratch/

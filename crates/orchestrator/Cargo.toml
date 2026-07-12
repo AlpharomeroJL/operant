@@ -85,3 +85,8 @@ tracing-subscriber.workspace = true
 [features]
 real-transport = ["dep:reqwest"]
 real-vault = ["dep:windows"]
+# P0b proof harness ONLY: compiles the filesystem `AgentBridgeBackend`, which
+# blocks a planner turn on an operator writing a response file. Opt-in and
+# never in `default`; a release build must never link a backend that waits on a
+# human. Adds no dependencies (pure std + the futures/tokio already present).
+dev-agent-bridge = []

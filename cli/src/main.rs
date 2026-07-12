@@ -1,5 +1,5 @@
-//! Operant CLI (C14, FR-O4): run | compile | import | dry-run | list |
-//! install | publish | bench | doctor | explain.
+//! Operant CLI (C14, FR-O4): run | explore | compile | import | dry-run |
+//! list | install | publish | bench | doctor | explain.
 //!
 //! L13A wired `run`, `compile`, `dry-run`, `list`, `doctor`, and `explain`
 //! against the already-merged crates (`operant-compiler`, `operant-replay`,
@@ -30,6 +30,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("run") => finish(commands::run::run(&args[1..])),
+        Some("explore") => finish(commands::explore::run(&args[1..])),
         Some("compile") => finish(commands::compile::run(&args[1..])),
         Some("import") => finish(commands::import::run(&args[1..])),
         Some("dry-run") => finish(commands::dry_run::run(&args[1..])),
@@ -45,7 +46,7 @@ fn main() -> ExitCode {
         None => {
             println!("operant 1.0.0");
             println!(
-                "usage: operant <run|compile|import|dry-run|list|install|publish|bench|doctor|explain> [args]"
+                "usage: operant <run|explore|compile|import|dry-run|list|install|publish|bench|doctor|explain> [args]"
             );
             ExitCode::SUCCESS
         }
