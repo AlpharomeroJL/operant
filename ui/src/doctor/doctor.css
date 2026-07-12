@@ -1,0 +1,80 @@
+/* "Check my setup" (the doctor screen). Mounted into the op-doctor-backdrop
+   modal by ui/src/main.ts; the backdrop (ui/src/styles/base.css) centers this
+   panel, so this file styles the panel, its header, and the finding cards.
+   Severity tints reuse the same status tokens the rest of the shell does, so a
+   problem card reads as a problem without a second vocabulary of colors. */
+
+.op-doctor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-4);
+  width: 90%;
+  max-width: 560px;
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: var(--op-space-5);
+  border-radius: var(--op-radius-lg);
+  border: 1px solid var(--op-color-border);
+  background: var(--op-color-bg-elevated);
+  box-shadow: var(--op-shadow-modal);
+}
+
+.op-doctor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--op-space-3);
+}
+
+.op-doctor__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-3);
+}
+
+.op-doctor-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-1);
+  padding: var(--op-space-4);
+  border: 1px solid var(--op-color-border);
+  border-left-width: 3px;
+  border-radius: var(--op-radius-md);
+  background: var(--op-color-bg-sunken);
+}
+
+/* Healthy: quiet. Problems: the left edge carries the status color so the eye
+   finds the error and the warning before reading any copy. */
+.op-doctor-card--info {
+  border-left-color: var(--op-color-success);
+}
+
+.op-doctor-card--warn {
+  border-left-color: var(--op-color-status-warning);
+}
+
+.op-doctor-card--error {
+  border-left-color: var(--op-color-danger);
+}
+
+.op-doctor-card__what {
+  margin: 0;
+  font-size: var(--op-font-size-body, 1rem);
+  font-weight: 600;
+  color: var(--op-color-text);
+}
+
+.op-doctor-card__why,
+.op-doctor-card__action {
+  margin: 0;
+  color: var(--op-color-text-muted);
+}
+
+.op-doctor-card__action {
+  color: var(--op-color-text);
+}
+
+.op-doctor-card .op-button {
+  align-self: flex-start;
+  margin-top: var(--op-space-2);
+}
