@@ -16,6 +16,7 @@ import { createRealJournalSource } from "./undo/realJournal.ts";
 import { journalForRun as fixtureJournalForRun } from "./undo/mockJournal.ts";
 import {
   commonStrings,
+  doctorStrings,
   navStrings,
   themeToggleStrings,
   undoEntryStrings,
@@ -45,6 +46,9 @@ import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
 import { tourStore } from "./tour/state.ts";
 import { mountTourCallout } from "./tour/view.ts";
+import { createDoctor } from "./doctor/state.ts";
+import { mountDoctor } from "./doctor/view.ts";
+import { DEMO_DOCTOR_FINDINGS, demoHealthyFinding } from "./doctor/demoFindings.ts";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -71,6 +75,7 @@ root.innerHTML = `
       <button type="button" class="op-mode-toggle" id="op-mode-toggle" aria-pressed="false">
         <span id="op-mode-toggle-label"></span>
       </button>
+      <button type="button" class="op-button op-header__doctor" id="op-doctor-open"></button>
     </header>
     <section class="op-panel op-screen" id="op-screen-dashboard" hidden aria-label="Dashboard">
       <div id="op-dashboard-mount"></div>
@@ -106,6 +111,9 @@ root.innerHTML = `
     </div>
     <div class="op-modal-backdrop" id="op-undo-backdrop" hidden>
       <div id="op-undo-mount"></div>
+    </div>
+    <div class="op-modal-backdrop" id="op-doctor-backdrop" hidden>
+      <div id="op-doctor-mount"></div>
     </div>
     <div class="op-modal-backdrop op-palette-backdrop" id="op-palette-backdrop" hidden>
       <div id="op-palette-mount"></div>
@@ -898,3 +906,95 @@ document.addEventListener("keydown", (event) => {
     openPalette();
   }
 });
+
+/**
+ * "Check my setup" (the doctor screen, ui/src/doctor/*, C19/FR-U3). Unmounted
+ * before this lane; wired here per docs/specs/ipc-bridge.md section 8b ("Doctor
+ * + Gallery exist but are unmounted; wire if time permits"). Everything doctor
+ * lives in this one appended block so the edit stays additive and merges
+ * cleanly with the other lanes editing this file.
+ *
+ * The header's "Check my setup" button opens the modal and runs the checks; the
+ * findings render from doctor.finding events, the exact events a real core
+ * emits, so nothing here hard-codes a finding list into the view.
+ */
+const doctorOpenButton = byId<HTMLButtonElement>("op-doctor-open");
+const doctorBackdrop = byId<HTMLElement>("op-doctor-backdrop");
+const doctorMount = byId<HTMLElement>("op-doctor-mount");
+doctorOpenButton.textContent = doctorStrings.title;
+
+// The desktop app's command bridge, when the shell runs inside Tauri.
+// contracts/ipc.md's run_doctor command is issued through it; a plain browser
+// (dev/Demo, the mock bus) has no bridge, so the callers below fall back to
+// canned findings. A later lane (the real BusClient) formalizes this seam; the
+// doctor screen only needs "issue the command if we can, else show the demo."
+type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
+function tauriInvoke(): TauriInvoke | null {
+  const g = globalThis as unknown as {
+    __TAURI__?: { core?: { invoke?: TauriInvoke }; invoke?: TauriInvoke };
+  };
+  return g.__TAURI__?.core?.invoke ?? g.__TAURI__?.invoke ?? null;
+}
+
+const doctor = createDoctor(bus, {
+  // On open: run the real checks (contracts/ipc.md section 5f, run_doctor). In
+  // the app the core runs every check and publishes each result as a
+  // doctor.finding event; in dev/Demo there is no core, so publish the canned
+  // findings on the mock bus. Both land on the subscription below, so the
+  // render path is identical. Determinism: the demo path calls no model and no
+  // network (the real probing runs core-side, only in the app, never on the
+  // replay/test path).
+  runChecks: () => {
+    const invoke = tauriInvoke();
+    if (invoke) {
+      void invoke("run_doctor", {});
+      return;
+    }
+    for (const finding of DEMO_DOCTOR_FINDINGS) bus.publish("doctor.finding", finding);
+  },
+  // One-click fix. In the app this maps to `operant doctor --fix <id>` (the
+  // finding's fix_command), issued as an optional `fix` arg to run_doctor -- an
+  // additive, protocol-compatible extension per contracts/ipc.md section 9.2 --
+  // and the core re-checks and republishes the finding, healthy. In dev/Demo,
+  // stand in for that effect by publishing doctor.fixed plus the canned healthy
+  // finding, so the card turns healthy in place either way.
+  onFixRequested: (findingId) => {
+    const invoke = tauriInvoke();
+    if (invoke) {
+      void invoke("run_doctor", { fix: findingId });
+      return;
+    }
+    bus.publish("doctor.fixed", { finding_id: findingId });
+    const healthy = demoHealthyFinding(findingId);
+    if (healthy) bus.publish("doctor.finding", healthy);
+  },
+});
+
+function renderDoctor(): void {
+  mountDoctor(doctorMount, doctor.getSnapshot(), {
+    onFix: (findingId) => doctor.fix(findingId),
+    onClose: () => closeDoctor(),
+  });
+}
+
+function openDoctor(): void {
+  doctorBackdrop.hidden = false;
+  doctor.open();
+}
+
+function closeDoctor(): void {
+  doctorBackdrop.hidden = true;
+}
+
+doctor.subscribe(renderDoctor);
+doctorOpenButton.addEventListener("click", openDoctor);
+doctorBackdrop.addEventListener("click", (event) => {
+  // Only a click on the dimmed backdrop itself dismisses the modal, not one
+  // that bubbled up from inside the panel (the same narrowing the palette
+  // backdrop above uses).
+  if (event.target === doctorBackdrop) closeDoctor();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !doctorBackdrop.hidden) closeDoctor();
+});
+renderDoctor();
