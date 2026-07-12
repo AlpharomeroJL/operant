@@ -349,16 +349,87 @@ input:disabled {
   font-weight: var(--op-font-weight-medium);
 }
 
-/* Dashboard: minimal themed placeholder (docs/specs/design.md section 3's
-   Home dashboard is a later packet's real content; ui/src/main.ts routes
-   the nav here in the meantime, docs/specs/design.md section 3). */
-.op-dashboard-placeholder {
-  min-height: 240px;
+/* Dashboard (docs/specs/design.md section 3): hero line plus sparkline, Up
+   next, Recent runs, and the quiet first-run empty state. ui/src/main.ts's
+   shell already gives #op-screen-dashboard the shared .op-panel treatment
+   (padding, border, surface); everything below is this mounted content's
+   own internal layout, ui/src/dashboard/view.ts. */
+.op-dashboard__hero {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: flex-start;
+  gap: var(--op-space-3);
+  padding-bottom: var(--op-space-4);
+  margin-bottom: var(--op-space-4);
+  border-bottom: 1px solid var(--op-color-border);
+}
+
+.op-dashboard__hero-line {
+  margin: 0;
+  font-size: var(--op-font-size-xl);
+  font-weight: var(--op-font-weight-semibold);
+}
+
+.op-dashboard__sparkline {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  height: 48px;
+}
+
+.op-dashboard__sparkline-line {
+  stroke: var(--op-color-accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.op-dashboard__section {
+  margin-bottom: var(--op-space-5);
+}
+
+.op-dashboard__section:last-child {
+  margin-bottom: 0;
+}
+
+.op-dashboard__section-title {
+  margin: 0 0 var(--op-space-3);
+  font-size: var(--op-font-size-md);
+  font-weight: var(--op-font-weight-semibold);
+}
+
+.op-dashboard__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
   gap: var(--op-space-2);
+}
+
+.op-dashboard__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--op-space-3);
+  padding: var(--op-space-2) var(--op-space-3);
+  border-radius: var(--op-radius-control);
+  background: var(--op-color-bg-sunken);
+}
+
+.op-dashboard__row-title {
+  font-weight: var(--op-font-weight-medium);
+}
+
+.op-dashboard__row-outcome {
+  color: var(--op-color-text-muted);
+  font-size: var(--op-font-size-sm);
+}
+
+.op-dashboard__row-when {
+  margin-left: auto;
+  color: var(--op-color-text-muted);
+  font-size: var(--op-font-size-sm);
+  font-family: var(--op-font-family-mono);
 }
 
 /* Tray: status glyph (idle/running/halted-red) plus its saved-time tooltip
@@ -418,6 +489,23 @@ input:disabled {
   font-weight: var(--op-font-weight-semibold);
 }
 
+/* Library: search field (design.md section 3: "Search filters live"). Reuses
+   the palette input's field styling so the two text inputs in this app look
+   like the same control. */
+.op-library__search {
+  margin-bottom: var(--op-space-4);
+}
+
+.op-library__search-input {
+  width: 100%;
+  max-width: 320px;
+  padding: var(--op-space-3);
+  border-radius: var(--op-radius-md);
+  border: 1px solid var(--op-color-border-strong);
+  background: var(--op-color-bg);
+  color: var(--op-color-text);
+}
+
 /* Library: workflow cards. */
 .op-library__grid {
   display: grid;
@@ -433,6 +521,60 @@ input:disabled {
   display: flex;
   flex-direction: column;
   gap: var(--op-space-2);
+  /* design.md section 3: "Drag to reorder." */
+  cursor: grab;
+}
+
+/* A card mid-drag (./view.ts's dragstart/dragend): a quiet opacity fade, no
+   new color, so it reads as "lifted" without competing with the one signal
+   color's own meaning (design.md section 1). */
+.op-library-card--dragging {
+  opacity: 0.5;
+}
+
+.op-library-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--op-space-3);
+}
+
+/* design.md section 3: "auto-assigned duotone glyph and hue." A small
+   two-tone badge: the left ::before is the full rotated accent color, the
+   right half is that same color under a low-opacity neutral panel, giving
+   two visually distinct tones of the one hue rather than a flat swatch.
+   --op-glyph-rotate is set per card by ui/src/library/view.ts from
+   ui/src/library/glyph.ts's deterministic hash of the workflow name;
+   hue-rotate here (not a second stored color) is what keeps every glyph
+   color a derivation of tokens.ts's one signal color (--op-color-accent),
+   never a literal outside that file (see glyph.ts's header comment). */
+.op-library-card__glyph {
+  position: relative;
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: var(--op-radius-control);
+  background: var(--op-color-accent);
+  filter: hue-rotate(var(--op-glyph-rotate, 0deg));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.op-library-card__glyph::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 0 55%;
+  background: var(--op-color-bg-elevated);
+  opacity: 0.4;
+}
+
+.op-library-card__glyph-letter {
+  position: relative;
+  z-index: 1;
+  color: var(--op-color-accent-text);
+  font-weight: var(--op-font-weight-semibold);
+  font-size: var(--op-font-size-sm);
 }
 
 .op-library-card__name {
@@ -455,10 +597,28 @@ input:disabled {
   color: var(--op-color-text-muted);
 }
 
+.op-library-card__last-run {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* design.md section 3: "Hover reveals Run, Schedule, Explain." Opacity, not
+   display/visibility: the buttons stay in the tab order and in the
+   accessibility tree throughout (a keyboard user does not need to hover a
+   mouse to reach them), only their visibility fades in and out. Revealed on
+   :focus-within too, so tabbing onto a button shows it before it is
+   activated, not just after. */
 .op-library-card__actions {
   display: flex;
   gap: var(--op-space-2);
   margin-top: auto;
+  opacity: 0;
+  transition: opacity var(--op-motion-base) var(--op-motion-easing);
+}
+
+.op-library-card:hover .op-library-card__actions,
+.op-library-card:focus-within .op-library-card__actions {
+  opacity: 1;
 }
 
 /* Explain panel and the grant prompt's modal backdrop. */

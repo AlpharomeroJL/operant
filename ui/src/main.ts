@@ -10,7 +10,6 @@ import {
   runViewerStrings,
   commonStrings,
   navStrings,
-  dashboardStrings,
   themeToggleStrings,
 } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
@@ -21,6 +20,8 @@ import { createMockRegistry, type MockWorkflowRecord } from "./library/mockRegis
 import { createLibrary } from "./library/state.ts";
 import { mountLibrary } from "./library/view.ts";
 import { libraryStrings } from "./library/strings.ts";
+import { createDashboard } from "./dashboard/state.ts";
+import { mountDashboard } from "./dashboard/view.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
@@ -59,9 +60,8 @@ root.innerHTML = `
         <span id="op-mode-toggle-label"></span>
       </button>
     </header>
-    <section class="op-panel op-screen op-dashboard-placeholder" id="op-screen-dashboard" hidden aria-labelledby="op-dashboard-heading">
-      <h2 class="op-panel__title" id="op-dashboard-heading"></h2>
-      <p class="op-empty" id="op-dashboard-body"></p>
+    <section class="op-panel op-screen" id="op-screen-dashboard" hidden aria-label="Dashboard">
+      <div id="op-dashboard-mount"></div>
     </section>
     <main class="op-main" id="op-screen-runs">
       <section class="op-panel" aria-labelledby="op-palette-heading">
@@ -132,8 +132,6 @@ const appTitle = byId<HTMLHeadingElement>("op-app-title");
 const modeToggleButton = byId<HTMLButtonElement>("op-mode-toggle");
 const modeToggleLabel = byId<HTMLSpanElement>("op-mode-toggle-label");
 const themeToggleButton = byId<HTMLButtonElement>("op-theme-toggle");
-const dashboardHeading = byId<HTMLHeadingElement>("op-dashboard-heading");
-const dashboardBody = byId<HTMLParagraphElement>("op-dashboard-body");
 const paletteHeading = byId<HTMLHeadingElement>("op-palette-heading");
 const paletteLabel = byId<HTMLLabelElement>("op-palette-label");
 const paletteInput = byId<HTMLInputElement>("op-palette-input");
@@ -166,6 +164,7 @@ const screenLibrary = byId<HTMLElement>("op-screen-library");
 const screenRuns = byId<HTMLElement>("op-screen-runs");
 const screenSettings = byId<HTMLElement>("op-screen-settings");
 const trayMount = byId<HTMLElement>("op-tray-mount");
+const dashboardMount = byId<HTMLElement>("op-dashboard-mount");
 const libraryMount = byId<HTMLElement>("op-library-mount");
 const settingsMount = byId<HTMLElement>("op-settings-mount");
 const explainPanel = byId<HTMLElement>("op-explain-panel");
@@ -193,8 +192,6 @@ navDashboard.textContent = navStrings.dashboard;
 navLibrary.textContent = navStrings.library;
 navRuns.textContent = navStrings.runs;
 navSettings.textContent = navStrings.settings;
-dashboardHeading.textContent = dashboardStrings.title;
-dashboardBody.textContent = dashboardStrings.placeholderBody;
 explainClose.textContent = libraryStrings.closeExplain;
 
 const bus = createMockBusClient();
@@ -209,6 +206,10 @@ const library = createLibrary(bus, {
     renderLibraryPanel();
   },
 });
+// Shares Library's own registry instance (not a second createMockRegistry())
+// so Up next/Recent runs show the exact same plain-language titles Library
+// does for the same workflow name.
+const dashboard = createDashboard(bus, { registry });
 const settings = createSettings(bus);
 const tray = createTray(bus);
 
@@ -248,15 +249,12 @@ let scheduleNotice: string | null = null;
 // the other, the same workflow, in plain English and in raw form.
 let selectedWorkflowName: string | null = null;
 
-// docs/specs/design.md section 3's nav map. "runs" stays the initial screen
-// for now, even though design.md section 3 calls the Home dashboard "the new
-// default window view": its real content is a later packet's job (this
-// packet's op-screen-dashboard is a themed placeholder, see the shell markup
-// above), so the working default stays the screen with actual functionality
-// behind it. Flipping the default to "dashboard" once that packet lands is a
-// one-line change here.
+// docs/specs/design.md section 3's nav map. design.md section 3 calls the
+// Home dashboard "the new default window view"; now that D4 (ui/src/
+// dashboard/) has filled in its real content (hero, sparkline, Up next,
+// Recent runs), this is that one-line flip.
 type Screen = "dashboard" | "runs" | "library" | "settings";
-let activeScreen: Screen = "runs";
+let activeScreen: Screen = "dashboard";
 
 function selectedRecord(): MockWorkflowRecord | undefined {
   return selectedWorkflowName ? registry.get(selectedWorkflowName) : undefined;
@@ -407,6 +405,8 @@ function renderLibraryPanel(): void {
     onRun: requestRun,
     onSchedule: (name) => library.schedule(name),
     onExplain: openExplain,
+    onReorder: (name, beforeName) => library.reorder(name, beforeName),
+    onSearchChange: (query) => library.setSearchQuery(query),
   });
   if (scheduleNotice) {
     const notice = document.createElement("p");
@@ -414,6 +414,10 @@ function renderLibraryPanel(): void {
     notice.textContent = scheduleNotice;
     libraryMount.append(notice);
   }
+}
+
+function renderDashboardPanel(): void {
+  mountDashboard(dashboardMount, dashboard.getSnapshot());
 }
 
 function downloadBackup(payload: BackupPayload): void {
@@ -505,6 +509,7 @@ connectedTools.subscribe(() => {
 });
 runViewer.subscribe(renderRunViewer);
 library.subscribe(renderLibraryPanel);
+dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
 wizard.subscribe(renderWizardPanel);
@@ -543,6 +548,7 @@ renderScreen();
 renderMode(modeStore.get());
 renderRunViewer();
 renderLibraryPanel();
+renderDashboardPanel();
 renderSettingsPanel();
 renderTrayPanel();
 renderWizardPanel();
