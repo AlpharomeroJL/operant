@@ -381,6 +381,9 @@ test("pauseAll pauses the one tracked run; a no-op with nothing running", () => 
 });
 
 test("panic engages the kill switch; the tray's own bus subscription then turns the glyph kill and raises a notification", () => {
+  // The default two-path client (createBusPanicClient) end to end: with no run
+  // under way the cooperative stop is a no-op and only the kill's echoed
+  // killswitch.engaged fires, so this still sees exactly one engagement.
   const bus = createMockBusClient();
   const tray = createTray(bus, { now: () => 5000 });
   const engaged: unknown[] = [];
@@ -394,5 +397,40 @@ test("panic engages the kill switch; the tray's own bus subscription then turns 
   assert.equal(snap.glyphLabel, "Stopped, needs you");
   assert.equal(snap.notifications.at(-1)?.title, "Emergency stop engaged");
 
+  tray.dispose();
+});
+
+test("panic drives the two-path stop (contracts/ipc.md section 5b): BOTH stop and kill fire, the cooperative stop then the backstop", () => {
+  const bus = createMockBusClient();
+  const calls: string[] = [];
+  // Inject a spy for the command seam so this proves the wiring, not the mock
+  // core's echo: both independent stop paths must be invoked, kill last.
+  const tray = createTray(bus, {
+    panicClient: {
+      stop: (runId?: string) => calls.push(runId ? `stop:${runId}` : "stop"),
+      kill: () => calls.push("kill"),
+    },
+  });
+
+  tray.panic();
+
+  assert.deepEqual(calls, ["stop", "kill"]);
+  tray.dispose();
+});
+
+test("panic hands the tracked run to the cooperative stop, then the kill backstops it", () => {
+  const bus = createMockBusClient();
+  const calls: string[] = [];
+  const tray = createTray(bus, {
+    panicClient: {
+      stop: (runId?: string) => calls.push(runId ? `stop:${runId}` : "stop"),
+      kill: () => calls.push("kill"),
+    },
+  });
+
+  bus.publish("run.started", { run_id: "r1", goal: "g", mode: RUN_MODE_REPLAY, workflow_name: "copy-invoice-total" });
+  tray.panic();
+
+  assert.deepEqual(calls, ["stop:r1", "kill"], "the active run is closed cooperatively, then killed as the backstop");
   tray.dispose();
 });

@@ -41,6 +41,7 @@ import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
 import { mountSettings, type SettingsSection } from "./settings/view.ts";
 import { settingsDetailStrings } from "./settings/strings.ts";
+import { chordPartsFromEvent, formatChord } from "./settings/chord.ts";
 import type { BackupPayload } from "./settings/mockStore.ts";
 import { createLiveSettingsStore, getTauriInvoke, base64ToBytes, bytesToBase64 } from "./settings/liveStore.ts";
 import { createTray } from "./tray/state.ts";
@@ -1036,6 +1037,19 @@ document.addEventListener("keydown", (event) => {
       shiftKey: event.shiftKey,
       metaKey: event.metaKey,
     });
+    return;
+  }
+  // The global kill chord (docs/specs/guardian.md's panic chord, default
+  // Ctrl+Alt+Shift+Space, re-recordable in Settings). SAFETY, never-cut: the
+  // second, always-reachable trigger for the same two-path stop the tray's
+  // panic row drives (tray.panic() -> ui/src/safety/panic.ts's stop + kill), so
+  // a wedged or backgrounded window still has a way to halt a live loop.
+  // Matched against the live configured chord so a re-recorded combination
+  // takes effect at once; checked before the palette hotkey because a stop
+  // outranks opening an overlay.
+  if (formatChord(chordPartsFromEvent(event)) === settings.getSnapshot().state.killSwitchChord) {
+    event.preventDefault();
+    tray.panic();
     return;
   }
   if (isGlobalPaletteHotkey(event)) {
