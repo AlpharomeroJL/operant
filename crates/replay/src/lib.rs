@@ -71,6 +71,8 @@ pub enum ReplayError {
     Unresolved { action_id: String },
     #[error("click step `{action_id}` could not be re-resolved against the live window: {reason}")]
     Reresolve { action_id: String, reason: String },
+    #[error("live gate snapshot could not be captured: {reason}")]
+    GateSnapshot { reason: String },
     #[error(transparent)]
     Action(#[from] operant_action::ActionError),
     #[error(transparent)]
@@ -87,6 +89,12 @@ pub struct Replayer<S: Synthesizer> {
     /// test relies on. A [`Perceiver`] is a perception backend, never a model
     /// backend, so this never puts a model or network path behind replay.
     perceiver: Option<Box<dyn Perceiver>>,
+    /// When true (and a [`Perceiver`] is installed), pre/post gates are
+    /// evaluated against LIVE perception captured around the run rather than
+    /// the caller-supplied [`EvalContext`] snapshots (E3). Off by default, so
+    /// the deterministic/mock path and its golden tests are untouched. Set via
+    /// [`Self::with_live_gate_snapshots`]; only the real run path enables it.
+    gate_snapshots_live: bool,
 }
 
 impl Replayer<MockSynthesizer> {
@@ -105,6 +113,7 @@ impl<S: Synthesizer> Replayer<S> {
         Self {
             exec: Executor::new(synth).with_sleeper(Box::new(NoopSleeper)),
             perceiver: None,
+            gate_snapshots_live: false,
         }
     }
 
@@ -117,6 +126,7 @@ impl<S: Synthesizer> Replayer<S> {
         Self {
             exec: Executor::with_adapters(synth, adapters).with_sleeper(Box::new(NoopSleeper)),
             perceiver: None,
+            gate_snapshots_live: false,
         }
     }
 
@@ -127,6 +137,20 @@ impl<S: Synthesizer> Replayer<S> {
     /// perception backend only; replay stays model- and network-free.
     pub fn with_perceiver(mut self, perceiver: Box<dyn Perceiver>) -> Self {
         self.perceiver = Some(perceiver);
+        self
+    }
+
+    /// Evaluate pre/post gates against LIVE perception captured around the run
+    /// (E3): the pre snapshot before the first step, the post snapshot after
+    /// the last. This is what makes a PASS prove the live desktop actually
+    /// reached the asserted state instead of re-reading a canned snapshot. Only
+    /// meaningful together with [`Self::with_perceiver`]; without an installed
+    /// perceiver this is inert and the caller-supplied [`EvalContext`]
+    /// snapshots are used as before. Off by default so the deterministic/mock
+    /// path (and every golden test) is byte-for-byte unchanged. The perceiver
+    /// is a perception backend only, so replay stays model- and network-free.
+    pub fn with_live_gate_snapshots(mut self) -> Self {
+        self.gate_snapshots_live = true;
         self
     }
 
@@ -162,8 +186,27 @@ impl<S: Synthesizer> Replayer<S> {
     ) -> Result<ReplayReport, ReplayError> {
         let bindings = merge_defaults(manifest, inputs);
 
+        // E3: on the real run path (a live Perceiver installed AND live gate
+        // snapshots enabled), gates evaluate against perception captured LIVE
+        // around the run: the pre snapshot before any step, the post snapshot
+        // after the last. That is what makes a PASS prove the live desktop
+        // actually reached the asserted state rather than re-reading a canned
+        // snapshot. Every other build keeps the caller-supplied contexts
+        // verbatim (no clone, no capture), so the deterministic/mock path and
+        // its golden tests are unchanged. A Perceiver is a perception backend,
+        // never a model backend, so this stays model- and network-free (the
+        // same guarantee the live re-resolve path already leans on).
+        let live_gates = self.gate_snapshots_live && self.perceiver.is_some();
+
         // Preconditions first: a failing `halt` gate stops before any side effect.
-        let pre_results = eval_gates(manifest, GateKind::Pre, pre)?;
+        let live_pre;
+        let pre_ctx: &EvalContext = if live_gates {
+            live_pre = self.live_gate_context(pre, manifest, actions)?;
+            &live_pre
+        } else {
+            pre
+        };
+        let pre_results = eval_gates(manifest, GateKind::Pre, pre_ctx)?;
         if let Some(index) = first_failure(&pre_results) {
             return Err(ReplayError::Precondition { index });
         }
@@ -186,8 +229,17 @@ impl<S: Synthesizer> Replayer<S> {
             steps_executed += 1;
         }
 
-        // Postconditions last.
-        let post_results = eval_gates(manifest, GateKind::Post, post)?;
+        // Postconditions last: on the real path this snapshot is captured now,
+        // AFTER every step ran, so the post gates read the desktop the run
+        // actually produced.
+        let live_post;
+        let post_ctx: &EvalContext = if live_gates {
+            live_post = self.live_gate_context(post, manifest, actions)?;
+            &live_post
+        } else {
+            post
+        };
+        let post_results = eval_gates(manifest, GateKind::Post, post_ctx)?;
         if let Some(index) = first_failure(&post_results) {
             return Err(ReplayError::Postcondition { index });
         }
@@ -255,6 +307,37 @@ impl<S: Synthesizer> Replayer<S> {
         Ok(target.coords_last_known.clone())
     }
 
+    /// Build a gate [`EvalContext`] from a FRESH live perception snapshot (E3),
+    /// keeping the caller context's inputs/adapter results/fs base and
+    /// replacing only its snapshot. Called just before the pre gates and again
+    /// just after the last step for the post gates, so each set of gates reads
+    /// perception at the right moment. Only reached when a perceiver is
+    /// installed and live gate snapshots are enabled.
+    fn live_gate_context(
+        &self,
+        base: &EvalContext,
+        manifest: &Manifest,
+        actions: &[Action],
+    ) -> Result<EvalContext, ReplayError> {
+        let perceiver = self
+            .perceiver
+            .as_ref()
+            .expect("live_gate_context is only called with a perceiver installed");
+        let process =
+            gate_window_process(manifest, actions).ok_or_else(|| ReplayError::GateSnapshot {
+                reason: "no target window process in the manifest capabilities or step targets"
+                    .to_string(),
+            })?;
+        let snapshot = perceiver
+            .snapshot(&process)
+            .map_err(|e| ReplayError::GateSnapshot {
+                reason: format!("live snapshot of `{process}` failed: {e}"),
+            })?;
+        let mut ctx = base.clone();
+        ctx.snapshot = Some(snapshot);
+        Ok(ctx)
+    }
+
     /// Prepare one action for deterministic dispatch: force instant pacing,
     /// substitute input bindings into templated text, and neutralize a wait's
     /// scope (this backend-free executor cannot poll a scope, so a wait is a
@@ -289,6 +372,20 @@ fn eval_gates(
 
 fn first_failure(results: &[GateResult]) -> Option<usize> {
     results.iter().position(|r| *r == GateResult::Fail)
+}
+
+/// The window process to snapshot for live gate evaluation (E3): the manifest's
+/// first declared app capability, falling back to the first window process any
+/// step targets. `None` when the workflow names no window at all.
+fn gate_window_process(manifest: &Manifest, actions: &[Action]) -> Option<String> {
+    if let Some(app) = manifest.capabilities.apps.first() {
+        return Some(app.clone());
+    }
+    actions
+        .iter()
+        .filter_map(|a| a.target.as_ref())
+        .filter_map(|t| t.window.as_ref())
+        .find_map(|w| w.process.clone())
 }
 
 /// Overlay caller inputs on the manifest's schema defaults.

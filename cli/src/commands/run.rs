@@ -25,6 +25,21 @@ use operant_replay::{CompiledWorkflow, Replayer};
 
 use crate::snapshot;
 
+// E4: a REAL run needs BOTH `real-uia` (live UIA perception) and `real-input`
+// (real Windows synthesis) together. Enabling only one used to silently fall
+// through to the deterministic mock path (see the cfg split below), so a build
+// that asked for "real" but got exactly one feature quietly did nothing real.
+// Make that combination a hard compile error instead of a silent downgrade.
+#[cfg(all(
+    any(feature = "real-uia", feature = "real-input"),
+    not(all(feature = "real-uia", feature = "real-input"))
+))]
+compile_error!(
+    "operant-cli real replay requires BOTH `real-uia` and `real-input`. Enabling only one \
+     silently degrades to the deterministic mock path. Build with both features together \
+     (a real run drives real input AND live UIA perception) or with neither."
+);
+
 pub fn run(args: &[String]) -> Result<()> {
     let opts = Opts::parse(
         args,
@@ -34,7 +49,9 @@ pub fn run(args: &[String]) -> Result<()> {
 
     let workflow = load_compiled(&opts.workflow_path)?;
     let inputs = parse_inputs(opts.inputs.as_deref());
-    let gate_snapshot = match opts.snapshot_path {
+    // Borrow (not move) `snapshot_path`: the real branch below reads it again
+    // to decide whether to source gates from live perception (E3).
+    let gate_snapshot = match &opts.snapshot_path {
         Some(path) => snapshot::load_snapshot(&PathBuf::from(path))?,
         None => snapshot::bundled_notepad_snapshot(),
     };
@@ -53,8 +70,16 @@ pub fn run(args: &[String]) -> Result<()> {
     {
         use operant_action::WindowsSynthesizer;
         use operant_perception_uia::UiaPerceiver;
-        let replayer = Replayer::new(WindowsSynthesizer::new())
+        let mut replayer = Replayer::new(WindowsSynthesizer::new())
             .with_perceiver(Box::new(UiaPerceiver::new()));
+        // E3: with no explicit --snapshot, evaluate pre/post gates against LIVE
+        // perception captured around the run (pre before the first step, post
+        // after the last) instead of the bundled canned snapshot, so a PASS
+        // proves the live desktop actually reached the asserted state. An
+        // explicit --snapshot still wins, as an offline audit aid.
+        if opts.snapshot_path.is_none() {
+            replayer = replayer.with_live_gate_snapshots();
+        }
         report_replay(&replayer, &workflow, &inputs, &ctx)?;
     }
     #[cfg(not(all(feature = "real-uia", feature = "real-input")))]

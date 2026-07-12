@@ -1,6 +1,12 @@
 //! A bundled post-execution snapshot for headless `run`/`dry-run` when the
 //! caller passes no `--snapshot`.
 //!
+//! This is the DEFAULT/mock path only. A REAL build (`real-uia` + `real-input`)
+//! with no `--snapshot` instead evaluates gates against LIVE perception
+//! captured around the run (E3, `commands/run.rs`), so this bundled snapshot is
+//! not consulted there; it remains the deterministic stand-in for the headless
+//! mock path.
+//!
 //! Headless replay (`crates/replay`'s whole point) has no live perceiver,
 //! so something has to stand in as "the screen after the run" for the
 //! compiled workflow's pre/post gates to evaluate against -- exactly the

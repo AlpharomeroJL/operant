@@ -4,19 +4,40 @@
 //! Minimal by design (`docs/specs/action.md`): SendInput with
 //! `KEYEVENTF_UNICODE` for text, explicit modifier press/release pairing
 //! for combos, and an unconditional release-all sweep every backend must
-//! expose so [`crate::synth::ModifierReleaseGuard`] and a future kill
-//! switch can rely on it. Focus-then-verify (re-reading the focused UIA
-//! element before any keystroke) needs a `Perceiver` and stays a
-//! FOLLOWUP; this backend does the SetForegroundWindow half only.
+//! expose so [`crate::synth::ModifierReleaseGuard`] and the kill switch can
+//! rely on it.
+//!
+//! Two engine fixes live here (`docs/specs/ipc-bridge.md` section 6):
+//! - E1 focus: [`WindowsSynthesizer::focus_window`] enumerates the live
+//!   top-level windows and REGEX-matches the IR `title_pattern` (also honoring
+//!   `process`), instead of handing the pattern literally to `FindWindowW`,
+//!   which only ever did exact-title matching and so never resolved a real
+//!   window. The matching logic itself is OS-free and unit tested in
+//!   [`crate::focus`].
+//! - E2 focus-then-verify: after focusing, [`WindowsSynthesizer::focus_window`]
+//!   re-reads the target's UI thread to confirm a control actually holds
+//!   keyboard focus before it returns, so the executor's subsequent type/key
+//!   is not fire-and-hope.
+//!
+//! SAFETY: every real input call first checks the process-global freeze
+//! (`operant_core::safety::is_frozen`) and refuses with
+//! [`SynthesizerError::Frozen`] the instant it is engaged, so the panic button
+//! stops a live loop before any keystroke, click, cursor move, or clipboard
+//! write reaches the OS. The release-all-modifiers sweep is deliberately NOT
+//! frozen: un-sticking held modifiers is the safe response to a freeze.
 
 use operant_ir::{Coords, WindowMatch};
-use windows::core::PCWSTR;
-use windows::Win32::Foundation::HWND;
+use operant_core::safety;
+use windows::core::PWSTR;
+use windows::Win32::Foundation::{CloseHandle, BOOL, HWND, LPARAM};
 use windows::Win32::System::DataExchange::{
     CloseClipboard, EmptyClipboard, GetClipboardData, OpenClipboard, SetClipboardData,
 };
 use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
-use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
+use windows::Win32::System::Threading::{
+    AttachThreadInput, GetCurrentThreadId, OpenProcess, QueryFullProcessImageNameW,
+    PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     SendInput, SetFocus, VkKeyScanW, INPUT, INPUT_0, INPUT_KEYBOARD, INPUT_MOUSE, KEYBDINPUT,
     KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, MOUSEEVENTF_LEFTDOWN,
@@ -24,9 +45,11 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     VK_LWIN, VK_MENU, VK_SHIFT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    FindWindowW, GetForegroundWindow, GetWindowThreadProcessId, SetForegroundWindow,
+    EnumWindows, GetForegroundWindow, GetGUIThreadInfo, GetWindowTextLengthW, GetWindowTextW,
+    GetWindowThreadProcessId, IsWindowVisible, SetForegroundWindow, GUITHREADINFO,
 };
 
+use crate::focus::{pick_window, WindowCandidate};
 use crate::synth::{ScrollDirection, Synthesizer, SynthesizerError};
 
 /// `CF_UNICODETEXT`: stable Win32 ABI constant (`WinUser.h`), not currently
@@ -49,6 +72,19 @@ pub struct WindowsSynthesizer;
 impl WindowsSynthesizer {
     pub fn new() -> Self {
         Self
+    }
+}
+
+/// The process-global freeze gate (SAFETY). Checked at the top of every real
+/// input call so a frozen synthesizer refuses BEFORE touching the OS. Returns
+/// [`SynthesizerError::Frozen`] when engaged. The release-all-modifiers sweep
+/// intentionally does not call this: releasing stuck keys is the safe response
+/// to a freeze, not a continuation of the action.
+fn frozen_guard() -> Result<(), SynthesizerError> {
+    if safety::is_frozen() {
+        Err(SynthesizerError::Frozen)
+    } else {
+        Ok(())
     }
 }
 
@@ -149,20 +185,34 @@ fn main_key_vk(token: &str) -> Option<VIRTUAL_KEY> {
 
 impl Synthesizer for WindowsSynthesizer {
     fn focus_window(&self, window: &WindowMatch) -> Result<(), SynthesizerError> {
-        // Minimal: exact-title lookup only. Matching `process` /
-        // `title_pattern` (a regex) against the live window list needs a
-        // window enumeration + UIA-backed process lookup (perception, C2)
-        // and is a FOLLOWUP; see the L3A result.
-        let title = window.title_pattern.clone().ok_or_else(|| {
-            SynthesizerError::Focus("no title_pattern to resolve a window handle from".into())
-        })?;
-        let wide: Vec<u16> = title.encode_utf16().chain(std::iter::once(0)).collect();
-        let hwnd = unsafe { FindWindowW(PCWSTR::null(), PCWSTR(wide.as_ptr())) }
-            .map_err(|e| SynthesizerError::Focus(format!("FindWindowW({title}): {e}")))?;
-        focus_with_attach_workaround(hwnd)
+        frozen_guard()?;
+
+        // E1: resolve the target HWND by enumerating live top-level windows and
+        // REGEX-matching `title_pattern` (and `process`), instead of the old
+        // literal `FindWindowW`, which did exact-title matching and so never
+        // resolved a regex like `.* - Notepad`.
+        let candidates = enumerate_top_level_windows();
+        let hwnd = match pick_window(&candidates, window)? {
+            Some(found) => HWND(found.hwnd as *mut _),
+            None => {
+                return Err(SynthesizerError::Focus(format!(
+                    "no live top-level window matched {window:?} \
+                     (searched {} enumerated windows)",
+                    candidates.len()
+                )));
+            }
+        };
+
+        focus_with_attach_workaround(hwnd)?;
+
+        // E2 focus-then-verify: re-read the target's UI thread and confirm a
+        // control actually holds keyboard focus before returning, so the
+        // executor's subsequent type/key is not fire-and-hope.
+        verify_focus_landed(hwnd)
     }
 
     fn key(&self, combo: &str) -> Result<(), SynthesizerError> {
+        frozen_guard()?;
         let mut tokens: Vec<&str> = combo.split('+').filter(|t| !t.is_empty()).collect();
         let Some(main_token) = tokens.pop() else {
             return Err(SynthesizerError::Input("empty key combo".into()));
@@ -190,6 +240,7 @@ impl Synthesizer for WindowsSynthesizer {
     }
 
     fn type_text(&self, text: &str) -> Result<(), SynthesizerError> {
+        frozen_guard()?;
         let mut events = Vec::with_capacity(text.len() * 2);
         for unit in text.encode_utf16() {
             events.push(unicode_event(unit, false));
@@ -199,6 +250,7 @@ impl Synthesizer for WindowsSynthesizer {
     }
 
     fn click_point(&self, point: Coords) -> Result<(), SynthesizerError> {
+        frozen_guard()?;
         unsafe {
             windows::Win32::UI::WindowsAndMessaging::SetCursorPos(point.x as i32, point.y as i32)
                 .map_err(|e| SynthesizerError::Input(format!("SetCursorPos: {e}")))?;
@@ -210,6 +262,7 @@ impl Synthesizer for WindowsSynthesizer {
     }
 
     fn scroll(&self, direction: ScrollDirection, amount: f64) -> Result<(), SynthesizerError> {
+        frozen_guard()?;
         const WHEEL_DELTA: f64 = 120.0;
         let magnitude = (amount * WHEEL_DELTA).round() as i32;
         let signed = match direction {
@@ -227,6 +280,7 @@ impl Synthesizer for WindowsSynthesizer {
     }
 
     fn clipboard_get(&self) -> Result<String, SynthesizerError> {
+        frozen_guard()?;
         unsafe {
             OpenClipboard(None)
                 .map_err(|e| SynthesizerError::Clipboard(format!("OpenClipboard: {e}")))?;
@@ -255,6 +309,7 @@ impl Synthesizer for WindowsSynthesizer {
     }
 
     fn clipboard_set(&self, text: &str) -> Result<(), SynthesizerError> {
+        frozen_guard()?;
         unsafe {
             OpenClipboard(None)
                 .map_err(|e| SynthesizerError::Clipboard(format!("OpenClipboard: {e}")))?;
@@ -288,11 +343,90 @@ impl Synthesizer for WindowsSynthesizer {
     }
 
     fn release_all_modifiers(&self) -> Result<(), SynthesizerError> {
+        // Intentionally NOT frozen-guarded: releasing stuck modifiers is the
+        // safe response to a freeze (and the executor's own frozen path calls
+        // this), so it must still run when the freeze is engaged.
         let events: Vec<INPUT> = MODIFIER_VKS
             .iter()
             .map(|vk| key_event(*vk, KEYEVENTF_KEYUP))
             .collect();
         send(&events)
+    }
+}
+
+/// `EnumWindows` callback: push each top-level HWND into the `Vec<HWND>` handed
+/// through `lparam`. Always returns TRUE so enumeration visits every window.
+unsafe extern "system" fn collect_window(hwnd: HWND, lparam: LPARAM) -> BOOL {
+    let handles = &mut *(lparam.0 as *mut Vec<HWND>);
+    handles.push(hwnd);
+    BOOL(1)
+}
+
+/// Enumerate every top-level window and reduce each to the [`WindowCandidate`]
+/// the pure matcher ([`crate::focus`]) needs: title, owning-process basename,
+/// and visibility. This is the OS half of the E1 fix; the matching itself is
+/// OS-free and unit tested.
+fn enumerate_top_level_windows() -> Vec<WindowCandidate> {
+    let mut handles: Vec<HWND> = Vec::new();
+    // SAFETY: EnumWindows calls `collect_window` synchronously on this thread
+    // once per window with the pointer we pass; `handles` outlives the call.
+    unsafe {
+        let _ = EnumWindows(Some(collect_window), LPARAM(&mut handles as *mut _ as isize));
+    }
+    handles
+        .into_iter()
+        .map(|hwnd| WindowCandidate {
+            hwnd: hwnd.0 as isize,
+            title: window_title(hwnd),
+            process: window_process_basename(hwnd),
+            visible: unsafe { IsWindowVisible(hwnd).as_bool() },
+        })
+        .collect()
+}
+
+/// The window's title text, or an empty string when it has none.
+fn window_title(hwnd: HWND) -> String {
+    unsafe {
+        let len = GetWindowTextLengthW(hwnd);
+        if len <= 0 {
+            return String::new();
+        }
+        // +1 for the NUL GetWindowTextW writes; it returns the copied length
+        // excluding that terminator.
+        let mut buf = vec![0u16; len as usize + 1];
+        let copied = GetWindowTextW(hwnd, &mut buf);
+        if copied <= 0 {
+            return String::new();
+        }
+        String::from_utf16_lossy(&buf[..copied as usize])
+    }
+}
+
+/// The image basename (e.g. `notepad.exe`) of the process owning `hwnd`, or
+/// `None` when it cannot be resolved (a window owned by a more-privileged
+/// process the current one cannot open). `None` never matches a `process`
+/// constraint, which is the safe default: an unidentifiable window is not
+/// treated as the target.
+fn window_process_basename(hwnd: HWND) -> Option<String> {
+    unsafe {
+        let mut pid: u32 = 0;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if pid == 0 {
+            return None;
+        }
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let mut buf = vec![0u16; 260];
+        let mut size = buf.len() as u32;
+        let query =
+            QueryFullProcessImageNameW(handle, PROCESS_NAME_WIN32, PWSTR(buf.as_mut_ptr()), &mut size);
+        let _ = CloseHandle(handle);
+        query.ok()?;
+        let full = String::from_utf16_lossy(&buf[..size as usize]);
+        let base = full
+            .rsplit(|c| c == '\\' || c == '/')
+            .next()
+            .unwrap_or(full.as_str());
+        Some(base.to_string())
     }
 }
 
@@ -324,14 +458,50 @@ fn focus_with_attach_workaround(hwnd: HWND) -> Result<(), SynthesizerError> {
     Ok(())
 }
 
+/// E2: re-read the focused element to confirm focus actually landed on the
+/// target window's UI thread before any keystroke is sent. Confirms both that
+/// the target is now the foreground window and that some control on its thread
+/// holds keyboard focus; either failing means a keystroke would go nowhere
+/// useful, so it is surfaced as a [`SynthesizerError::Focus`] (retryable by the
+/// executor) rather than typed into the void.
+fn verify_focus_landed(hwnd: HWND) -> Result<(), SynthesizerError> {
+    unsafe {
+        if GetForegroundWindow().0 != hwnd.0 {
+            return Err(SynthesizerError::Focus(
+                "target window did not become the foreground window after focus".into(),
+            ));
+        }
+        let thread = GetWindowThreadProcessId(hwnd, None);
+        if thread == 0 {
+            return Err(SynthesizerError::Focus(
+                "target window has no UI thread to verify focus against".into(),
+            ));
+        }
+        let mut info = GUITHREADINFO {
+            cbSize: std::mem::size_of::<GUITHREADINFO>() as u32,
+            ..Default::default()
+        };
+        GetGUIThreadInfo(thread, &mut info)
+            .map_err(|e| SynthesizerError::Focus(format!("GetGUIThreadInfo: {e}")))?;
+        if info.hwndFocus.0.is_null() {
+            return Err(SynthesizerError::Focus(
+                "no control holds keyboard focus on the target window after focus".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    // These exercise pure parsing/mapping logic only; anything that calls
-    // into user32/SendInput needs an interactive desktop session and is
-    // out of scope for `cargo test` (that is exactly why the crate default
-    // build excludes this module).
+    // These exercise pure parsing/mapping and the freeze gate only. Anything
+    // that calls into user32/SendInput (focus enumeration, real input) needs an
+    // interactive desktop session and is out of scope for `cargo test`; the
+    // OS-free window-matching logic is tested in `crate::focus`, and the freeze
+    // cases below short-circuit BEFORE any user32 call, so they are safe to run
+    // headlessly.
 
     #[test]
     fn modifier_vk_recognizes_common_aliases() {
@@ -341,5 +511,46 @@ mod tests {
         assert_eq!(modifier_vk("shift"), Some(VK_SHIFT));
         assert_eq!(modifier_vk("win"), Some(VK_LWIN));
         assert_eq!(modifier_vk("s"), None);
+    }
+
+    // SAFETY freeze test. The frozen synthesizer must refuse every real input
+    // call BEFORE it reaches SendInput/SetCursorPos/clipboard/EnumWindows, so
+    // setting the freeze and calling each method injects nothing into the live
+    // desktop: the whole test runs headlessly. Kept as one function so the
+    // process-global flag it flips can never race another test in this binary,
+    // and it restores the flag to `false` before returning.
+    #[test]
+    fn freeze_refuses_every_real_input_call_then_release_restores() {
+        let synth = WindowsSynthesizer::new();
+        let point = Coords {
+            x: 10.0,
+            y: 20.0,
+            monitor: None,
+            dpi_scale: None,
+        };
+        let window = WindowMatch {
+            process: Some("notepad.exe".into()),
+            title_pattern: Some(r".* - Notepad".into()),
+        };
+
+        safety::set_frozen(true);
+        // Every guarded call short-circuits to Frozen without touching the OS.
+        assert_eq!(synth.focus_window(&window), Err(SynthesizerError::Frozen));
+        assert_eq!(synth.key("ctrl+s"), Err(SynthesizerError::Frozen));
+        assert_eq!(synth.type_text("hi"), Err(SynthesizerError::Frozen));
+        assert_eq!(synth.click_point(point), Err(SynthesizerError::Frozen));
+        assert_eq!(
+            synth.scroll(ScrollDirection::Down, 1.0),
+            Err(SynthesizerError::Frozen)
+        );
+        assert_eq!(synth.clipboard_get(), Err(SynthesizerError::Frozen));
+        assert_eq!(synth.clipboard_set("x"), Err(SynthesizerError::Frozen));
+
+        // Releasing the freeze re-opens the gate: the guard no longer refuses.
+        // (We assert via the gate itself rather than calling a real method, so
+        // the test never actually injects input.)
+        safety::set_frozen(false);
+        assert!(!safety::is_frozen());
+        assert_eq!(frozen_guard(), Ok(()));
     }
 }

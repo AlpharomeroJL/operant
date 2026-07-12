@@ -48,3 +48,11 @@ thiserror.workspace = true
 # links them and replay stays deterministic and model-free.
 real-uia = ["dep:operant-perception-uia", "operant-perception-uia/real-uia"]
 real-input = ["operant-action/real-input"]
+# Reserved so the "real" build matrix is uniform with the crates that DO own a
+# network transport (operant-orchestrator's `real-transport`, reqwest, used by
+# teach). The replay-only CLI has no model/network transport of its own and
+# deliberately pulls in neither reqwest nor operant-orchestrator, so this
+# feature is intentionally inert: `operant run` stays deterministic and offline
+# either way. It exists so `--features real-uia,real-input,real-transport`
+# builds the CLI instead of failing on an unknown feature.
+real-transport = []

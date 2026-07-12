@@ -27,6 +27,13 @@ pub mod executor;
 pub mod killswitch;
 pub mod synth;
 
+/// Window matching (E1): regex `title_pattern` / `process` resolution shared
+/// by the real backend, kept OS-free so its logic is unit tested headlessly.
+/// Compiled for the real backend and for tests (so the default `cargo test`
+/// exercises its matching logic); a default non-test build has no consumer.
+#[cfg(any(feature = "real-input", test))]
+mod focus;
+
 #[cfg(feature = "real-input")]
 pub mod real_win;
 

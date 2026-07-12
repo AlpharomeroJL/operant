@@ -9,6 +9,8 @@
 //! - [`config`]: a config store with JSON file persistence and a
 //!   `config.changed` bus event on every `set`.
 //! - [`logging`]: idempotent `tracing_subscriber` initialization.
+//! - [`safety`]: the process-global input freeze (kill switch, SAFETY) that
+//!   real input backends check before every keystroke/click/clipboard write.
 //! - [`supervisor`]: a sidecar supervisor generic over the
 //!   [`supervisor::Child`] trait (spawn, health, watchdog restart within a 2s
 //!   budget) and a VRAM arbitration broker that serializes contending
@@ -21,6 +23,7 @@ pub mod bus;
 pub mod config;
 pub mod logging;
 pub mod perceive;
+pub mod safety;
 pub mod supervisor;
 
 pub use bus::Bus;
