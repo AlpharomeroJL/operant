@@ -8,7 +8,7 @@
 import type { BusClient } from "../bus/mockClient.ts";
 import {
   createMockSettingsStore,
-  type MockSettingsStore,
+  type SettingsStore,
   type SettingsState,
   type BackupPayload,
 } from "./mockStore.ts";
@@ -45,17 +45,23 @@ export interface SettingsView {
   cancelChordRecording(): void;
   exportBackup(): BackupPayload;
   importBackup(payload: BackupPayload): void;
+  /** True when the store is the live IPC store: backup uses export_backup/import_backup (an archive), not the settings-only BackupPayload. */
+  supportsBackupArchive(): boolean;
+  /** Live store only: export_backup, resolving to the archive's base64 bytes. Returns null on the mock store. */
+  exportBackupArchive(): Promise<string> | null;
+  /** Live store only: import_backup from an archive's base64 bytes. Returns null on the mock store. */
+  importBackupArchive(bytesB64: string): Promise<void> | null;
   setBackendProfile(profile: BackendProfile | null, label?: string): void;
   dispose(): void;
 }
 
 export interface CreateSettingsOptions {
-  store?: MockSettingsStore;
+  store?: SettingsStore;
   initial?: Partial<SettingsState>;
 }
 
 export function createSettings(bus?: BusClient, opts: CreateSettingsOptions = {}): SettingsView {
-  const store = opts.store ?? createMockSettingsStore(bus, opts.initial);
+  const store: SettingsStore = opts.store ?? createMockSettingsStore(bus, opts.initial);
   let profile: BackendProfile | null = null;
   let recording = false;
   const listeners = new Set<(snap: SettingsSnapshot) => void>();
@@ -132,6 +138,9 @@ export function createSettings(bus?: BusClient, opts: CreateSettingsOptions = {}
     importBackup(payload) {
       store.importBackup(payload);
     },
+    supportsBackupArchive: () => typeof store.exportBackupArchive === "function",
+    exportBackupArchive: () => store.exportBackupArchive?.() ?? null,
+    importBackupArchive: (bytesB64) => store.importBackupArchive?.(bytesB64) ?? null,
     setBackendProfile(p, label) {
       profile = p;
       if (label !== undefined) {
@@ -143,6 +152,9 @@ export function createSettings(bus?: BusClient, opts: CreateSettingsOptions = {}
     dispose() {
       unsubscribeStore();
       listeners.clear();
+      // The live store holds a config.changed bus subscription; the mock has
+      // no dispose and skips this.
+      store.dispose?.();
     },
   };
 }
