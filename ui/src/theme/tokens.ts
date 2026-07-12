@@ -243,14 +243,17 @@ export const RADIUS = {
  * "Numeric and step data: IBM Plex Mono, tabular figures..."
  * "No font ships that is not bundled."
  *
- * OPEN SUB-ITEM (flagged, not silently skipped): neither font's files are
- * vendored in this repo yet, and this app is deliberately air-gapped (no
- * network font fetch: see the removed tokens.css comment this replaces, and
- * scripts/check_airgap.mjs), so a remote webfont `<link>`/`@import` is not an
- * option either. Until a later packet vendors the actual font files, both
- * stacks below fall back to the closest already-installed system faces
- * (Segoe UI on Windows for the UI face, Cascadia Code/Consolas for mono) so
- * the app never ships an unbundled *network* font while staying legible.
+ * Both faces are now vendored as local woff2 assets under
+ * ui/src/assets/fonts/ and declared via @font-face in ui/src/styles/fonts.css
+ * (Instrument Sans as one weight+width variable file; IBM Plex Mono as the
+ * three static weights below). Vite fingerprints and bundles those files into
+ * dist/ at build time, so they load offline with no runtime webfont fetch,
+ * which is what keeps the app air-gapped (scripts/check_airgap.mjs) while still
+ * shipping its own type: "No font ships that is not bundled." Both are SIL OFL
+ * 1.1 licensed, license text vendored beside the files. The system faces in
+ * each stack below are now only a final fallback, used solely for the brief
+ * moment before the bundled face finishes loading (or if a face is ever
+ * missing), never the intended render.
  */
 export const FONT = {
   family: `"Instrument Sans", -apple-system, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif`,
