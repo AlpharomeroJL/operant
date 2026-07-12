@@ -46,7 +46,7 @@ envelope `app.emit("operant://bus", &envelope)` (needs `tauri::Emitter`). Start 
 in `.setup()`. Mirror `ui/src-tauri/src/updater.rs:152-167` for handle capture.
 
 ### TS client (webview)
-`ui/src/bus/tauriClient.ts` `createTauriBusClient(): BusClient` — one
+`ui/src/bus/tauriClient.ts` `createTauriBusClient(): BusClient`, one
 `listen("operant://bus", e => dispatch(e.payload))`, reuse the mock's exact
 prefix-filter (`mockClient.ts:40-42`, incl. `"*"`). Drop-in for
 `createMockBusClient()`. `publish(topic,payload)` routes command-topics to
@@ -83,7 +83,7 @@ DTOs are serde structs in the shell mapping core types -> the exact TS payloads 
 
 ## 3. Run paths
 
-### 3a. Teach (model-driven) — `ExploreLoop`
+### 3a. Teach (model-driven): `ExploreLoop`
 `explore/mod.rs:107-150`. Async; publishes all `run.*` internally; `run_id` from
 the `run.started` envelope. Assemble behind shell cfg mirroring `cli/run.rs:52-64`:
 - perceiver: `UiaPerceiver::new()` (`real-uia`) else `FixturePerceiver`.
@@ -93,7 +93,7 @@ the `run.started` envelope. Assemble behind shell cfg mirroring `cli/run.rs:52-6
   (`OPERANT_LIVE_BACKEND` + provider/model/key, `backends/live_config.rs:33`).
 Steered via `run.control.*` (`BusControl`). Wizard configures the backend (7).
 
-### 3b. Replay (deterministic) — `Replayer`
+### 3b. Replay (deterministic): `Replayer`
 `replay/lib.rs:139`. Sync, model-free by crate graph (test `:372-393`). GAP: it
 publishes nothing. The `run_saved_workflow` command wraps it: publish
 `run.started`(mode replay) -> for each executed action publish
@@ -119,7 +119,7 @@ Canonical data dir keyed by identifier `dev.operant.shell` (NOT product name):
   registry `InstallStore::list()/delete()` (`install.rs:248`). Reconcile the
   duplicate auto-update setting (UI localStorage vs `updater-settings.json`) into
   `Config` as the single source.
-Uninstaller already deletes both identifier dirs (fixed in `12bcf87`) — only
+Uninstaller already deletes both identifier dirs (fixed in `12bcf87`); only
 `docs/KNOWN_ISSUES.md:41-45` + `docs/install.md:83` are stale (strike them).
 
 ## 6. Engine fixes (crates/action, crates/replay, cli)
@@ -160,7 +160,7 @@ values. Doctor + Gallery exist but are unmounted; wire if time permits.
 ## 9. Open decisions / gaps to honor
 - Stop semantics: teach stop = freeze + cooperative pause (~1s) then ensure
   `end_run`+closing event; never leave a run row open.
-- `run_id` returns via `run.started`, not the command result — UI already reacts.
+- `run_id` returns via `run.started`, not the command result; UI already reacts.
 - Keep `simulateDemoRun`/mock for non-Tauri dev; never ship it as the real path.
 - Every real path stays behind shell features (`real-uia`/`real-input`/
   `real-transport`); default `just verify` build stays deterministic + offline so
