@@ -45,8 +45,10 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
     VK_LWIN, VK_MENU, VK_SHIFT,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetForegroundWindow, GetGUIThreadInfo, GetWindowTextLengthW, GetWindowTextW,
-    GetWindowThreadProcessId, IsWindowVisible, SetForegroundWindow, GUITHREADINFO,
+    BringWindowToTop, EnumWindows, GetForegroundWindow, GetGUIThreadInfo, GetWindowTextLengthW,
+    GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetForegroundWindow,
+    ShowWindow, SystemParametersInfoW, GUITHREADINFO, SPIF_SENDCHANGE,
+    SPI_SETFOREGROUNDLOCKTIMEOUT, SW_RESTORE,
 };
 
 use crate::focus::{pick_window, WindowCandidate};
@@ -430,12 +432,60 @@ fn window_process_basename(hwnd: HWND) -> Option<String> {
     }
 }
 
-/// SetForegroundWindow refuses to steal focus from a foreground process
-/// that did not yield it voluntarily unless the calling thread's input
-/// state is attached to the foreground thread's. `docs/specs/action.md`
-/// calls this out explicitly as "the attach-thread-input workaround."
+/// Foreground the target window from a background process, best-effort.
+///
+/// `SetForegroundWindow` refuses to steal focus from a foreground process
+/// that did not yield it voluntarily: a background process is only permitted
+/// to foreground a window when it has recently synthesized input, and only
+/// while the foreground-lock timeout is not armed. Hard-failing on its bool
+/// return therefore broke real GUI automation outright, since the first focus
+/// of a window the process did not already own would fail before a single
+/// keystroke could land. So this applies the standard, well-established
+/// techniques to earn foreground rights and treats the outcome as
+/// best-effort, leaving [`verify_focus_landed`] (which the caller runs next)
+/// as the correctness gate. `docs/specs/action.md` calls the thread-attach
+/// step out explicitly as "the attach-thread-input workaround."
+///
+/// Sequence:
+/// 1. Restore the window if it is minimized (a minimized window cannot become
+///    the foreground window).
+/// 2. Best-effort clear the foreground-lock timeout so a background process is
+///    allowed to change the foreground window at all.
+/// 3. Inject one benign Alt down/up via `SendInput` BEFORE the foreground
+///    calls: Windows grants `SetForegroundWindow` to a process that has just
+///    synthesized input.
+/// 4. Bracket the foreground calls with `AttachThreadInput` to the current
+///    foreground thread.
+/// 5. Retry `SetForegroundWindow` + `BringWindowToTop` + `SetFocus` a few
+///    times, breaking as soon as the target is actually the foreground window.
 fn focus_with_attach_workaround(hwnd: HWND) -> Result<(), SynthesizerError> {
     unsafe {
+        // 1. A minimized window cannot take the foreground; restore it first.
+        if IsIconic(hwnd).as_bool() {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+        }
+
+        // 2. Best-effort: drop the foreground-lock timeout to zero so a
+        //    background process is permitted to change the foreground window.
+        //    Result intentionally ignored; failure just leaves the OS default.
+        let _ = SystemParametersInfoW(
+            SPI_SETFOREGROUNDLOCKTIMEOUT,
+            0,
+            Some(std::ptr::null_mut()),
+            SPIF_SENDCHANGE,
+        );
+
+        // 3. Earn foreground rights by injecting one benign input event
+        //    (Alt down then up) BEFORE the foreground calls, reusing the same
+        //    key_event + SendInput dispatch helpers used for real key input.
+        //    Best-effort: a failed inject just falls through to the retry loop.
+        let _ = send(&[
+            key_event(VK_MENU, KEYBD_EVENT_FLAGS(0)),
+            key_event(VK_MENU, KEYEVENTF_KEYUP),
+        ]);
+
+        // 4. Attach our input state to the current foreground thread's so the
+        //    focus calls below are honored (the attach-thread-input workaround).
         let fg = GetForegroundWindow();
         let fg_thread = GetWindowThreadProcessId(fg, None);
         let cur_thread = GetCurrentThreadId();
@@ -443,18 +493,27 @@ fn focus_with_attach_workaround(hwnd: HWND) -> Result<(), SynthesizerError> {
             && fg_thread != cur_thread
             && AttachThreadInput(cur_thread, fg_thread, true).as_bool();
 
-        let focused = SetForegroundWindow(hwnd);
-        let _ = SetFocus(hwnd);
+        // 5. Retry the foreground trio, stopping as soon as the target is
+        //    actually foreground. The bool returns are unreliable across these
+        //    techniques, so `GetForegroundWindow() == hwnd` is the only signal
+        //    trusted here; verify_focus_landed is the real gate.
+        for _ in 0..5 {
+            let _ = SetForegroundWindow(hwnd);
+            let _ = BringWindowToTop(hwnd);
+            let _ = SetFocus(hwnd);
+            if GetForegroundWindow().0 == hwnd.0 {
+                break;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
 
         if attached {
             let _ = AttachThreadInput(cur_thread, fg_thread, false);
         }
-        if !focused.as_bool() {
-            return Err(SynthesizerError::Focus(
-                "SetForegroundWindow returned false".into(),
-            ));
-        }
     }
+    // Best-effort by design: do NOT return Err when SetForegroundWindow reports
+    // false. verify_focus_landed(hwnd), which the caller runs immediately after
+    // this returns, correctly fails if the window truly did not foreground.
     Ok(())
 }
 
