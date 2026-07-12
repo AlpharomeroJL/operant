@@ -4,7 +4,7 @@ import { createMockBusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_REPLAY, RUN_MODE_EXPLORE } from "../bus/types.ts";
 import { createDashboard, SPARKLINE_WIDTH, SPARKLINE_HEIGHT } from "./state.ts";
 import { createMockRegistry } from "../library/mockRegistry.ts";
-import { dashboardStrings } from "../strings/default.ts";
+import { commonStrings, dashboardStrings } from "../strings/default.ts";
 import { dashboardCopyStrings } from "./strings.ts";
 import { WEEKLY_METRICS_FIXTURE } from "./mockMetrics.ts";
 
@@ -221,6 +221,11 @@ test("empty state: nothing scheduled and nothing has run yet shows the quiet inv
   assert.equal(snap.upNext.length, 0);
   assert.equal(snap.recentRuns.length, 0);
   assert.equal(snap.emptyLabel, dashboardStrings.emptyInvite);
+  // H1 (docs/specs/design.md section 4: "Empty states invite one specific
+  // action", section 3's Wizard finish screen: "a single amber 'Teach your
+  // first workflow' button"). ui/src/dashboard/view.ts renders this as a
+  // button alongside emptyLabel's sentence above.
+  assert.equal(snap.emptyActionLabel, commonStrings.teachFirstWorkflow);
 
   dashboard.dispose();
 });

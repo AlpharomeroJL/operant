@@ -1,11 +1,19 @@
 // First-run tour and contextual hints. The tour walks a first-time user
-// through palette -> run viewer -> library with short callouts. Contextual
-// hints are small one-line tips attached to specific controls that retire
-// (never show again) after the user first succeeds at the action the hint
-// describes. Persist "seen/retired" state the same way ui/src/wizard or
-// ui/src/settings persist local state.
+// across the shell's nav (docs/specs/design.md section 3's screen map:
+// Dashboard, Library, Runs, Settings, ui/src/main.ts's own `Screen` type)
+// in that order, with one short callout per screen, so it "completes on the
+// new nav" (H1) rather than referencing screens the redesign has since
+// renamed or moved (the command palette used to be an inline part of this
+// walkthrough; it is now its own global overlay, ui/src/palette/, reachable
+// from any of the four screens below, so it is no longer a step of its own
+// here -- the first step, `dashboard`, is where its own empty state now
+// carries that same invite, ui/src/dashboard/view.ts). Contextual hints are
+// small one-line tips attached to specific controls that retire (never show
+// again) after the user first succeeds at the action the hint describes.
+// Persist "seen/retired" state the same way ui/src/wizard or ui/src/settings
+// persist local state.
 
-export type TourStep = "palette" | "runViewer" | "library" | "done";
+export type TourStep = "dashboard" | "library" | "runs" | "settings" | "done";
 
 export interface TourSnapshot {
   step: TourStep;
@@ -22,14 +30,18 @@ const RETIRED_HINTS_KEY = "operant.ui.tour.retired-hints";
 
 function readInitialStep(): TourStep {
   try {
-    if (typeof localStorage === "undefined") return "palette";
+    if (typeof localStorage === "undefined") return "dashboard";
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored || !["palette", "runViewer", "library", "done"].includes(stored)) {
-      return "palette";
+    if (!stored || !["dashboard", "library", "runs", "settings", "done"].includes(stored)) {
+      // Also covers a pre-H1 stored value ("palette"/"runViewer") from
+      // before the tour was re-pointed at the new nav: falls back to the
+      // walkthrough's own first step rather than a step id that no longer
+      // means anything.
+      return "dashboard";
     }
     return stored as TourStep;
   } catch {
-    return "palette";
+    return "dashboard";
   }
 }
 
@@ -58,7 +70,7 @@ export function createTourStore(initial: TourStep = readInitialStep()) {
   }
 
   function nextStep(): void {
-    const steps: TourStep[] = ["palette", "runViewer", "library", "done"];
+    const steps: TourStep[] = ["dashboard", "library", "runs", "settings", "done"];
     const currentIndex = steps.indexOf(step);
     if (currentIndex < steps.length - 1) {
       step = steps[currentIndex + 1];
@@ -80,7 +92,7 @@ export function createTourStore(initial: TourStep = readInitialStep()) {
   }
 
   function reset(): void {
-    step = "palette";
+    step = "dashboard";
     retiredHints.clear();
     persist();
     persistRetiredHints();

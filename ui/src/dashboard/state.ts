@@ -8,7 +8,7 @@
 
 import type { BusClient } from "../bus/mockClient.ts";
 import type { BusEvent } from "../bus/types.ts";
-import { dashboardStrings } from "../strings/default.ts";
+import { commonStrings, dashboardStrings } from "../strings/default.ts";
 import { dashboardCopyStrings } from "./strings.ts";
 import { WEEKLY_METRICS_FIXTURE, UP_NEXT_FIXTURE, type WeeklyMetric, type UpcomingRunFixture } from "./mockMetrics.ts";
 import { createMockRegistry, type MockRegistry } from "../library/mockRegistry.ts";
@@ -54,6 +54,14 @@ export interface DashboardSnapshot {
   /** True only when there is nothing scheduled and nothing has run yet at all: design.md's "quiet empty state that invites teaching the first workflow." */
   empty: boolean;
   emptyLabel: string;
+  /**
+   * H1 (docs/specs/design.md section 3's Wizard finish screen, reused here
+   * for the dashboard's own first-run invite: "a single amber 'Teach your
+   * first workflow' button"). Only meaningful while `empty` is true;
+   * ./view.ts renders it as the one specific action the empty state's copy
+   * rule calls for, alongside `emptyLabel`'s quiet explanatory sentence.
+   */
+  emptyActionLabel: string;
 }
 
 export interface Dashboard {
@@ -228,6 +236,7 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
       recentRunsEmptyLabel: dashboardStrings.recentRunsEmpty,
       empty: upNext.length === 0 && recentRuns.length === 0,
       emptyLabel: dashboardStrings.emptyInvite,
+      emptyActionLabel: commonStrings.teachFirstWorkflow,
     };
   }
 

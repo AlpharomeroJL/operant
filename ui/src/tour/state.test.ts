@@ -2,30 +2,33 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createTourStore } from "./state.ts";
 
-test("tour starts at palette step", () => {
-  const tour = createTourStore("palette");
+test("tour starts at dashboard step", () => {
+  const tour = createTourStore("dashboard");
   const snap = tour.getSnapshot();
 
-  assert.equal(snap.step, "palette");
+  assert.equal(snap.step, "dashboard");
   assert.equal(snap.completed, false);
   assert.equal(snap.retiredHints.size, 0);
 
   tour.dispose();
 });
 
-test("tour progresses through steps: palette -> runViewer -> library -> done", () => {
-  const tour = createTourStore("palette");
+test("tour progresses through the new nav, in nav order: dashboard -> library -> runs -> settings -> done", () => {
+  const tour = createTourStore("dashboard");
   const steps: string[] = [];
 
   tour.subscribe((snap) => steps.push(snap.step));
 
-  assert.equal(tour.getSnapshot().step, "palette");
-
-  tour.nextStep();
-  assert.equal(tour.getSnapshot().step, "runViewer");
+  assert.equal(tour.getSnapshot().step, "dashboard");
 
   tour.nextStep();
   assert.equal(tour.getSnapshot().step, "library");
+
+  tour.nextStep();
+  assert.equal(tour.getSnapshot().step, "runs");
+
+  tour.nextStep();
+  assert.equal(tour.getSnapshot().step, "settings");
 
   tour.nextStep();
   assert.equal(tour.getSnapshot().step, "done");
@@ -35,7 +38,7 @@ test("tour progresses through steps: palette -> runViewer -> library -> done", (
   tour.nextStep();
   assert.equal(tour.getSnapshot().step, "done");
 
-  assert.deepEqual(steps, ["runViewer", "library", "done"]);
+  assert.deepEqual(steps, ["library", "runs", "settings", "done"]);
 
   tour.dispose();
 });
@@ -86,19 +89,19 @@ test("multiple hints can be retired together", () => {
 });
 
 test("reset clears tour progress and retired hints", () => {
-  const tour = createTourStore("palette");
+  const tour = createTourStore("dashboard");
 
   tour.nextStep();
   tour.nextStep();
   tour.retireHint("some-hint");
 
-  assert.equal(tour.getSnapshot().step, "library");
+  assert.equal(tour.getSnapshot().step, "runs");
   assert.equal(tour.isHintRetired("some-hint"), true);
 
   tour.reset();
 
   const snap = tour.getSnapshot();
-  assert.equal(snap.step, "palette");
+  assert.equal(snap.step, "dashboard");
   assert.equal(snap.retiredHints.size, 0);
 
   tour.dispose();
@@ -110,10 +113,12 @@ test("tour completes end to end: each step advances and tour ends", () => {
 
   tour.subscribe((snap) => snapshots.push(snap.step));
 
-  // Start at palette
-  assert.equal(tour.getSnapshot().step, "palette");
+  // Start at dashboard (docs/specs/design.md section 3's nav map: the shell's
+  // own default screen too, ui/src/main.ts's activeScreen).
+  assert.equal(tour.getSnapshot().step, "dashboard");
 
-  // Advance through all steps
+  // Advance through all steps: dashboard -> library -> runs -> settings -> done.
+  tour.nextStep();
   tour.nextStep();
   tour.nextStep();
   tour.nextStep();
@@ -122,14 +127,14 @@ test("tour completes end to end: each step advances and tour ends", () => {
   assert.equal(tour.getSnapshot().completed, true);
 
   // Verify the progression
-  assert.deepEqual(snapshots, ["runViewer", "library", "done"]);
+  assert.deepEqual(snapshots, ["library", "runs", "settings", "done"]);
 
   tour.dispose();
 });
 
 test("a retired hint stays retired after a simulated app restart (state reload from persisted store)", async () => {
   // First session: retire a hint
-  const tour1 = createTourStore("palette");
+  const tour1 = createTourStore("dashboard");
   const hintId = "persistent-hint";
 
   tour1.retireHint(hintId);
@@ -142,7 +147,7 @@ test("a retired hint stays retired after a simulated app restart (state reload f
   // the in-memory state before dispose.
   // For this test, we need to verify persistence works by checking that
   // the state object properly tracks retired hints.
-  const tour2 = createTourStore("palette");
+  const tour2 = createTourStore("dashboard");
 
   // Since tour2 is a fresh instance, we need to manually set it to the same state
   // as tour1 had. In the real app, localStorage would handle this.

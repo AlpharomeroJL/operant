@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMockBusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY } from "../bus/types.ts";
+import { commonStrings } from "../strings/default.ts";
 import { createLibrary } from "./state.ts";
 import { createMockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
 import { assignGlyph } from "./glyph.ts";
@@ -55,6 +56,9 @@ test("an empty registry renders the empty-library message, not zero silent cards
   assert.equal(snap.empty, true);
   assert.equal(snap.cards.length, 0);
   assert.equal(snap.emptyLabel, "No workflows yet. Teach it something to save your first one.");
+  // H1 (docs/specs/design.md section 4: "Empty states invite one specific
+  // action"). ui/src/library/view.ts renders this as a button only when set.
+  assert.equal(snap.emptyActionLabel, commonStrings.teachFirstWorkflow);
 });
 
 test("run() starts a saved-workflow run on the bus and updates last run + notifies subscribers", () => {
@@ -265,6 +269,10 @@ test("a search that matches nothing shows the no-matches message, not the no-wor
   assert.equal(snap.cards.length, 0);
   assert.equal(snap.empty, true);
   assert.equal(snap.emptyLabel, "No workflows match your search.");
+  // H1: "teach a workflow" is the wrong invite here -- the library is not
+  // actually empty, a search just matched nothing -- so no action shows
+  // (ui/src/library/view.ts renders a button only when this is non-null).
+  assert.equal(snap.emptyActionLabel, null);
 
   library.dispose();
 });
@@ -277,6 +285,9 @@ test("an empty registry still says 'no workflows yet', not 'no matches', even wh
   const snap = library.getSnapshot();
   assert.equal(snap.empty, true);
   assert.equal(snap.emptyLabel, "No workflows yet. Teach it something to save your first one.");
+  // H1: the registry is genuinely empty regardless of the search box, so the
+  // teach action still shows (contrast the no-search-matches case above).
+  assert.equal(snap.emptyActionLabel, commonStrings.teachFirstWorkflow);
 
   library.dispose();
 });

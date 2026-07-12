@@ -43,6 +43,8 @@ import { mountToast } from "./toasts/view.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
 import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
+import { tourStore } from "./tour/state.ts";
+import { mountTourCallout } from "./tour/view.ts";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -118,6 +120,7 @@ root.innerHTML = `
       </div>
     </section>
     <div id="op-toast-mount"></div>
+    <div id="op-tour-mount"></div>
   </div>
 `;
 
@@ -173,6 +176,7 @@ const undoMount = byId<HTMLElement>("op-undo-mount");
 const toastMount = byId<HTMLElement>("op-toast-mount");
 const paletteBackdrop = byId<HTMLElement>("op-palette-backdrop");
 const paletteMount = byId<HTMLElement>("op-palette-mount");
+const tourMount = byId<HTMLElement>("op-tour-mount");
 
 appTitle.textContent = commonStrings.appName;
 advancedHeading.textContent = advancedStrings.toggleLabel;
@@ -375,6 +379,10 @@ function renderRunViewer(): void {
       runViewer.intervene(text);
     },
     onSelectStep: (stepId) => runViewer.select(stepId),
+    // H1: the empty state's one specific action, before any run has ever
+    // started (ui/src/runViewer/view.ts). Opens the same command palette the
+    // dashboard and library empty states do, below.
+    onTeach: () => openPalette(),
   });
 }
 
@@ -569,6 +577,10 @@ function renderLibraryPanel(): void {
     onExplain: openExplain,
     onReorder: (name, beforeName) => library.reorder(name, beforeName),
     onSearchChange: (query) => library.setSearchQuery(query),
+    // H1: the empty state's one specific action, shown only with zero saved
+    // workflows (ui/src/library/state.ts's emptyActionLabel). Same palette
+    // the dashboard's own empty state opens, below.
+    onTeach: () => openPalette(),
   });
   if (scheduleNotice) {
     const notice = document.createElement("p");
@@ -579,7 +591,10 @@ function renderLibraryPanel(): void {
 }
 
 function renderDashboardPanel(): void {
-  mountDashboard(dashboardMount, dashboard.getSnapshot());
+  // H1 (docs/specs/design.md section 3's Wizard finish screen, reused for
+  // this screen's own first-run invite: "a single amber 'Teach your first
+  // workflow' button"): opens the same command palette Ctrl+K does, below.
+  mountDashboard(dashboardMount, dashboard.getSnapshot(), { onTeach: () => openPalette() });
 }
 
 function downloadBackup(payload: BackupPayload): void {
@@ -696,6 +711,28 @@ function renderPalette(): void {
 }
 
 /**
+ * First-run tour (ui/src/tour/*, H1: re-pointed at the new nav so it
+ * completes on it -- Dashboard, Library, Runs, Settings, docs/specs/
+ * design.md section 3's nav map). Held back while the wizard modal is still
+ * up (renderWizardPanel below calls this every time it renders, so the
+ * callout appears the moment wizardDismissed flips true, rather than
+ * stacking a second overlay on top of the wizard's own full-window
+ * takeover). Dismissing a callout ("Got it") both advances the tour and
+ * switches to the screen its next callout is about (the tourStore.subscribe
+ * below), so the tour actually walks the person across the nav instead of
+ * narrating it from wherever they happen to already be sitting.
+ */
+function renderTour(): void {
+  if (!wizardDismissed) {
+    tourMount.textContent = "";
+    return;
+  }
+  mountTourCallout(tourMount, tourStore.getSnapshot(), {
+    onDismiss: () => tourStore.nextStep(),
+  });
+}
+
+/**
  * The onboarding wizard renders as a modal overlay in front of everything
  * else until it reports complete, then hides for good on this device
  * (WIZARD_DONE_KEY above). Every screen it shows comes straight from
@@ -709,6 +746,7 @@ function renderWizardPanel(): void {
     markWizardDone();
   }
   wizardBackdrop.hidden = wizardDismissed;
+  renderTour();
   if (wizardDismissed) return;
 
   mountWizard(wizardMount, snap, {
@@ -757,6 +795,15 @@ toasts.subscribe(renderToastPanel);
 wizard.subscribe(renderWizardPanel);
 undoScreen.subscribe(renderUndoScreen);
 paletteController.subscribe(renderPalette);
+// H1: dismissing a tour callout both advances it and, for every step short
+// of "done" (all four of which share ui/src/main.ts's own Screen type,
+// ui/src/tour/state.ts's TourStep), switches to the screen that next
+// callout is about, so the tour actually walks the new nav rather than only
+// narrating it from wherever the person happens to already be.
+tourStore.subscribe((snap) => {
+  if (snap.step !== "done") showScreen(snap.step);
+  renderTour();
+});
 
 navDashboard.addEventListener("click", () => showScreen("dashboard"));
 navLibrary.addEventListener("click", () => showScreen("library"));

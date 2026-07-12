@@ -23,7 +23,7 @@
 // frame/row you picked across the rebuild the selection triggers.
 
 import type { RunViewerSnapshot, StepStatus, StepRow, RunChip } from "./state.ts";
-import { runViewerStrings } from "../strings/default.ts";
+import { commonStrings, runViewerStrings } from "../strings/default.ts";
 import { captureFocus, restoreFocus, FOCUS_KEY_ATTR } from "../styles/focusPreserve.ts";
 import { redactionBars } from "./thumbnails.ts";
 
@@ -33,6 +33,13 @@ export interface RunViewerMountOptions {
   onIntervene?: (instruction: string) => void;
   /** Scrub to a step by selecting its filmstrip frame or its step row. */
   onSelectStep?: (stepId: string) => void;
+  /**
+   * H1: the empty state's one specific action, shown only before any run has
+   * ever started this session (docs/specs/design.md section 4's copy rule,
+   * "Empty states invite one specific action"). Wired in ui/src/main.ts to
+   * the same command palette the dashboard and library empty states open.
+   */
+  onTeach?: () => void;
 }
 
 const STEP_STATUS_LABEL: Record<StepStatus, string> = runViewerStrings.stepStatus;
@@ -191,6 +198,25 @@ export function mountRunViewer(container: HTMLElement, snapshot: RunViewerSnapsh
   statusDot.setAttribute("aria-hidden", "true");
   status.append(statusDot, el("span", undefined, snapshot.runStateLabel));
   root.append(status);
+
+  // H1: before any run has ever started this session -- not merely a lull
+  // between steps, which "idle" alone (with zero steps) always exactly
+  // identifies (RunViewerSnapshot's runState never returns to "idle" once a
+  // run has begun, ./state.ts's toSnapshot) -- invite the one specific
+  // action that produces this screen's very first content (docs/specs/
+  // design.md section 4: "Empty states invite one specific action"). Teaching
+  // a workflow starts an explore run and switches straight to this screen
+  // (ui/src/main.ts's handlePaletteCommit), so this is the same action that
+  // fills the screen in, not a dead end.
+  if (snapshot.runState === "idle" && snapshot.steps.length === 0) {
+    const empty = el("div", "op-empty-state");
+    const teach = el("button", "op-button op-button--primary", commonStrings.teachFirstWorkflow);
+    teach.type = "button";
+    teach.setAttribute(FOCUS_KEY_ATTR, "run-viewer-teach");
+    if (opts.onTeach) teach.addEventListener("click", opts.onTeach);
+    empty.append(el("p", "op-empty", runViewerStrings.emptyInvite), teach);
+    root.append(empty);
+  }
 
   // Filmstrip only once there is something to show; an empty strip would be a
   // bare labeled box before the first step arrives.

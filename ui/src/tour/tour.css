@@ -1,0 +1,79 @@
+/* First-run tour (docs/specs/design.md section 3's nav map; section 4's
+   copy rule, "Empty states invite one specific action", extended here to
+   onboarding: a short, quiet, dismissible callout per screen). Reuses shared
+   design tokens (ui/src/styles/tokens.css) throughout, same as every other
+   per-module stylesheet in this shell (ui/src/wizard/wizard.css,
+   ui/src/settings/settings.css); kept out of ui/src/styles/base.css for the
+   same reason those two are, per wizard.css's own header comment: this
+   surface never has to touch a file every other lane in the campaign also
+   appends to.
+
+   .op-tour-callout is fixed bottom-left, mirroring ui/src/styles/base.css's
+   own bottom-right .op-toast, so the two can never collide on screen even if
+   both happen to show at once. */
+
+.op-tour-callout {
+  position: fixed;
+  left: var(--op-space-5);
+  bottom: var(--op-space-5);
+  max-width: 320px;
+  padding: var(--op-space-4);
+  border-radius: var(--op-radius-lg);
+  border: 1px solid var(--op-color-border);
+  background: var(--op-color-bg-elevated);
+  box-shadow: var(--op-shadow-popover);
+  z-index: 40;
+}
+
+.op-tour-callout__title {
+  margin: 0 0 var(--op-space-2);
+  font-size: var(--op-font-size-base);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-text);
+}
+
+.op-tour-callout__message {
+  margin: 0 0 var(--op-space-3);
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
+/* Shared with any other screen that wants a smaller button than the default
+   .op-button (ui/src/styles/base.css); this is its first use, for the
+   callout's own "Got it" dismiss button, ui/src/tour/view.ts. */
+.op-button--small {
+  padding: var(--op-space-1) var(--op-space-3);
+  font-size: var(--op-font-size-xs);
+}
+
+/* Contextual hints (ui/src/tour/view.ts's renderContextualHint): a small
+   inline one-liner attached to a specific control, not a fixed overlay like
+   the callout above. */
+.op-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--op-space-2);
+  padding: var(--op-space-1) var(--op-space-2);
+  border-radius: var(--op-radius-md);
+  background: var(--op-color-bg-sunken);
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+}
+
+.op-hint__text {
+  line-height: var(--op-line-height-tight);
+}
+
+.op-hint__close {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--op-color-text-muted);
+  font-size: var(--op-font-size-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.op-hint__close:hover {
+  color: var(--op-color-text);
+}
