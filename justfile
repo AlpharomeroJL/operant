@@ -104,6 +104,24 @@ package:
     cd ui; npm ci; cd src-tauri; cargo tauri build -b nsis --ci
     just sign
 
+# Build the shippable core binary with the REAL automation features
+# (real-uia,real-input,real-transport): the release row of release/BUILD-MATRIX.md.
+# This is the only core build that can drive a live desktop. The default
+# `cargo build` stays mock so `just golden`/`just ci`/`just verify` stay
+# deterministic and offline. The dev-only features (dev-agent-bridge,
+# dev-ipc-record) are NEVER passed here.
+build-release-core:
+    cargo build -p operant-cli --release --features 'real-uia,real-input,real-transport'
+
+# Release gate (the structural "no mock ships as product" check): build the
+# release core, then inspect its OWN reported capabilities (get_capabilities,
+# contracts/ipc.md section 3) and FAIL if it is a mock artifact
+# (real_uia/real_input false) or still carries a dev-only verb. Intentionally NOT
+# part of `just verify` (which must stay mock + offline + deterministic); this is
+# a release-time gate over the heavy real-feature build. See release/BUILD-MATRIX.md.
+check-release-artifact: build-release-core
+    node release/scripts/check-release-artifact.mjs
+
 # Regenerate site/tokens.css from ui/src/theme/tokens.ts (docs/specs/design.md
 # section 2), then stage site/ (minus playground/, a separate sub-project with
 # its own build) into dist/site/, the deployable docs site.
