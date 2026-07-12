@@ -20,5 +20,5 @@ export const settingsDetailStrings = {
   backupNever: "You have not made a backup yet.",
   backupInvalid: "That file does not look like an Operant backup.",
   autoUpdateToggle: "Check for updates automatically",
-  autoUpdateHint: "Downloads the new version in the background and checks it before installing. Turns off on its own when you're offline.",
+  autoUpdateHint: "Downloads the new version in the background and checks it before installing.",
 };

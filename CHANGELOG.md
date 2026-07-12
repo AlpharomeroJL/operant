@@ -20,7 +20,7 @@ screen, and a working auto-updater. See `docs/specs/design.md`.
   updates on start and every 24 hours, stages the download, and verifies its
   Ed25519 signature before trusting it (previously the updater was configured
   but never registered, so the embedded key did nothing). A Settings toggle
-  and air-gapped/offline suppression are in place. Verified end to end
+  and an OPERANT_AIRGAPPED hard override are in place. Verified end to end
   against a local fixture update server; verifying a real update against this
   project's own release server is still in progress.
 - A correction made in the middle of a run now folds into the saved workflow the

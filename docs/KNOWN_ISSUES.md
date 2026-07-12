@@ -18,11 +18,15 @@ As items are fixed they are struck from this list and noted in the changelog.
   downloads a staged copy, and verifies its Ed25519 signature against the
   embedded key (release/KEYS.md) before trusting it; once verified, a
   notification asks you to restart, and restarting (or quitting normally)
-  installs it. This defaults to on, and air-gapped or offline runs never make
-  the check at all. A Settings > Updates toggle exists in the app's UI, but it
-  is not yet connected to this: today it only changes what the Settings
-  screen itself remembers, the same gap every other Settings toggle in this
-  build has until the app's own backend is wired in. The check, download, and
+  installs it. This defaults to on. Setting the environment variable
+  OPERANT_AIRGAPPED stops it from ever attempting a check at all; there is no
+  separate offline detection beyond that, so a normal run that happens to be
+  offline still attempts the check and simply gets a failed connection,
+  handled the same as any other network hiccup, not a special offline state.
+  A Settings > Updates toggle exists in the app's UI, but it is not yet
+  connected to this: today it only changes what the Settings screen itself
+  remembers, the same gap every other Settings toggle in this build has until
+  the app's own backend is wired in. The check, download, and
   signature verification are tested end to end against a local fixture update
   server, including a tampered manifest that is correctly rejected. What is
   not yet proven: a real update against this project's actual release server,
