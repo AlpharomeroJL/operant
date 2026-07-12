@@ -89,3 +89,18 @@ fmt:
 
 clippy:
     cargo clippy --workspace --all-targets
+
+# Authenticode-sign the built installer if a signing certificate is configured
+# (OPERANT_SIGN_THUMBPRINT, or OPERANT_SIGN_PFX + OPERANT_SIGN_PFX_PASSWORD).
+# No certificate configured, or signtool.exe not found: skips cleanly, exit 0.
+# See docs/signing.md for how to obtain and configure a certificate.
+sign *args:
+    powershell -NoProfile -ExecutionPolicy Bypass -File "{{justfile_directory()}}/scripts/sign.ps1" {{args}}
+
+# Build the NSIS installer end to end (frontend, Tauri shell, installer, and
+# updater artifacts; the scripted form of release/REPRODUCIBLE.md's
+# "one-command rebuild"), then sign it. Signing skips cleanly when no
+# certificate is configured, so this recipe is safe to run either way.
+package:
+    cd ui; npm ci; cd src-tauri; cargo tauri build -b nsis --ci
+    just sign

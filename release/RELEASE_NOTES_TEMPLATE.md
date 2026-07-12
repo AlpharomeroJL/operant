@@ -11,7 +11,9 @@ the first time you run the installer. Choose "More info" then "Run anyway" to
 proceed. Your safety here does not depend on that OS signature: every automatic
 update Operant downloads is verified against the project's Ed25519 key before it
 is applied, and the SHA256SUMS file attached to this release lets you check the
-installer bytes yourself.
+installer bytes yourself. See `docs/install.md` for the full walkthrough with a
+screenshot of the SmartScreen dialog, and `docs/signing.md` for the plan to get
+a signed installer.
 
 ## Verify your download
 

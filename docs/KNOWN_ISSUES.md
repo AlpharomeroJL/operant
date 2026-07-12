@@ -11,7 +11,7 @@ As items are fixed they are struck from this list and noted in the changelog.
   certificate, so SmartScreen flags it. To continue, click "More info," then
   "Run anyway." Only the auto-updater's signature is verified today. The exact
   steps and screenshots are in the install docs, and obtaining a code-signing
-  certificate is planned.
+  certificate is planned; see docs/signing.md.
 
 - **Automatic updates are not active yet.** The updater is configured but not
   wired into this build, so it does not check for or install updates on its own.
