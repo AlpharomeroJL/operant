@@ -5,6 +5,7 @@
 // shows. Pure and DOM-free, same split as ui/src/runViewer/state.ts.
 
 import type { BusClient } from "../bus/mockClient.ts";
+import type { CommandClient } from "../bus/commandClient.ts";
 import { RUN_MODE_REPLAY, type BusEvent } from "../bus/types.ts";
 import { renderWorkflow, type RenderedWorkflow } from "../../../sdk/ts/src/render/index.js";
 import { createMockRegistry, type MockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
@@ -72,14 +73,40 @@ export interface Library {
   getSnapshot(): LibrarySnapshot;
   subscribe(fn: (snap: LibrarySnapshot) => void): () => void;
   /**
+   * Resolves once the initial load has settled: the real list_workflows load
+   * (contracts/ipc.md section 5c) when a CommandClient is present, or
+   * immediately in dev/Demo where the seeded ./mockRegistry.ts is the source.
+   * Lets callers (and tests) await the first real snapshot deterministically
+   * rather than racing the async command.
+   */
+  ready: Promise<void>;
+  /**
    * Starts a saved workflow directly (the palette teach flow is a
    * different path entirely; this always uses the saved-workflow run
-   * mode). No-op for an unknown name.
+   * mode). No-op for an unknown name. With a CommandClient present this issues
+   * the start_replay command (contracts/ipc.md section 5b, "run_saved_workflow")
+   * and lets the core's echoed run.* events update last-run and minutes-saved;
+   * in dev/Demo it synthesizes those same events on the bus with no backend.
    */
   run(name: string): void;
-  /** No bus topic models "create a recurring trigger" yet (contracts/bus_events.md's scheduler topics all assume one already exists); this only reports the intent via onScheduleRequested. */
+  /**
+   * With a CommandClient present this issues upsert_trigger (contracts/ipc.md
+   * section 5e), a command reserved but NOT wired in this build: it answers
+   * `not_implemented`, which this surfaces honestly via onScheduleRequested
+   * ("scheduling not available yet") and never fakes into a success. In
+   * dev/Demo (no client, and no bus topic models "create a recurring trigger"
+   * yet) it reports the same honest intent via onScheduleRequested directly.
+   */
   schedule(name: string): void;
-  explain(name: string): RenderedWorkflow | undefined;
+  /**
+   * The plain-English Explain view for a saved workflow. With a CommandClient
+   * present this issues explain_workflow (contracts/ipc.md section 5c), the
+   * core running the very same `@operant/sdk/render` used locally below; in
+   * dev/Demo it renders locally from the seeded manifest and steps. Async
+   * because the real path is a command round-trip. Resolves undefined for an
+   * unknown name.
+   */
+  explain(name: string): Promise<RenderedWorkflow | undefined>;
   /**
    * design.md section 3, Library: "Drag to reorder." Moves `name` to just
    * before `beforeName` in display order, or to the end when beforeName is
@@ -99,7 +126,23 @@ export interface Library {
 export interface CreateLibraryOptions {
   registry?: MockRegistry;
   now?: () => number;
+  /**
+   * Reports a Schedule request the shell surfaces as an honest notice. Fired
+   * both in dev/Demo (no scheduler bridge exists) and, with a client present,
+   * after upsert_trigger comes back `not_implemented` (contracts/ipc.md section
+   * 5e/5g): either way the person is told scheduling is not available yet,
+   * never shown a fabricated success.
+   */
   onScheduleRequested?: (name: string, title: string) => void;
+  /**
+   * The request/response bridge (contracts/ipc.md). When present, the library
+   * loads its real saved workflows via list_workflows and routes Run/Explain/
+   * Schedule through start_replay/explain_workflow/upsert_trigger. Omitted in
+   * dev/Demo (and the current webview until the real transport lands), where
+   * the library falls back to the seeded ./mockRegistry.ts and synthesizes runs
+   * on the bus itself.
+   */
+  client?: CommandClient;
 }
 
 function minutesSavedFor(runtime: WorkflowRuntime | undefined): number {
@@ -124,6 +167,7 @@ function formatWhen(atMs: number, nowMs: number): string {
 export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): Library {
   const registry = opts.registry ?? createMockRegistry();
   const now = opts.now ?? (() => Date.now());
+  const client = opts.client;
   const runtimes = new Map<string, WorkflowRuntime>();
   const pendingRuns = new Map<string, PendingRun>();
   const listeners = new Set<(snap: LibrarySnapshot) => void>();
@@ -268,29 +312,74 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
   function run(name: string): void {
     const record = registry.get(name);
     if (!record) return;
+    if (client) {
+      // Real bridge: start_replay (contracts/ipc.md section 5b, the command
+      // docs/specs/ipc-bridge.md section 2 names run_saved_workflow). The core
+      // wraps the deterministic Replayer in synthetic run.started (mode replay,
+      // workflow_name) / run.step.* / run.completed events and echoes them back
+      // on the bus (section 3b); handleBus above already consumes those to move
+      // last-run and minutes-saved. We synthesize nothing here, precisely so
+      // the figures reflect a real replay and not a fabricated one.
+      const path = record.path ?? record.manifest.dsl.path;
+      void client.request("start_replay", { path });
+      return;
+    }
+    // dev/Demo: this shell has no backend to actually replay the saved workflow
+    // (ui/src/bus/mockClient.ts's own canned demo is the palette's, not the
+    // library's); complete right away so the library's lastRun and minutes-saved
+    // figures update the same way a real replay's run.completed would. The run
+    // viewer still shows the start/finish like any other run on the bus.
     const runId = `library-${name}-${now()}`;
     bus.publish("run.started", { run_id: runId, goal: record.manifest.description, mode: RUN_MODE_REPLAY, workflow_name: name });
-    // This shell has no backend to actually replay the saved workflow
-    // (ui/src/bus/mockClient.ts's own canned demo is the palette's, not
-    // the library's); complete right away so the library's lastRun and
-    // minutes-saved figures update the same way a real replay's
-    // run.completed would. The run viewer still shows the start/finish
-    // like any other run on the bus.
     bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
   }
 
   function schedule(name: string): void {
     const record = registry.get(name);
     if (!record) return;
-    opts.onScheduleRequested?.(name, record.manifest.description || name);
+    const title = record.manifest.description || name;
+    if (client) {
+      // Real bridge: upsert_trigger is reserved in the frozen contract but has
+      // no store to upsert into, so this build answers `not_implemented`
+      // (contracts/ipc.md section 5e/5g). Call it anyway and report the honest
+      // "no" when it comes back; never fabricate a scheduled trigger.
+      void requestSchedule(client, name, title);
+      return;
+    }
+    // dev/Demo: no bus topic models "create a recurring trigger" yet
+    // (contracts/bus_events.md's scheduler topics all assume one already
+    // exists), so report the intent honestly without touching the bus.
+    opts.onScheduleRequested?.(name, title);
   }
 
-  function explain(name: string): RenderedWorkflow | undefined {
+  // Issues upsert_trigger and surfaces its result honestly. A resolved
+  // {ok:false} (the contracted `not_implemented`, or any other refusal) becomes
+  // the same "scheduling not available yet" notice the dev/Demo path shows; a
+  // future build that actually wires the command resolves {ok:true} and this
+  // reports nothing false in the meantime.
+  async function requestSchedule(c: CommandClient, name: string, title: string): Promise<void> {
+    const res = await c.request("upsert_trigger", { kind: "cron", workflow_name: name, spec: "", enabled: true });
+    if (!res.ok) {
+      opts.onScheduleRequested?.(name, title);
+    }
+  }
+
+  async function explain(name: string): Promise<RenderedWorkflow | undefined> {
     const record = registry.get(name);
     if (!record) return undefined;
-    // renderWorkflow's steps parameter is a mutable array; record.steps is
-    // deliberately readonly (mockRegistry.ts), so pass a shallow copy rather
-    // than loosen the stored type.
+    if (client) {
+      // Real bridge: explain_workflow (contracts/ipc.md section 5c) runs the
+      // exact same `@operant/sdk/render` renderer this file uses locally, only
+      // in the core. Its result is {title, summary, grant, inputs, steps}; fill
+      // `name` from the record so the resolved shape matches the local render.
+      const path = record.path ?? record.manifest.dsl.path;
+      const res = await client.request<Omit<RenderedWorkflow, "name">>("explain_workflow", { path });
+      if (!res.ok) return undefined;
+      return { name: record.manifest.name, ...res.result };
+    }
+    // dev/Demo: render locally. renderWorkflow's steps parameter is a mutable
+    // array; record.steps is deliberately readonly (mockRegistry.ts), so pass a
+    // shallow copy rather than loosen the stored type.
     return renderWorkflow(record.manifest, [...record.steps]);
   }
 
@@ -315,7 +404,23 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
     emit();
   }
 
+  // At mount, with a client present, load the real saved-workflow list
+  // (contracts/ipc.md section 5c: list_workflows) and replace the seeded demo
+  // records with it, so every card shows a real manifest (name, plain summary,
+  // steps, capabilities). registry.replaceAll notifies the subscription wired
+  // above, which emits the fresh snapshot; reconcileOrder then folds the real
+  // names into the display order. A failed list leaves whatever the registry
+  // already holds rather than clearing to a false "no workflows yet".
+  async function loadWorkflows(c: CommandClient): Promise<void> {
+    const res = await c.request<MockWorkflowRecord[]>("list_workflows");
+    if (!res.ok) return;
+    registry.replaceAll(res.result);
+  }
+
+  const ready: Promise<void> = client ? loadWorkflows(client) : Promise.resolve();
+
   return {
+    ready,
     getSnapshot: snapshot,
     subscribe(fn) {
       listeners.add(fn);

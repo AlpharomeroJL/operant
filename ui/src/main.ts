@@ -511,8 +511,11 @@ function closeExplain(): void {
   explainMount.textContent = "";
 }
 
-function openExplain(name: string): void {
-  const view = library.explain(name);
+async function openExplain(name: string): Promise<void> {
+  // library.explain is async because, with the real bridge wired, it round-trips
+  // the explain_workflow command (contracts/ipc.md section 5c); in dev/Demo it
+  // resolves the same locally rendered view. Callers below fire-and-forget it.
+  const view = await library.explain(name);
   if (!view) return;
   selectedWorkflowName = name;
   explainHeading.textContent = view.title;

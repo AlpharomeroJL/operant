@@ -143,11 +143,11 @@ test("workflow.installed registers a new card that was not in the initial regist
   library.dispose();
 });
 
-test("explain() renders the full plain-English workflow view via U4A's renderer, grant included", () => {
+test("explain() renders the full plain-English workflow view via U4A's renderer, grant included", async () => {
   const bus = createMockBusClient();
   const library = createLibrary(bus, { registry: oneWorkflowRegistry() });
 
-  const view = library.explain("copy-invoice-total");
+  const view = await library.explain("copy-invoice-total");
 
   assert.ok(view);
   assert.equal(view?.name, "copy-invoice-total");
@@ -158,10 +158,10 @@ test("explain() renders the full plain-English workflow view via U4A's renderer,
   library.dispose();
 });
 
-test("explain() on an unknown workflow returns undefined", () => {
+test("explain() on an unknown workflow returns undefined", async () => {
   const bus = createMockBusClient();
   const library = createLibrary(bus, { registry: oneWorkflowRegistry() });
-  assert.equal(library.explain("nope"), undefined);
+  assert.equal(await library.explain("nope"), undefined);
   library.dispose();
 });
 
