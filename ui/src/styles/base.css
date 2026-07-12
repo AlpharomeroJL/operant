@@ -1006,6 +1006,8 @@ input:disabled {
   font-weight: var(--op-font-weight-medium);
   color: var(--op-color-accent);
   cursor: pointer;
+}
+
 /* Palette overlay (docs/specs/design.md section 3, Palette: "a Raycast-grade
    centered top-third floating panel on Mica"). Shares .op-modal-backdrop's
    fixed, full-viewport, horizontally-centering rule (used unmodified by the

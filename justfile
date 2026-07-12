@@ -70,15 +70,14 @@ golden:
     cd e2e/golden-path; cargo test
 
 # UI gate: regenerate ui/src/styles/tokens.css from ui/src/theme/tokens.ts (the
-# single source of truth, docs/specs/design.md section 2) so CSS and TS can
-# never drift, then TypeScript typecheck (tsc, since node --test only strips
-# types) plus the test suite via `npm test` (which sets up the jsdom DOM env
-# through testHooks). Run `cd ui; npm install` once first (pulls jsdom +
-# axe-core for the a11y tests). `npm test`/`npm run dev`/`npm run build` also
-# regenerate tokens.css on their own (package.json's pretest/predev/prebuild),
-# so this is belt-and-suspenders for a bare `npm run typecheck`.
+# single source of truth, docs/specs/design.md section 2) so CSS and TS never
+# drift, then TypeScript typecheck (tsc), the jsdom test suite via `npm test`,
+# and a production `vite build`. The build is what catches CSS syntax and
+# bundling errors that jsdom (which stubs .css imports) cannot see. Every step
+# is failure-checked, so a typecheck or build error fails the gate rather than
+# being masked by `;` chaining. Run `cd ui; npm install` once first.
 ui:
-    cd ui; npm run build:tokens; npm run typecheck; npm test
+    cd ui; npm run build:tokens; if ($LASTEXITCODE) { exit 1 }; npm run typecheck; if ($LASTEXITCODE) { exit 1 }; npm test; if ($LASTEXITCODE) { exit 1 }; npm run build
 
 # Regenerate signed/binary fixtures (deterministic; keypair guarded).
 fixtures:
