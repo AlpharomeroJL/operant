@@ -1,0 +1,4 @@
+# Scoped to this directory tree: the wasm-bindgen output is a binary
+# WebAssembly module. Without this, the repo root's `* text=auto`
+# normalization can rewrite its bytes on checkout and corrupt it.
+*.wasm binary

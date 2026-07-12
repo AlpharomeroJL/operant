@@ -1,0 +1,161 @@
+{
+  "manifest": {
+    "v": 1,
+    "name": "invoice-acme-corp-fixture-webapp",
+    "version": "1.0.0",
+    "description": "Save an invoice for Acme Corp in the fixture webapp.",
+    "step_summary": [
+      "Fill in the customer name",
+      "Wait for the screen to update",
+      "Fill in the amount",
+      "Wait for the screen to update",
+      "Save the invoice",
+      "Check the save button is still there"
+    ],
+    "inputs_schema": {
+      "additionalProperties": false,
+      "properties": {},
+      "type": "object"
+    },
+    "capabilities": {
+      "network": false,
+      "risk_ceiling": "write"
+    },
+    "min_operant_version": "1.0.0",
+    "source_run_id": "run_18c161e1a565896c_0",
+    "dsl": {
+      "path": "workflow.ts",
+      "hash": "6fa2af9d366106cab3115f3b6584016dae9f17e699059c0f25d10c418b3fecb5"
+    },
+    "signature": null
+  },
+  "actions": [
+    {
+      "v": 1,
+      "id": "s1",
+      "kind": "adapter_call",
+      "intent": "Fill in the customer name",
+      "target": {},
+      "params": {
+        "args": {
+          "selector": "#customer",
+          "text": "Acme Corp"
+        },
+        "namespace": "browser",
+        "verb": "type"
+      },
+      "pace": "instant",
+      "risk_class": "write",
+      "irreversible": false,
+      "grounding": "adapter",
+      "timeout_ms": 5000,
+      "retry": {
+        "attempts": 2,
+        "backoff_ms": 250
+      }
+    },
+    {
+      "v": 1,
+      "id": "s1-wait",
+      "kind": "wait",
+      "intent": "Wait for the screen to update",
+      "target": {},
+      "pace": "instant",
+      "risk_class": "read",
+      "irreversible": false,
+      "grounding": "uia",
+      "timeout_ms": 5000,
+      "retry": {
+        "attempts": 0,
+        "backoff_ms": 0
+      }
+    },
+    {
+      "v": 1,
+      "id": "s2",
+      "kind": "adapter_call",
+      "intent": "Fill in the amount",
+      "target": {},
+      "params": {
+        "args": {
+          "selector": "#amount",
+          "text": "142.50"
+        },
+        "namespace": "browser",
+        "verb": "type"
+      },
+      "pace": "instant",
+      "risk_class": "write",
+      "irreversible": false,
+      "grounding": "adapter",
+      "timeout_ms": 5000,
+      "retry": {
+        "attempts": 2,
+        "backoff_ms": 250
+      }
+    },
+    {
+      "v": 1,
+      "id": "s2-wait",
+      "kind": "wait",
+      "intent": "Wait for the screen to update",
+      "target": {},
+      "pace": "instant",
+      "risk_class": "read",
+      "irreversible": false,
+      "grounding": "uia",
+      "timeout_ms": 5000,
+      "retry": {
+        "attempts": 0,
+        "backoff_ms": 0
+      }
+    },
+    {
+      "v": 1,
+      "id": "s3",
+      "kind": "adapter_call",
+      "intent": "Save the invoice",
+      "target": {},
+      "params": {
+        "args": {
+          "selector": "#save-btn"
+        },
+        "namespace": "browser",
+        "verb": "click"
+      },
+      "pace": "instant",
+      "risk_class": "write",
+      "irreversible": false,
+      "grounding": "adapter",
+      "timeout_ms": 5000,
+      "retry": {
+        "attempts": 2,
+        "backoff_ms": 250
+      }
+    },
+    {
+      "v": 1,
+      "id": "s4",
+      "kind": "adapter_call",
+      "intent": "Check the save button is still there",
+      "target": {},
+      "params": {
+        "args": {
+          "expect_name": "Save invoice",
+          "selector": "#save-btn"
+        },
+        "namespace": "browser",
+        "verb": "assert"
+      },
+      "pace": "instant",
+      "risk_class": "read",
+      "irreversible": false,
+      "grounding": "adapter",
+      "timeout_ms": 5000,
+      "retry": {
+        "attempts": 2,
+        "backoff_ms": 250
+      }
+    }
+  ]
+}

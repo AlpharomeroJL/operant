@@ -1,0 +1,67 @@
+/* Playground-only additions layered on top of ../style.css. */
+
+.playground-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.playground-app iframe {
+  width: 100%;
+  height: 420px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  background-color: #ffffff;
+}
+
+.playground-panel button {
+  background-color: var(--accent-color);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-bottom: 1rem;
+}
+
+.playground-panel button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+#playground-status {
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+#playground-status.status-pass {
+  color: #1a7f37;
+}
+
+#playground-status.status-fail {
+  color: #c53030;
+}
+
+#playground-log {
+  list-style: decimal;
+  margin: 0 0 0 1.5rem;
+  padding: 0;
+}
+
+#playground-log li {
+  margin: 0.35rem 0;
+  color: var(--text-secondary);
+}
+
+#playground-log li.step-active {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .playground-grid {
+    grid-template-columns: 1fr;
+  }
+}

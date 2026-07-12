@@ -13,7 +13,6 @@ serde_json.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
-jsonschema.workspace = true
 parking_lot.workspace = true
 rand.workspace = true
 # Already workspace-pinned, used elsewhere in the tree; adopted here for
@@ -51,6 +50,21 @@ windows = { version = "0.58", optional = true, features = [
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_UI_WindowsAndMessaging",
 ] }
+
+
+# `jsonschema`'s own default features (`resolve-http`, `resolve-file`, `cli`)
+# pull in `reqwest`'s blocking client and `Url::to_file_path`, neither of
+# which builds for wasm32-unknown-unknown. Only `JSONSchema::compile` on an
+# inline, ref-free schema is used (crate::adapter, param validation), so
+# stripping those extras changes nothing observable on any target. Split by
+# `target_arch` rather than a feature so this activates automatically for
+# every wasm32 build with zero behavior change on the native (non-wasm)
+# build/test path CI already covers.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+jsonschema.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+jsonschema = { version = "0.18", default-features = false }
 
 [features]
 default = ["ocr"]
