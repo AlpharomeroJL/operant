@@ -10,6 +10,14 @@ A visual redesign is in progress: a calmer, instrument-inspired look, a new home
 dashboard, a redesigned run viewer (the flight recorder), a dedicated undo
 screen, and a working auto-updater. See `docs/specs/design.md`.
 
+### Fixed
+
+- Replaying a workflow against a live window whose layout has moved now finds
+  each element again by its identity at run time, instead of clicking the
+  spot it was taught. Re-finding stays on your machine with no model calls.
+- A correction made in the middle of a run now folds into the saved workflow the
+  same way a correction recorded ahead of time does.
+
 ## [1.0.0] - 2026-07-11
 
 The first public release. Operant is a free, open source desktop agent for

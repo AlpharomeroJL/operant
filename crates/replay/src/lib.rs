@@ -34,8 +34,9 @@ pub mod compose;
 use std::collections::BTreeMap;
 
 use operant_action::{AdapterRegistry, Executor, MockSynthesizer, NoopSleeper, Synthesizer};
+use operant_core::perceive::Perceiver;
 use operant_gates::{evaluate_gate, EvalContext, GateError};
-use operant_ir::{Action, ActionKind, GateKind, GateResult, Manifest, Pace};
+use operant_ir::{Action, ActionKind, Coords, GateKind, GateResult, Manifest, Pace};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use thiserror::Error;
@@ -68,6 +69,8 @@ pub enum ReplayError {
     Postcondition { index: usize },
     #[error("click step `{action_id}` has no resolved point (no cached coordinates to replay)")]
     Unresolved { action_id: String },
+    #[error("click step `{action_id}` could not be re-resolved against the live window: {reason}")]
+    Reresolve { action_id: String, reason: String },
     #[error(transparent)]
     Action(#[from] operant_action::ActionError),
     #[error(transparent)]
@@ -77,6 +80,13 @@ pub enum ReplayError {
 /// Drives a [`CompiledWorkflow`] deterministically through the action layer.
 pub struct Replayer<S: Synthesizer> {
     exec: Executor<S>,
+    /// Optional live perceiver. When set, a click step that names a selector
+    /// chain is re-resolved against a fresh snapshot at run time (KI-1), so it
+    /// lands where the element IS now rather than the coordinate cached at
+    /// teach time. `None` keeps the deterministic coords-only path the golden
+    /// test relies on. A [`Perceiver`] is a perception backend, never a model
+    /// backend, so this never puts a model or network path behind replay.
+    perceiver: Option<Box<dyn Perceiver>>,
 }
 
 impl Replayer<MockSynthesizer> {
@@ -94,6 +104,7 @@ impl<S: Synthesizer> Replayer<S> {
     pub fn new(synth: S) -> Self {
         Self {
             exec: Executor::new(synth).with_sleeper(Box::new(NoopSleeper)),
+            perceiver: None,
         }
     }
 
@@ -105,7 +116,18 @@ impl<S: Synthesizer> Replayer<S> {
     pub fn with_adapters(synth: S, adapters: AdapterRegistry) -> Self {
         Self {
             exec: Executor::with_adapters(synth, adapters).with_sleeper(Box::new(NoopSleeper)),
+            perceiver: None,
         }
+    }
+
+    /// Install a live [`Perceiver`] so click steps that carry a selector chain
+    /// are re-resolved against a fresh snapshot at replay time instead of
+    /// leaning on the coordinate cached at teach time (KI-1). A click with no
+    /// selector still replays from its `coords_last_known`. The perceiver is a
+    /// perception backend only; replay stays model- and network-free.
+    pub fn with_perceiver(mut self, perceiver: Box<dyn Perceiver>) -> Self {
+        self.perceiver = Some(perceiver);
+        self
     }
 
     /// The underlying synthesizer, for inspecting recorded calls in tests.
@@ -154,10 +176,7 @@ impl<S: Synthesizer> Replayer<S> {
                 continue;
             }
             let step = self.prepare(action, &bindings);
-            let resolved = step
-                .target
-                .as_ref()
-                .and_then(|t| t.coords_last_known.clone());
+            let resolved = self.resolve_point(&step)?;
             if step.kind == ActionKind::Click && resolved.is_none() {
                 return Err(ReplayError::Unresolved {
                     action_id: step.id.clone(),
@@ -178,6 +197,62 @@ impl<S: Synthesizer> Replayer<S> {
             pre: pre_results,
             post: post_results,
         })
+    }
+
+    /// Resolve a click step's screen point for dispatch.
+    ///
+    /// When a live [`Perceiver`] is installed AND the click names a selector
+    /// chain, re-resolve that chain against a fresh snapshot so the click
+    /// lands where the element IS now rather than the coordinate cached at
+    /// teach time (KI-1): a workflow taught against one layout still lands on
+    /// a window that has since moved. Falls back to the compiled
+    /// `coords_last_known` when there is no perceiver or no selector to
+    /// resolve, which is also the exact behavior for every kind other than
+    /// `click` (the executor only consumes a resolved point for a click).
+    ///
+    /// Model-free by construction: a `Perceiver` is a PERCEPTION backend, not
+    /// a model backend, so re-resolving here never reaches a model or the
+    /// network (see the crate graph and `replay_crate_is_backend_free`).
+    fn resolve_point(&self, step: &Action) -> Result<Option<Coords>, ReplayError> {
+        let Some(target) = step.target.as_ref() else {
+            return Ok(None);
+        };
+
+        if step.kind == ActionKind::Click {
+            if let Some(perceiver) = self.perceiver.as_ref() {
+                if !target.selectors.is_empty() {
+                    let window_process = target
+                        .window
+                        .as_ref()
+                        .and_then(|w| w.process.as_deref())
+                        .unwrap_or_default();
+                    let snapshot =
+                        perceiver.snapshot(window_process).map_err(|e| {
+                            ReplayError::Reresolve {
+                                action_id: step.id.clone(),
+                                reason: e.to_string(),
+                            }
+                        })?;
+                    let point = perceiver
+                        .resolve(&snapshot, &target.selectors)
+                        .map_err(|e| ReplayError::Reresolve {
+                            action_id: step.id.clone(),
+                            reason: e.to_string(),
+                        })?;
+                    return Ok(Some(Coords {
+                        x: point.x,
+                        y: point.y,
+                        monitor: point.monitor,
+                        dpi_scale: Some(snapshot.window.dpi_scale),
+                    }));
+                }
+            }
+        }
+
+        // No perceiver, no selector to re-resolve, or a non-click kind: the
+        // coordinate cached at teach time is authoritative (and is simply
+        // ignored by the executor for kinds that do not click a point).
+        Ok(target.coords_last_known.clone())
     }
 
     /// Prepare one action for deterministic dispatch: force instant pacing,

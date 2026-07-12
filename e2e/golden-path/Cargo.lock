@@ -1249,6 +1249,7 @@ version = "1.0.0"
 dependencies = [
  "anyhow",
  "operant-action",
+ "operant-core",
  "operant-gates",
  "operant-ir",
  "serde",

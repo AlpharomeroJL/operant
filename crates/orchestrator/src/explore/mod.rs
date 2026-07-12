@@ -533,7 +533,7 @@ async fn handle_control(
                 run_id: run_id.to_string(),
                 by: PausedBy::Human,
             });
-            let correction = json!({ "instruction": instruction, "at_seq": seq });
+            let correction = build_correction(&instruction, seq);
             let _ = bus.publish_event(&RunRedirected {
                 run_id: run_id.to_string(),
                 instruction,
@@ -557,7 +557,7 @@ async fn handle_control(
                         return ControlOutcome::Continue(None);
                     }
                     Some(RunControl::Redirect(instruction)) => {
-                        let correction = json!({ "instruction": instruction, "at_seq": seq });
+                        let correction = build_correction(&instruction, seq);
                         let _ = bus.publish_event(&RunRedirected {
                             run_id: run_id.to_string(),
                             instruction,
@@ -573,6 +573,32 @@ async fn handle_control(
             ControlOutcome::GiveUp
         }
     }
+}
+
+/// Build the `human_correction` value recorded on the corrected step when a
+/// human redirects mid-run.
+///
+/// A live redirect fires at the boundary *before* the step it rides on, so
+/// that step (`seq`) is the corrected branch and the step recorded
+/// immediately before it (`seq - 1`) is the misstep the human is steering
+/// away from. The correction therefore records `supersedes_seq = seq - 1`,
+/// the exact field the compiler's normalize pass collapses on and the exact
+/// shape the hand-authored `contracts/fixtures/trajectory_notepad.json`
+/// correction uses (its step 4 supersedes step 3). This is what lets a live
+/// correction fold into the compiled workflow identically to the fixture
+/// (KI-2). Earlier builds recorded `at_seq`, a name the compiler never read,
+/// so a live redirect annotated a step but never collapsed one.
+///
+/// When the redirect lands before the very first step there is no prior step
+/// to supersede, so the correction carries only its instruction; nothing
+/// collapses, which is correct.
+fn build_correction(instruction: &str, seq: u32) -> serde_json::Value {
+    let mut correction = serde_json::Map::new();
+    correction.insert("instruction".to_string(), json!(instruction));
+    if seq >= 2 {
+        correction.insert("supersedes_seq".to_string(), json!(seq - 1));
+    }
+    serde_json::Value::Object(correction)
 }
 
 fn outcome_label(outcome: StepOutcome) -> &'static str {

@@ -7,6 +7,14 @@ license.workspace = true
 
 [dependencies]
 operant-ir.workspace = true
+# Home of the `Perceiver` trait (C2). Replay uses it to re-resolve a click's
+# selector chain against the live window at run time (KI-1). A Perceiver is a
+# PERCEPTION backend, not a MODEL backend: operant-core is a leaf crate over
+# operant-ir with no async, network, or model-backend crate behind it, so
+# replay stays model-free (this crate's own backend-free test and the airgap
+# check both stay green -- their banned-substring list is matched against this
+# manifest, comments included, so no banned crate name may appear even here).
+operant-core.workspace = true
 operant-action.workspace = true
 operant-gates.workspace = true
 serde.workspace = true
