@@ -1,15 +1,16 @@
 //! Operant CLI (C14, FR-O4): run | compile | dry-run | list | install |
-//! bench | doctor | explain.
+//! publish | bench | doctor | explain.
 //!
-//! L13A wires `run`, `compile`, `dry-run`, `list`, `doctor`, and `explain`
+//! L13A wired `run`, `compile`, `dry-run`, `list`, `doctor`, and `explain`
 //! against the already-merged crates (`operant-compiler`, `operant-replay`,
-//! `operant-doctor`; `operant-recorder`/`operant-registry`/`operant-bench`
-//! are read-only surfaces this lane does not need). `install` (R1B/L7B) and
-//! `bench` (L9B) are later lanes' verbs and stay unimplemented here.
+//! `operant-doctor`). L7B wires `install` and `publish` against
+//! `operant-registry` (R1B/R1A). `bench` (L9B) is a later lane's verb and
+//! stays unimplemented here.
 //!
 //! Every verb is headless and deterministic: no verb prompts, polls, or
-//! blocks on anything but the filesystem and (for `explain` only) a local
-//! `node` subprocess running the existing `@operant/sdk/render` renderer.
+//! blocks on anything but the filesystem, `git` (for `publish`'s branch and
+//! commit), and (for `explain` only) a local `node` subprocess running the
+//! existing `@operant/sdk/render` renderer.
 
 mod commands;
 mod snapshot;
@@ -29,6 +30,8 @@ fn main() -> ExitCode {
         Some("list") => finish(commands::list::run(&args[1..])),
         Some("doctor") => finish(commands::doctor::run(&args[1..])),
         Some("explain") => finish(commands::explain::run(&args[1..])),
+        Some("install") => finish(commands::install::run(&args[1..])),
+        Some("publish") => finish(commands::publish::run(&args[1..])),
         Some(verb) => {
             eprintln!("operant: verb '{verb}' not yet implemented in this build");
             ExitCode::FAILURE
@@ -36,7 +39,7 @@ fn main() -> ExitCode {
         None => {
             println!("operant 1.0.0");
             println!(
-                "usage: operant <run|compile|dry-run|list|install|bench|doctor|explain> [args]"
+                "usage: operant <run|compile|dry-run|list|install|publish|bench|doctor|explain> [args]"
             );
             ExitCode::SUCCESS
         }
