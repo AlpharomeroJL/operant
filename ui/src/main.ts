@@ -1,7 +1,11 @@
 import "./styles/base.css";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { modeStore, type UiMode } from "./state/mode.ts";
 import { themeStore, type ThemeMode } from "./theme/store.ts";
-import { createMockBusClient } from "./bus/mockClient.ts";
+import { createMockBusClient, type BusClient } from "./bus/mockClient.ts";
+import { createRealClient } from "./bus/realClient.ts";
+import { handshakeCore, type CoreCapabilities } from "./boot/coreGate.ts";
+import { mountDemoBanner, renderBlockingScreen, renderErrorScreen } from "./boot/coreGateView.ts";
 import type { BusEvent } from "./bus/types.ts";
 import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
 import { createPaletteController, type PaletteCommit } from "./palette/state.ts";
@@ -51,6 +55,67 @@ if (!root) {
   throw new Error("missing #app root element");
 }
 
+// Boot decision (contracts/ipc.md section 3). Inside the Tauri shell, gate
+// every real-work surface on the capability handshake: a core that cannot
+// automate gets a blocking screen, and a failed handshake gets an error
+// screen, never a silent swap to canned data. Outside Tauri (a plain browser)
+// or with the explicit Demo flag, run the canned mock, clearly labeled. The
+// mock bus and simulateDemoRun survive only on this Demo path.
+if (shouldBootRealCore()) {
+  void bootAgainstCore(root);
+} else {
+  mountApp(root, createMockBusClient(), { demo: true });
+}
+
+/** True only inside the Tauri shell and without the explicit Demo override. */
+function shouldBootRealCore(): boolean {
+  return isTauriRuntime() && !demoFlagSet();
+}
+
+function isTauriRuntime(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as { __TAURI__?: unknown; __TAURI_INTERNALS__?: unknown };
+  return Boolean(w.__TAURI__) || Boolean(w.__TAURI_INTERNALS__) || isTauri();
+}
+
+/** Explicit opt-in to canned Demo mode: ?demo in the URL or window.__OPERANT_DEMO__. */
+function demoFlagSet(): boolean {
+  try {
+    if (typeof window === "undefined") return false;
+    const w = window as { __OPERANT_DEMO__?: unknown };
+    if (w.__OPERANT_DEMO__ === true) return true;
+    return new URLSearchParams(window.location.search).has("demo");
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The Tauri boot path (contracts/ipc.md section 3): wait for core_ready, run
+ * the get_capabilities handshake, then either build the real-work UI over the
+ * real bus client, show the blocking screen naming each missing capability, or
+ * show an error state. A failed connection NEVER falls back to the mock.
+ */
+async function bootAgainstCore(target: HTMLDivElement): Promise<void> {
+  const connection = await handshakeCore({
+    ready: () => invoke("core_ready"),
+    capabilities: () => invoke<CoreCapabilities>("core_capabilities"),
+  });
+  if (connection.kind === "real") {
+    mountApp(target, createRealClient(), { demo: false });
+  } else if (connection.kind === "blocked") {
+    renderBlockingScreen(target, connection.missing);
+  } else {
+    renderErrorScreen(target, connection.message);
+  }
+}
+
+/**
+ * Builds the full shell UI against a given bus client. In Demo mode a
+ * persistent banner makes clear the run data is canned, never the user's real
+ * computer; the real-core path always calls this with demo:false.
+ */
+function mountApp(root: HTMLDivElement, bus: BusClient, opts: { demo: boolean }): void {
 // Static skeleton only: structure and ids, no baked-in copy. Every visible
 // string is assigned below from ui/src/strings (default) or ui/src/advanced
 // (advanced), or from a module's own default-mode strings.ts (library,
@@ -124,6 +189,10 @@ root.innerHTML = `
   </div>
 `;
 
+// Demo mode is honest about itself: a persistent banner saying the run data is
+// canned, not the user's real computer. Only reached on the Demo path.
+if (opts.demo) mountDemoBanner(root);
+
 function byId<T extends HTMLElement>(id: string): T {
   const el = root!.querySelector<T>(`#${id}`);
   if (!el) throw new Error(`missing #${id}`);
@@ -186,7 +255,6 @@ navRuns.textContent = navStrings.runs;
 navSettings.textContent = navStrings.settings;
 explainClose.textContent = libraryStrings.closeExplain;
 
-const bus = createMockBusClient();
 const runViewer = createRunViewer(bus);
 // F1b: real per-run journal data (crates/recorder's Recorder::publish_undo_preview,
 // once a transport carries it onto this bus) wins over ./undo/mockJournal.ts's
@@ -898,3 +966,4 @@ document.addEventListener("keydown", (event) => {
     openPalette();
   }
 });
+}

@@ -1,0 +1,61 @@
+/* Boot-state styling (ui/src/boot/coreGateView.ts): the Demo banner and the
+   blocking/error screens. Themed entirely through ui/src/styles tokens so both
+   light and dark themes come for free. */
+
+.op-demo-banner {
+  padding: var(--op-space-2) var(--op-space-4);
+  background: var(--op-color-status-warning);
+  color: var(--op-color-text-inverse);
+  font-family: var(--op-font-family);
+  font-size: var(--op-font-size-sm);
+  font-weight: var(--op-font-weight-medium);
+  text-align: center;
+}
+
+.op-boot-screen {
+  max-width: 42rem;
+  margin: var(--op-space-8) auto;
+  padding: var(--op-space-7);
+  background: var(--op-color-bg-elevated);
+  border: 1px solid var(--op-color-border);
+  border-radius: var(--op-radius-card);
+  color: var(--op-color-text);
+  font-family: var(--op-font-family);
+}
+
+.op-boot-screen--blocked {
+  border-color: var(--op-color-status-warning);
+}
+
+.op-boot-screen--error {
+  border-color: var(--op-color-danger);
+}
+
+.op-boot-screen__title {
+  margin: 0 0 var(--op-space-4);
+  font-size: var(--op-font-size-xl);
+  font-weight: var(--op-font-weight-semibold);
+}
+
+.op-boot-screen__body {
+  margin: 0 0 var(--op-space-3);
+  color: var(--op-color-text-muted);
+  line-height: var(--op-line-height-base);
+}
+
+.op-boot-screen__list {
+  margin: var(--op-space-3) 0 0;
+  padding-left: var(--op-space-5);
+}
+
+.op-boot-screen__list li {
+  margin-bottom: var(--op-space-2);
+  line-height: var(--op-line-height-base);
+}
+
+.op-boot-screen__detail {
+  margin: var(--op-space-4) 0 0;
+  font-family: var(--op-font-family-mono);
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+}
