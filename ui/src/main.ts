@@ -3,7 +3,8 @@ import { modeStore, type UiMode } from "./state/mode.ts";
 import { themeStore, type ThemeMode } from "./theme/store.ts";
 import { createMockBusClient } from "./bus/mockClient.ts";
 import type { BusEvent } from "./bus/types.ts";
-import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
+import { isGlobalPaletteHotkey } from "./palette/palette.ts";
+import { createMockCoreCommands, readForegroundWindowProcess } from "./bus/commands.ts";
 import { createPaletteController, type PaletteCommit } from "./palette/state.ts";
 import { mountPalette } from "./palette/view.ts";
 import { buildQuickActionEntries, buildSettingsEntries, PALETTE_ACTION_ID } from "./palette/quickActions.ts";
@@ -198,6 +199,18 @@ const undoScreen = createUndoScreen(bus, {
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
 
+// The shell-to-core command seam (contracts/ipc.md section 5), the shell->core
+// counterpart of the bus's core->shell BusClient. The palette issues real
+// commands through it: start_explore (teach), dry_run (preview), and
+// run_saved_workflow (run), with list_workflows sourcing the palette's saved-
+// workflow rows. In dev/Demo this mock drives the same canned bus stream as
+// before so the flight recorder still fills; the real shell swaps in a Tauri-
+// backed CoreCommands (ui/src/bus/commands.ts), the same drop-in seam
+// createMockBusClient is. start_explore's foreground-window context comes from
+// readForegroundWindowProcess (the OS foreground window is ui/src-tauri's to
+// resolve; dev/Demo uses a deterministic stub).
+const coreCommands = createMockCoreCommands(bus, { registry, foregroundWindow: readForegroundWindowProcess });
+
 const library = createLibrary(bus, {
   registry,
   onScheduleRequested: (_name, title) => {
@@ -230,12 +243,16 @@ const toasts = createToasts(bus);
 const paletteController = createPaletteController();
 
 function refreshPaletteEntries(): void {
-  const workflowEntries: PaletteEntry[] = registry.list().map((record) => ({
-    id: record.manifest.name,
+  // Saved-workflow rows come from list_workflows (contracts/ipc.md section 5c),
+  // not the registry directly: the mock reads the shared registry in dev/Demo,
+  // and a real core answers the same command. registry.subscribe still drives
+  // the refresh so a newly taught/installed workflow shows up next open.
+  const workflowEntries: PaletteEntry[] = coreCommands.listWorkflows().map((workflow) => ({
+    id: workflow.id,
     kind: "workflow",
-    title: record.manifest.description || record.manifest.name,
-    subtitle: record.manifest.description ? record.manifest.name : undefined,
-    keywords: [record.manifest.name],
+    title: workflow.description || workflow.name,
+    subtitle: workflow.description ? workflow.name : undefined,
+    keywords: [workflow.name],
   }));
   paletteController.setEntries([...workflowEntries, ...buildQuickActionEntries(), ...buildSettingsEntries()]);
 }
@@ -466,13 +483,13 @@ function requestRun(name: string): void {
   const caps = record.manifest.capabilities;
   const needsGrant = Boolean((caps.paths && caps.paths.length) || (caps.apps && caps.apps.length) || caps.network);
   if (!needsGrant) {
-    library.run(name);
+    coreCommands.runSavedWorkflow(name);
     return;
   }
 
   const prompt = createGrantPrompt(caps, {
     onAllow: () => {
-      library.run(name);
+      coreCommands.runSavedWorkflow(name);
       closeGrantPrompt();
     },
     onDeny: () => closeGrantPrompt(),
@@ -495,11 +512,10 @@ function requestRun(name: string): void {
  * does: there is nothing here to approve.
  */
 function previewWorkflow(name: string): void {
-  const record = registry.get(name);
-  if (!record) return;
-  const runId = `palette-preview-${name}-${Date.now()}`;
-  bus.publish("run.started", { run_id: runId, goal: record.manifest.description, mode: "dry", workflow_name: name });
-  bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
+  // dry_run (contracts/ipc.md section 5b): the offline, deterministic preview
+  // path. The mock CoreCommands publishes the same run.*(mode dry) pair this
+  // did inline before; a real core streams it back over the bus instead.
+  coreCommands.dryRunWorkflow(name);
 }
 
 /** Where a chosen palette quick action (ui/src/palette/quickActions.ts) actually lands: every id there must be handled here. */
@@ -555,10 +571,12 @@ function handlePaletteCommit(commit: PaletteCommit): void {
       showScreen("settings");
       return;
     case "teach": {
-      // The same free-text-to-teach-run path the palette always offered
-      // (ui/src/palette/palette.ts's submitGoal), now reached through the
-      // "Teach this" fallback row instead of a plain form submit.
-      const stop = submitGoal(bus, row.subtitle ?? row.title);
+      // The free-text-to-teach-run path, now the real start_explore command
+      // (contracts/ipc.md section 5b): the typed goal plus the foreground
+      // window as context, reached through the "Teach this" fallback row. In
+      // dev/Demo the mock streams the canned run and hands back a canceller;
+      // the real transport returns null and a stop is a separate command.
+      const stop = coreCommands.startExplore(row.subtitle ?? row.title);
       if (stop) {
         stopDemo?.();
         stopDemo = stop;

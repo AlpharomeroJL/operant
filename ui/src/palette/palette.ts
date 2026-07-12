@@ -8,8 +8,7 @@
 // ui/src/bus/mockClient.ts, ui/src/state/mode.ts).
 
 import type { BusClient } from "../bus/mockClient.ts";
-import { simulateDemoRun } from "../bus/mockClient.ts";
-import { RUN_MODE_EXPLORE } from "../bus/types.ts";
+import { createMockCoreCommands } from "../bus/commands.ts";
 
 /**
  * True when a keydown event matches the palette's global-hotkey-style
@@ -33,14 +32,21 @@ export interface SubmitGoalOptions {
 }
 
 /**
- * Submit a typed goal from the palette. Starts a run against the bus in
- * explore mode (the palette always starts a fresh run, never a saved-
- * workflow run, per docs/specs/ui.md). Returns a stop function the caller
- * should use to cancel a previously started run before starting this one,
- * or null when the goal was blank and nothing was started.
+ * Submit a typed goal from the palette. Issues the start_explore command
+ * (contracts/ipc.md section 5b) with the goal and the foreground window as
+ * context, the model-driven teach path the palette always starts (never a
+ * saved-workflow run, per docs/specs/ui.md). In dev/Demo the mock CoreCommands
+ * drives the canned bus stream so the flight recorder still fills; the real
+ * shell swaps in a Tauri-backed CoreCommands (ui/src/bus/commands.ts). Returns
+ * a stop function the caller should use to cancel a previously started run
+ * before starting this one, or null when the goal was blank and nothing was
+ * started.
+ *
+ * ui/src/main.ts drives the palette's teach commit through its own injected
+ * CoreCommands directly (so a real foreground window is carried in the real
+ * shell); this convenience wrapper keeps the (bus, goal) call shape the run
+ * viewer's own scripted tests use.
  */
 export function submitGoal(bus: BusClient, rawGoal: string, opts: SubmitGoalOptions = {}): (() => void) | null {
-  const goal = normalizeGoal(rawGoal);
-  if (!goal) return null;
-  return simulateDemoRun(bus, { goal, mode: RUN_MODE_EXPLORE, stepDelayMs: opts.stepDelayMs });
+  return createMockCoreCommands(bus, opts).startExplore(rawGoal);
 }
