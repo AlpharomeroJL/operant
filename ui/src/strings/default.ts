@@ -82,6 +82,37 @@ export const runViewerStrings = {
     failed: "Did not work",
     retried: "Trying again",
   },
+  // Per-step duration, shown in mono on the row (docs/specs/design.md section
+  // 3: "duration in mono"). ms is the wall time from run.step.executed.
+  stepDuration: (ms: number) => `${ms} ms`,
+  // The flight recorder's mode chips (docs/specs/design.md section 3). A teach
+  // run shows the amber REC chip; its tooltip is one of exactly two places the
+  // word AI appears in-app (docs/specs/design.md section 4's copy rule). A run
+  // of a saved workflow shows the quiet gray chip below; design.md fixes its
+  // exact wording as the one sanctioned place a saved-workflow run is described
+  // as using no AI, only ever to say it is not using one (section 4). Note:
+  // scripts/microcopy_lint.mjs flags the word in this fixed phrase generically;
+  // design.md is binding here and wins until amended (see this packet's notes).
+  recChip: "REC",
+  recChipAria: "Recording, teaching a new workflow",
+  recChipTooltip: "Operant is using your AI engine to learn this",
+  replayChip: "no AI, exact replay",
+  replayChipTooltip: "Playing back saved steps exactly, with no thinking",
+  // The filmstrip of redacted step thumbnails above the step list
+  // (docs/specs/design.md section 3). Each frame's accessible name is the
+  // step's own plain-English sentence so the strip is navigable by keyboard
+  // and screen reader, not just by sight.
+  filmstripLabel: "Steps so far",
+  frameAria: (n: number, sentence: string) => `Step ${n}: ${sentence}`,
+  // The thumbnails are placeholders on purpose: no captured pixels ship
+  // (docs/specs/design.md section 3, "the point is no sensitive pixels
+  // ship"). This visually-hidden note tells a screen-reader user so.
+  thumbnailRedacted: "Redacted preview",
+  // A safety check that did not pass, shown inline in the step list as a card
+  // rather than a modal (docs/specs/design.md section 3). Copy follows section
+  // 4's error rule: what happened, then one thing to do, calm, no apology.
+  gateFailedTitle: "A safety check didn't pass",
+  gateFailedBody: "Operant stopped before finishing this step. Look at what it was about to do, then decide whether to keep going.",
 };
 
 // The run viewer's own human-language run states. idle and running and

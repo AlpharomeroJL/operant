@@ -10,7 +10,7 @@
 // right, Stop and Pause buttons, intervene text field when paused)".
 
 import type { BusClient } from "../bus/mockClient.ts";
-import { RUN_MODE_EXPLORE, type BusEvent } from "../bus/types.ts";
+import { RUN_MODE_EXPLORE, type BusEvent, type GateKind } from "../bus/types.ts";
 import { renderStepSentence, type RenderableStep } from "./sdkRender.ts";
 import { runStateStrings, runViewerStrings } from "../strings/default.ts";
 
@@ -19,11 +19,37 @@ export type RunState = "idle" | "running" | "paused" | "halted" | "done";
 
 export type StepStatus = "pending" | "ok" | "failed" | "retried";
 
+/**
+ * A safety check that did not pass for a step (a failed `run.step.gated`,
+ * contracts/bus_events.md). Its presence on a StepRow is what makes the run
+ * viewer draw the inline card design.md section 3 calls for ("Failed gates
+ * render as an inline card in the list, not a modal"); a passing check leaves
+ * no trace here. `expr` is the raw check expression, kept for Advanced mode
+ * only and never rendered as default-mode copy.
+ */
+export interface StepGate {
+  kind: GateKind;
+  expr?: string;
+}
+
 export interface StepRow {
   id: string;
   sentence: string;
   status: StepStatus;
+  /** Wall time to run this step, from run.step.executed (docs/specs/design.md section 3: "duration in mono"). Absent until the step has actually executed. */
+  durationMs?: number;
+  /** Set only when a safety check failed for this step; drives the inline card. */
+  gate?: StepGate;
 }
+
+/**
+ * Which mode chip the flight recorder shows (docs/specs/design.md section 3):
+ * the amber recording chip while teaching, or the quiet gray no-AI chip while
+ * running a saved workflow. Null before any run has started. (`exact` is the
+ * saved-workflow discriminant; the chip's user-facing wording lives in
+ * ui/src/strings/default.ts.)
+ */
+export type RunChip = "rec" | "exact";
 
 export interface RunViewerSnapshot {
   runId: string | null;
@@ -33,6 +59,22 @@ export interface RunViewerSnapshot {
   /** null before any run has ever started; true/false (on/off) once one has. */
   modelOn: boolean | null;
   modelIndicatorLabel: string;
+  /** The mode chip to show (rec/replay), or null before any run has started. Derived from modelOn. */
+  runChip: RunChip | null;
+  /**
+   * The step the user has scrubbed to on the filmstrip, or null while the
+   * strip is auto-following the live run. Scrub sync is symmetric: this is set
+   * by selecting a filmstrip frame OR a step row, and both highlight off
+   * `activeStepId` below, so selecting either one highlights the other.
+   */
+  selectedStepId: string | null;
+  /**
+   * The step the filmstrip and step list highlight right now: the scrubbed-to
+   * step if the user picked one, otherwise the latest step (auto-follow, so a
+   * live run's strip keeps pace with the newest frame on its own,
+   * docs/specs/design.md section 3). Null when there are no steps yet.
+   */
+  activeStepId: string | null;
   showIntervene: boolean;
   pauseButtonLabel: string;
   canPause: boolean;
@@ -52,6 +94,12 @@ export interface RunViewer {
    * paused with non-blank text; returns whether it actually did anything.
    */
   intervene(instruction: string): boolean;
+  /**
+   * Scrub the filmstrip/step list to a step (or null to hand control back to
+   * auto-follow). No-op for a step id that is not in the current run. DOM-free:
+   * main.ts and view.ts key their highlight off the resulting snapshot.
+   */
+  select(stepId: string | null): void;
   dispose(): void;
 }
 
@@ -60,23 +108,38 @@ interface InternalState {
   runState: RunState;
   steps: StepRow[];
   modelOn: boolean | null;
+  selectedStepId: string | null;
 }
 
-const INITIAL_STATE: InternalState = { runId: null, runState: "idle", steps: [], modelOn: null };
+const INITIAL_STATE: InternalState = { runId: null, runState: "idle", steps: [], modelOn: null, selectedStepId: null };
 
-function upsertStep(steps: StepRow[], id: string, status: StepStatus, sentence?: string): StepRow[] {
+/** Fields of a StepRow a bus event can set or update; `id` is fixed once the row exists. */
+type StepPatch = Partial<Omit<StepRow, "id">>;
+
+function upsertStep(steps: StepRow[], id: string, patch: StepPatch): StepRow[] {
   const idx = steps.findIndex((row) => row.id === id);
   if (idx === -1) {
-    const fallback = sentence ?? runViewerStrings.stepFallback(steps.length + 1);
-    return [...steps, { id, status, sentence: fallback }];
+    const row: StepRow = {
+      id,
+      sentence: patch.sentence ?? runViewerStrings.stepFallback(steps.length + 1),
+      status: patch.status ?? "pending",
+    };
+    if (patch.durationMs !== undefined) row.durationMs = patch.durationMs;
+    if (patch.gate !== undefined) row.gate = patch.gate;
+    return [...steps, row];
   }
   const next = steps.slice();
-  next[idx] = sentence ? { ...next[idx], status, sentence } : { ...next[idx], status };
+  next[idx] = { ...next[idx], ...patch };
   return next;
 }
 
 function toSnapshot(s: InternalState): RunViewerSnapshot {
   const paused = s.runState === "paused";
+  const lastStepId = s.steps.length ? s.steps[s.steps.length - 1].id : null;
+  // Auto-follow: with nothing scrubbed to, the highlight tracks the newest
+  // step, so a live run's filmstrip keeps pace on its own (design.md section
+  // 3). A scrubbed-to step pins the highlight until the user clears it.
+  const activeStepId = s.selectedStepId ?? lastStepId;
   return {
     runId: s.runId,
     runState: s.runState,
@@ -84,6 +147,9 @@ function toSnapshot(s: InternalState): RunViewerSnapshot {
     steps: s.steps,
     modelOn: s.modelOn,
     modelIndicatorLabel: s.modelOn === null ? "" : s.modelOn ? runViewerStrings.modelOn : runViewerStrings.modelOff,
+    runChip: s.modelOn === null ? null : s.modelOn ? "rec" : "exact",
+    selectedStepId: s.selectedStepId,
+    activeStepId,
     showIntervene: paused,
     pauseButtonLabel: paused ? runViewerStrings.resume : runViewerStrings.pause,
     canPause: s.runState === "running" || paused,
@@ -108,6 +174,8 @@ export function createRunViewer(bus: BusClient): RunViewer {
           runState: "running",
           steps: [],
           modelOn: event.payload.mode === RUN_MODE_EXPLORE,
+          // A fresh run starts on auto-follow, whatever the last run was scrubbed to.
+          selectedStepId: null,
         };
         break;
       }
@@ -128,17 +196,36 @@ export function createRunViewer(bus: BusClient): RunViewer {
           irStep as unknown as RenderableStep,
           runViewerStrings.stepFallback(state.steps.length + 1),
         );
-        state = { ...state, steps: upsertStep(state.steps, irStep.id, "pending", sentence) };
+        state = { ...state, steps: upsertStep(state.steps, irStep.id, { status: "pending", sentence }) };
+        break;
+      }
+      case "run.step.gated": {
+        if (event.payload.run_id !== state.runId) return;
+        // A passing check is silent; only a failed one leaves a mark, which is
+        // what the run viewer turns into an inline card (design.md section 3).
+        if (event.payload.result !== "fail") return;
+        state = {
+          ...state,
+          steps: upsertStep(state.steps, event.payload.step_id, {
+            gate: { kind: event.payload.gate_kind, expr: event.payload.expr },
+          }),
+        };
         break;
       }
       case "run.step.executed": {
         if (event.payload.run_id !== state.runId) return;
-        state = { ...state, steps: upsertStep(state.steps, event.payload.step_id, event.payload.outcome) };
+        state = {
+          ...state,
+          steps: upsertStep(state.steps, event.payload.step_id, {
+            status: event.payload.outcome,
+            durationMs: event.payload.ms,
+          }),
+        };
         break;
       }
       case "run.step.failed": {
         if (event.payload.run_id !== state.runId) return;
-        state = { ...state, steps: upsertStep(state.steps, event.payload.step_id, "failed") };
+        state = { ...state, steps: upsertStep(state.steps, event.payload.step_id, { status: "failed" }) };
         break;
       }
       case "run.paused": {
@@ -191,6 +278,15 @@ export function createRunViewer(bus: BusClient): RunViewer {
     return true;
   }
 
+  function select(stepId: string | null): void {
+    // Ignore a scrub to a step that is not part of this run; clearing (null)
+    // is always allowed and returns to auto-follow.
+    if (stepId !== null && !state.steps.some((row) => row.id === stepId)) return;
+    if (state.selectedStepId === stepId) return;
+    state = { ...state, selectedStepId: stepId };
+    emit();
+  }
+
   function dispose(): void {
     unsubscribeBus();
     listeners.clear();
@@ -205,6 +301,7 @@ export function createRunViewer(bus: BusClient): RunViewer {
     stop,
     togglePause,
     intervene,
+    select,
     dispose,
   };
 }

@@ -109,6 +109,30 @@ test("halted: no axe violations", async () => {
   }
 });
 
+test("a failed safety check card in the list: no axe violations", async () => {
+  const env = createDomEnv();
+  try {
+    const bus = createMockBusClient();
+    const viewer = createRunViewer(bus);
+    const { container, render } = mount(env, viewer);
+    viewer.subscribe(render);
+
+    const stop = submitGoal(bus, "Copy the invoice total", { stepDelayMs: 2 });
+    const runId = viewer.getSnapshot().runId;
+    assert.ok(runId, "the run must have started");
+    // Fail a safety check on the first step so the inline card renders, then
+    // scan the filmstrip + gate-card DOM the same way the other states are.
+    bus.publish("run.step.gated", { run_id: runId, step_id: "s1", gate_kind: "safety", result: "fail" });
+    render();
+    assert.ok(container.querySelector(".op-safety-card"), "the failed-check card must be on screen");
+    await assertNoViolations(container, "run viewer with a failed safety check card");
+    stop?.();
+    viewer.dispose();
+  } finally {
+    env.cleanup();
+  }
+});
+
 test("focus and typed text survive a rebuild: typing an intervene instruction does not lose focus on every keystroke", () => {
   const env = createDomEnv();
   try {

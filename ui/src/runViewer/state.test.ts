@@ -236,3 +236,100 @@ test("dispose stops listening to the bus", () => {
   assert.equal(notifications, 0);
   assert.equal(viewer.getSnapshot().runState, "idle");
 });
+
+// --- Flight recorder (docs/specs/design.md section 3) ---
+
+test("the mode chip follows the run mode: recording while teaching, quiet for a saved-workflow run", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  assert.equal(viewer.getSnapshot().runChip, null, "no chip before any run has started");
+
+  startRun(bus, "r1", RUN_MODE_EXPLORE);
+  assert.equal(viewer.getSnapshot().runChip, "rec");
+
+  startRun(bus, "r2", RUN_MODE_REPLAY);
+  assert.equal(viewer.getSnapshot().runChip, "exact");
+});
+
+test("the filmstrip auto-follows: with nothing scrubbed to, the active step is always the latest", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  assert.equal(viewer.getSnapshot().activeStepId, null, "no active step before any arrive");
+
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+  assert.equal(viewer.getSnapshot().activeStepId, "s1");
+
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s2", kind: "wait" } });
+  assert.equal(viewer.getSnapshot().activeStepId, "s2", "the strip follows the newest frame on its own");
+
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s3", kind: "wait" } });
+  assert.equal(viewer.getSnapshot().activeStepId, "s3");
+});
+
+test("select scrubs to a step and pins the highlight; selecting null hands control back to auto-follow", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s2", kind: "wait" } });
+
+  viewer.select("s1");
+  assert.equal(viewer.getSnapshot().selectedStepId, "s1");
+  assert.equal(viewer.getSnapshot().activeStepId, "s1", "a scrubbed-to step pins the highlight");
+
+  // A newer step arriving must not steal the pinned highlight.
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s3", kind: "wait" } });
+  assert.equal(viewer.getSnapshot().activeStepId, "s1");
+
+  viewer.select(null);
+  assert.equal(viewer.getSnapshot().activeStepId, "s3", "clearing the scrub returns to the latest");
+});
+
+test("select ignores a step id that is not part of this run", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+
+  viewer.select("not-a-real-step");
+  assert.equal(viewer.getSnapshot().selectedStepId, null);
+});
+
+test("a new run resets any scrub selection back to auto-follow", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+  viewer.select("s1");
+  assert.equal(viewer.getSnapshot().selectedStepId, "s1");
+
+  startRun(bus, "r2");
+  assert.equal(viewer.getSnapshot().selectedStepId, null);
+});
+
+test("a failed safety check is recorded on its step; a passing one leaves no trace", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+
+  // A passing check changes nothing on the row.
+  bus.publish("run.step.gated", { run_id: "r1", step_id: "s1", gate_kind: "pre", result: "pass" });
+  assert.equal(viewer.getSnapshot().steps[0].gate, undefined);
+
+  // A failing one marks the step so the viewer can draw its inline card.
+  bus.publish("run.step.gated", { run_id: "r1", step_id: "s1", gate_kind: "safety", result: "fail", expr: "balance < 1000" });
+  const failed = viewer.getSnapshot().steps[0].gate;
+  assert.ok(failed, "a failed check must be recorded on the step");
+  assert.equal(failed?.kind, "safety");
+});
+
+test("executed records the step duration for the mono time on its row", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+  bus.publish("run.step.executed", { run_id: "r1", step_id: "s1", outcome: "ok", ms: 128, grounding: GROUNDING_UIA });
+  assert.equal(viewer.getSnapshot().steps[0].durationMs, 128);
+});
