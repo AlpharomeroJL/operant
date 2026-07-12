@@ -14,7 +14,7 @@ default:
 
 # Core gate: workspace build, tests, and the content linters. `just verify` is
 # the full gate that adds the determinism proof and the UI suite on top.
-ci: build test check-json check-emdash check-microcopy check-airgap
+ci: build test check-json check-emdash check-microcopy check-airgap check-rawhex
     @echo "CI GREEN"
 
 # The full local gate. There is no hosted CI, so this must be green before every
@@ -56,6 +56,11 @@ check-microcopy:
 check-airgap:
     node scripts/check_airgap.mjs
 
+# No raw hex color literal outside ui/src/theme/tokens.ts (the single source
+# of truth, docs/specs/design.md section 2) and its generated ui/src/styles/tokens.css.
+check-rawhex:
+    node scripts/check_rawhex.mjs
+
 # Markdown lint (best-effort; requires markdownlint-cli via npx, skipped offline).
 check-markdown:
     -npx --no-install markdownlint-cli "**/*.md" --ignore node_modules --ignore target
@@ -64,11 +69,16 @@ check-markdown:
 golden:
     cd e2e/golden-path; cargo test
 
-# UI gate: TypeScript typecheck (tsc, since node --test only strips types) plus the
-# test suite via `npm test` (which sets up the jsdom DOM env through testHooks).
-# Run `cd ui; npm install` once first (pulls jsdom + axe-core for the a11y tests).
+# UI gate: regenerate ui/src/styles/tokens.css from ui/src/theme/tokens.ts (the
+# single source of truth, docs/specs/design.md section 2) so CSS and TS can
+# never drift, then TypeScript typecheck (tsc, since node --test only strips
+# types) plus the test suite via `npm test` (which sets up the jsdom DOM env
+# through testHooks). Run `cd ui; npm install` once first (pulls jsdom +
+# axe-core for the a11y tests). `npm test`/`npm run dev`/`npm run build` also
+# regenerate tokens.css on their own (package.json's pretest/predev/prebuild),
+# so this is belt-and-suspenders for a bare `npm run typecheck`.
 ui:
-    cd ui; npm run typecheck; npm test
+    cd ui; npm run build:tokens; npm run typecheck; npm test
 
 # Regenerate signed/binary fixtures (deterministic; keypair guarded).
 fixtures:
