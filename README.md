@@ -4,43 +4,76 @@
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-0078D6)](docs/ARCHITECTURE.md)
 [![local-first](https://img.shields.io/badge/local--first-yes-brightgreen)](docs/PRD.md)
-[![benchmark](https://img.shields.io/badge/benchmark-replay%205%2F5-brightgreen)](BENCHMARKS.md)
+[![benchmark](https://img.shields.io/badge/benchmark-run%205%2F5-brightgreen)](BENCHMARKS.md)
 
-**Teach your computer once. It does it forever. No code. Free.**
+**Teach your computer once. It does it forever.**
+*No code. No cloud. Free.*
 
-Operant is a free, open source desktop agent for Windows. Show it a task once, by
-demonstration or by voice, and it saves what it learned as a workflow you can run
-again with one click or on a schedule. After the first time it does not need a model
-again: replay runs from a file on your own machine, zero model calls and zero network
-calls, both checked in CI.
+Operant is a free, open source desktop app for Windows that learns a task by
+watching you do it once, then does that task again on its own.
 
-<a id="see-it-replay"></a>
+<!-- CAPTURE SLOT (V1 recapture pass): new home dashboard screenshot, not yet
+captured. Should show the "time saved this week" line, the recent-weeks
+sparkline, the upcoming scheduled runs, and the recent runs list. -->
+![Screenshot of the Operant home dashboard: a line reading how much time it saved this week, a small sparkline of the last few weeks, a list of upcoming scheduled runs, and a list of recent runs each with a status dot and a one-line result.](assets/hero-dashboard.png)
 
-![Animated run viewer replaying the same copy-invoice-total task with the model indicator reading "Running from memory, no thinking needed": the same four steps as 02-explore.gif complete almost instantly, ending on Done.](assets/04-replay.gif)
+[Download the installer](https://github.com/AlpharomeroJL/operant/releases) | [Watch the 90-second demo](#watch-demo) | [Star the repo](https://github.com/AlpharomeroJL/operant) | [Browse the template gallery](https://github.com/AlpharomeroJL/operant-registry) | [See the cookbook](cookbook/README.md)
 
-*The same task, taught once. The second run has the model indicator off and finishes
-instantly.*
+### Teach it
 
-[Download the installer](https://github.com/AlpharomeroJL/operant/releases) | [Watch the 90-second replay](#see-it-replay) | [Star the repo](https://github.com/AlpharomeroJL/operant) | [Browse the template gallery](https://github.com/AlpharomeroJL/operant-registry) | [See the cookbook](cookbook/README.md)
+Show it a task once, by demonstration or by voice, and it remembers exactly how
+to do it again.
 
-## Get started (no terminal, no code)
+<a id="watch-demo"></a>
 
-No cargo, no npm, no terminal. The installer is a single Windows executable.
+<!-- CAPTURE SLOT (V1 recapture pass): not a new shot. Real footage for this
+exact moment already exists under a different filename elsewhere in assets/;
+copy or rename it to this filename rather than reshooting. See the M1 packet
+handoff notes for the source file. -->
+![Animated run viewer stepping through a live teaching run with the model indicator reading "Thinking live": steps to click Downloads, click Invoice.pdf, copy, and paste appear one at a time and turn green.](assets/feature-teach.gif)
 
-1. Download the installer from the [releases page](https://github.com/AlpharomeroJL/operant/releases).
-2. Run it and follow the setup wizard.
-3. Pick one plain-language option: download a free local model with a progress bar,
-   sign in with a ChatGPT or Claude account you already have, or paste an API key.
-   A demo mode is also there if you would rather watch it work first.
-4. Teach it your first task by demonstration or by voice, then save it as a workflow.
+### Trust it
 
-![Animated walkthrough of the Operant setup wizard: the welcome screen, choosing to download a free local model with a live progress bar from 0 to done, a guided first task filling out a sample invoice step by step, and picking a schedule, ending with the wizard closed and the main Run screen visible.](assets/00-onboarding.gif)
+A kill switch stops everything in under a tenth of a second, every run can be
+undone, and once it has learned a task it does that task again on your own
+machine with nothing sent anywhere.
 
-*The setup wizard: pick a model, watch the download, land on done.*
+![Animated kill switch demo: a run is mid-step (Click Downloads, Click Invoice.pdf) with the model indicator on, then the panic hotkey fires and the run freezes, the run viewer reads "Stopped, needs you", and the tray icon turns red with an "Operant stopped" notification.](assets/12-killswitch.gif)
+
+### Forget it
+
+Put it on a schedule or run it again with one click, and it just happens
+without you.
+
+<!-- CAPTURE SLOT (V1 recapture pass): not yet captured. Should show running a
+saved workflow with one click from the library, then setting that workflow to
+run automatically on a schedule. -->
+![Animated demo of running a saved workflow with one click from the workflow library, then setting that workflow to run automatically on a schedule.](assets/feature-forget.gif)
+
+## Get started
+
+1. Download the installer.
+2. Sign in, or pick a free engine.
+3. Teach it your first task.
 
 Building from source instead of installing: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Kill switch and undo
+---
+
+## How it works
+
+Everything below is for people who want the technical detail: the reasoning,
+the benchmark, the architecture, and how Operant compares to other projects.
+
+The model is a compiler, not a runtime. Exploration should be probabilistic.
+Execution should not be. At 98 percent per-step model accuracy, a 40-step workflow
+fails about 55 percent of the time in production: probabilistic execution does not
+survive multiplication. So Operant explores a task with a model once, or a few times
+with correction, then freezes the successful run into a typed, readable file guarded
+by invariant gates. Replay after that makes zero model calls and zero network calls,
+both asserted in CI, not just promised.
+
+### Kill switch and undo
 
 Two things hold no matter what Operant is doing.
 
@@ -60,21 +93,6 @@ you run it, not after.
 Operant also keeps score. ![Screenshot of a tray notification reading "Your weekly time saved: Saved about 192 minutes this week" with a Dismiss button.](assets/11-timesaved.png) is the tray showing estimated
 time saved this week, the screenshot people actually share. If it saves you time,
 [star the repo](https://github.com/AlpharomeroJL/operant).
-
-That's the whole pitch if you are not a developer. Everything below is for people
-who want to know how it actually works.
-
----
-
-## For developers
-
-The model is a compiler, not a runtime. Exploration should be probabilistic.
-Execution should not be. At 98 percent per-step model accuracy, a 40-step workflow
-fails about 55 percent of the time in production: probabilistic execution does not
-survive multiplication. So Operant explores a task with a model once, or a few times
-with correction, then freezes the successful run into a typed, readable file guarded
-by invariant gates. Replay after that makes zero model calls and zero network calls,
-both asserted in CI, not just promised.
 
 ### Explore once, replay forever
 
