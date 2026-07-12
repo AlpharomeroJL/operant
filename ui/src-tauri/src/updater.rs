@@ -17,7 +17,7 @@
 // handler: closing or restarting Operant after an update has been staged
 // installs it instead of just quitting.
 //
-// Testing note, stated plainly: `tests/updater_fixture.rs` exercises the real
+// Testing note, stated plainly: `tests/updater_signature.rs` exercises the real
 // `tauri_plugin_updater` crate (nothing reimplemented or mocked at the
 // signature-verification layer) against a local fixture HTTP server for the
 // full check -> download -> verify round trip, and separately proves a
