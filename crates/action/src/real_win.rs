@@ -210,7 +210,15 @@ impl Synthesizer for WindowsSynthesizer {
         // E2 focus-then-verify: re-read the target's UI thread and confirm a
         // control actually holds keyboard focus before returning, so the
         // executor's subsequent type/key is not fire-and-hope.
-        verify_focus_landed(hwnd)
+        verify_focus_landed(hwnd)?;
+
+        // Give the freshly-activated control time to become ready for input
+        // before the caller synthesizes any. Without this settle the first
+        // keys of a rapid replay arrive mid-activation and are dropped (seen
+        // live: a ctrl+a that did not select, and a leading "OPER" eaten off a
+        // typed string). Applies to every action, since every one focuses first.
+        std::thread::sleep(std::time::Duration::from_millis(120));
+        Ok(())
     }
 
     fn key(&self, combo: &str) -> Result<(), SynthesizerError> {
@@ -243,12 +251,23 @@ impl Synthesizer for WindowsSynthesizer {
 
     fn type_text(&self, text: &str) -> Result<(), SynthesizerError> {
         frozen_guard()?;
-        let mut events = Vec::with_capacity(text.len() * 2);
+        // Let the target settle after the focus the executor just performed,
+        // then pace the character injection one code unit at a time. A modern
+        // rich-edit control drops and repeats characters when a long Unicode
+        // burst arrives faster than it can consume it (seen live under fast
+        // replay: "LIVE PR" collapsed into repeated glyphs). A short settle
+        // plus a per-character gap keeps the text in order and complete. The
+        // frozen_guard inside the loop lets the kill switch stop a type
+        // mid-string.
+        std::thread::sleep(std::time::Duration::from_millis(40));
         for unit in text.encode_utf16() {
-            events.push(unicode_event(unit, false));
-            events.push(unicode_event(unit, true));
+            frozen_guard()?;
+            send(&[unicode_event(unit, false), unicode_event(unit, true)])?;
+            // 4ms was not enough for a modern rich-edit control to consume each
+            // char in order (seen live: adjacent transpositions like ILVE/RPOOF).
+            std::thread::sleep(std::time::Duration::from_millis(24));
         }
-        send(&events)
+        Ok(())
     }
 
     fn click_point(&self, point: Coords) -> Result<(), SynthesizerError> {
@@ -451,9 +470,10 @@ fn window_process_basename(hwnd: HWND) -> Option<String> {
 ///    the foreground window).
 /// 2. Best-effort clear the foreground-lock timeout so a background process is
 ///    allowed to change the foreground window at all.
-/// 3. Inject one benign Alt down/up via `SendInput` BEFORE the foreground
+/// 3. Inject one benign Shift down/up via `SendInput` BEFORE the foreground
 ///    calls: Windows grants `SetForegroundWindow` to a process that has just
-///    synthesized input.
+///    synthesized input. Shift, not Alt, because an Alt tap opens the target's
+///    menu bar and the next key combo would be lost to menu mode.
 /// 4. Bracket the foreground calls with `AttachThreadInput` to the current
 ///    foreground thread.
 /// 5. Retry `SetForegroundWindow` + `BringWindowToTop` + `SetFocus` a few
@@ -476,12 +496,17 @@ fn focus_with_attach_workaround(hwnd: HWND) -> Result<(), SynthesizerError> {
         );
 
         // 3. Earn foreground rights by injecting one benign input event
-        //    (Alt down then up) BEFORE the foreground calls, reusing the same
+        //    (Shift down then up) BEFORE the foreground calls, reusing the same
         //    key_event + SendInput dispatch helpers used for real key input.
-        //    Best-effort: a failed inject just falls through to the retry loop.
+        //    Windows grants SetForegroundWindow to a process that has just
+        //    synthesized input. Shift, not Alt: an Alt tap activates the target
+        //    app's menu bar, which then swallows the very next key combo (a real
+        //    Notepad ctrl+a / ctrl+c landed in menu mode and did nothing);
+        //    Shift has no such side effect. Best-effort: a failed inject just
+        //    falls through to the retry loop.
         let _ = send(&[
-            key_event(VK_MENU, KEYBD_EVENT_FLAGS(0)),
-            key_event(VK_MENU, KEYEVENTF_KEYUP),
+            key_event(VK_SHIFT, KEYBD_EVENT_FLAGS(0)),
+            key_event(VK_SHIFT, KEYEVENTF_KEYUP),
         ]);
 
         // 4. Attach our input state to the current foreground thread's so the
