@@ -16,11 +16,11 @@ export const commonStrings = {
 };
 
 // Labels for the shell's top-level screen switcher: docs/specs/design.md
-// section 3's nav map (Dashboard, Library, Runs, Settings). "Runs" covers the
-// palette-plus-run-viewer pair together (the command palette and flight
-// recorder), since neither is useful without the other; a future packet may
-// split the palette into its own floating overlay per design.md, at which
-// point this label stops covering it.
+// section 3's nav map (Dashboard, Library, Runs, Settings). "Runs" is the
+// flight recorder screen (the run viewer); the command palette that used to
+// live inline on this screen is now its own global floating overlay
+// (ui/src/palette/, reachable from any screen via Ctrl+K/Cmd+K), per
+// design.md section 3's Palette entry.
 export const navStrings = {
   dashboard: "Dashboard",
   runs: "Runs",

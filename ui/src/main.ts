@@ -4,10 +4,13 @@ import { themeStore, type ThemeMode } from "./theme/store.ts";
 import { createMockBusClient } from "./bus/mockClient.ts";
 import type { BusEvent } from "./bus/types.ts";
 import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
+import { createPaletteController, type PaletteCommit } from "./palette/state.ts";
+import { mountPalette } from "./palette/view.ts";
+import { buildQuickActionEntries, buildSettingsEntries, PALETTE_ACTION_ID } from "./palette/quickActions.ts";
+import type { PaletteEntry } from "./palette/catalog.ts";
 import { createRunViewer } from "./runViewer/state.ts";
 import { mountRunViewer } from "./runViewer/view.ts";
 import {
-  paletteStrings,
   commonStrings,
   navStrings,
   themeToggleStrings,
@@ -64,13 +67,7 @@ root.innerHTML = `
       <div id="op-dashboard-mount"></div>
     </section>
     <main class="op-main" id="op-screen-runs">
-      <section class="op-panel" aria-labelledby="op-palette-heading">
-        <h2 class="op-panel__title" id="op-palette-heading"></h2>
-        <form class="op-palette" id="op-palette-form">
-          <label class="op-visually-hidden" id="op-palette-label" for="op-palette-input"></label>
-          <input class="op-palette__input" id="op-palette-input" type="text" autocomplete="off" />
-          <button type="submit" class="op-button op-button--primary" id="op-palette-submit"></button>
-        </form>
+      <section class="op-panel">
         <p class="op-status">
           <span class="op-status__dot" id="op-run-status-dot" data-state="idle"></span>
           <span id="op-run-status-label"></span>
@@ -97,6 +94,9 @@ root.innerHTML = `
     <div class="op-modal-backdrop" id="op-wizard-backdrop" hidden>
       <div id="op-wizard-mount"></div>
     </div>
+    <div class="op-modal-backdrop op-palette-backdrop" id="op-palette-backdrop" hidden>
+      <div id="op-palette-mount"></div>
+    </div>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
       <h2 class="op-panel__title" id="op-advanced-heading"></h2>
       <div class="op-advanced-panel__grid">
@@ -119,11 +119,6 @@ const appTitle = byId<HTMLHeadingElement>("op-app-title");
 const modeToggleButton = byId<HTMLButtonElement>("op-mode-toggle");
 const modeToggleLabel = byId<HTMLSpanElement>("op-mode-toggle-label");
 const themeToggleButton = byId<HTMLButtonElement>("op-theme-toggle");
-const paletteHeading = byId<HTMLHeadingElement>("op-palette-heading");
-const paletteLabel = byId<HTMLLabelElement>("op-palette-label");
-const paletteInput = byId<HTMLInputElement>("op-palette-input");
-const paletteSubmit = byId<HTMLButtonElement>("op-palette-submit");
-const paletteForm = byId<HTMLFormElement>("op-palette-form");
 const runStatusDot = byId<HTMLSpanElement>("op-run-status-dot");
 const runStatusLabel = byId<HTMLSpanElement>("op-run-status-label");
 // The flight recorder (docs/specs/design.md section 3) is built by
@@ -160,13 +155,10 @@ const grantBackdrop = byId<HTMLElement>("op-grant-backdrop");
 const grantMount = byId<HTMLElement>("op-grant-mount");
 const wizardBackdrop = byId<HTMLElement>("op-wizard-backdrop");
 const wizardMount = byId<HTMLElement>("op-wizard-mount");
+const paletteBackdrop = byId<HTMLElement>("op-palette-backdrop");
+const paletteMount = byId<HTMLElement>("op-palette-mount");
 
 appTitle.textContent = commonStrings.appName;
-paletteHeading.textContent = paletteStrings.placeholder;
-paletteLabel.textContent = paletteStrings.placeholder;
-paletteInput.placeholder = paletteStrings.placeholder;
-paletteInput.title = paletteStrings.hint;
-paletteSubmit.textContent = paletteStrings.submit;
 advancedHeading.textContent = advancedStrings.toggleLabel;
 navDashboard.textContent = navStrings.dashboard;
 navLibrary.textContent = navStrings.library;
@@ -192,6 +184,31 @@ const library = createLibrary(bus, {
 const dashboard = createDashboard(bus, { registry });
 const settings = createSettings(bus);
 const tray = createTray(bus);
+
+// The command palette (docs/specs/design.md section 3, Palette): a Raycast-
+// grade floating overlay, opened by the global Ctrl+K/Cmd+K hotkey handled
+// near the bottom of this file, mounted into op-palette-mount inside the
+// op-palette-backdrop modal (same "mount once, gate visibility with the
+// backdrop's hidden attribute" pattern as op-grant-backdrop/op-wizard-
+// backdrop below). The palette fuzzy-matches over three source kinds
+// (ui/src/palette/catalog.ts's PaletteEntryKind): saved workflows (this
+// registry, kept live via registry.subscribe below, the same registry
+// Library and the dashboard already share), quick actions, and settings
+// sections (ui/src/palette/quickActions.ts, both static).
+const paletteController = createPaletteController();
+
+function refreshPaletteEntries(): void {
+  const workflowEntries: PaletteEntry[] = registry.list().map((record) => ({
+    id: record.manifest.name,
+    kind: "workflow",
+    title: record.manifest.description || record.manifest.name,
+    subtitle: record.manifest.description ? record.manifest.name : undefined,
+    keywords: [record.manifest.name],
+  }));
+  paletteController.setEntries([...workflowEntries, ...buildQuickActionEntries(), ...buildSettingsEntries()]);
+}
+registry.subscribe(refreshPaletteEntries);
+refreshPaletteEntries();
 
 // First-run onboarding (C19, FR-U1/FR-U4). Shown until the wizard reports
 // complete, then never again on this device. Same localStorage-with-
@@ -297,7 +314,9 @@ function renderAdvancedTools(): void {
 function renderRunViewer(): void {
   const snapshot = runViewer.getSnapshot();
 
-  // The compact run-state indicator that sits next to the palette launcher.
+  // The compact run-state indicator at the top of the Runs screen (the
+  // palette itself moved out to its own floating overlay, docs/specs/
+  // design.md section 3; this status line is what stayed behind).
   runStatusDot.dataset.state = snapshot.runState;
   runStatusLabel.textContent = snapshot.runStateLabel;
 
@@ -372,6 +391,91 @@ function requestRun(name: string): void {
   grantBackdrop.hidden = false;
 }
 
+/**
+ * Ctrl+Enter in the palette (design.md section 3's footer hint, rendered
+ * on screen as "preview": contracts/microcopy_glossary.json maps that same
+ * internal concept to that exact user-facing word). A preview never
+ * touches library.run's own runtime bookkeeping (last-run time, minutes-
+ * saved): those figures mean "the last time this actually ran," and a
+ * preview, by definition, performs nothing for real, so it does not count.
+ * Never needs a grant prompt either, for the same reason requestRun's
+ * does: there is nothing here to approve.
+ */
+function previewWorkflow(name: string): void {
+  const record = registry.get(name);
+  if (!record) return;
+  const runId = `palette-preview-${name}-${Date.now()}`;
+  bus.publish("run.started", { run_id: runId, goal: record.manifest.description, mode: "dry", workflow_name: name });
+  bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
+}
+
+/** Where a chosen palette quick action (ui/src/palette/quickActions.ts) actually lands: every id there must be handled here. */
+function runQuickAction(id: string): void {
+  switch (id) {
+    case PALETTE_ACTION_ID.navDashboard:
+      showScreen("dashboard");
+      return;
+    case PALETTE_ACTION_ID.navLibrary:
+      showScreen("library");
+      return;
+    case PALETTE_ACTION_ID.navRuns:
+      showScreen("runs");
+      return;
+    case PALETTE_ACTION_ID.navSettings:
+      showScreen("settings");
+      return;
+    case PALETTE_ACTION_ID.cycleTheme:
+      themeStore.cycle();
+      return;
+  }
+}
+
+/**
+ * Turns a committed palette row (ui/src/palette/state.ts's PaletteController.commit)
+ * into the same actions the rest of the shell already offers elsewhere:
+ * running or previewing a workflow reuses requestRun/previewWorkflow above
+ * (the exact grant-flow-aware path Library's own Run button uses), Tab-for-
+ * details reuses openExplain, and a picked settings entry or quick action
+ * just switches screens (ui/src/settings/view.ts has no separate routes to
+ * deep-link into; see ui/src/palette/quickActions.ts's own header comment).
+ * A run or a teach run also switches to the Runs screen so the flight
+ * recorder that started is the thing actually on screen afterward.
+ */
+function handlePaletteCommit(commit: PaletteCommit): void {
+  const { row, intent } = commit;
+  switch (row.kind) {
+    case "workflow":
+      if (intent === "run") {
+        requestRun(row.id);
+        showScreen("runs");
+      } else if (intent === "preview") {
+        previewWorkflow(row.id);
+        showScreen("runs");
+      } else {
+        openExplain(row.id);
+      }
+      return;
+    case "action":
+      runQuickAction(row.id);
+      return;
+    case "setting":
+      showScreen("settings");
+      return;
+    case "teach": {
+      // The same free-text-to-teach-run path the palette always offered
+      // (ui/src/palette/palette.ts's submitGoal), now reached through the
+      // "Teach this" fallback row instead of a plain form submit.
+      const stop = submitGoal(bus, row.subtitle ?? row.title);
+      if (stop) {
+        stopDemo?.();
+        stopDemo = stop;
+      }
+      showScreen("runs");
+      return;
+    }
+  }
+}
+
 function renderLibraryPanel(): void {
   const snapshot = library.getSnapshot();
   mountLibrary(libraryMount, snapshot, {
@@ -435,6 +539,30 @@ function renderTrayPanel(): void {
 }
 
 /**
+ * The palette overlay (design.md section 3): mounted unconditionally, same
+ * as renderWizardPanel/requestRun's grant prompt below, with
+ * op-palette-backdrop's own `hidden` attribute the only thing gating
+ * whether it is actually visible and reachable. A commit
+ * (ui/src/palette/state.ts's PaletteController.commit, reached through
+ * Enter/Ctrl+Enter/Tab in ui/src/palette/view.ts's own keydown handling, or
+ * a click) hands back what was picked and for what; handlePaletteCommit
+ * above decides what that actually does.
+ */
+function renderPalette(): void {
+  const snapshot = paletteController.getSnapshot();
+  paletteBackdrop.hidden = !snapshot.open;
+  mountPalette(paletteMount, snapshot, {
+    onQueryChange: (text) => paletteController.setQuery(text),
+    onMoveSelection: (delta) => paletteController.moveSelection(delta),
+    onCommit: (intent, rowId) => {
+      const commit = paletteController.commit(intent, rowId);
+      if (commit) handlePaletteCommit(commit);
+    },
+    onClose: () => paletteController.close(),
+  });
+}
+
+/**
  * The onboarding wizard renders as a modal overlay in front of everything
  * else until it reports complete, then hides for good on this device
  * (WIZARD_DONE_KEY above). Every screen it shows comes straight from
@@ -486,6 +614,7 @@ dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
 wizard.subscribe(renderWizardPanel);
+paletteController.subscribe(renderPalette);
 
 navDashboard.addEventListener("click", () => showScreen("dashboard"));
 navLibrary.addEventListener("click", () => showScreen("library"));
@@ -525,19 +654,36 @@ renderDashboardPanel();
 renderSettingsPanel();
 renderTrayPanel();
 renderWizardPanel();
-
-paletteForm.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const stop = submitGoal(bus, paletteInput.value);
-  if (stop) {
-    stopDemo?.();
-    stopDemo = stop;
-    paletteInput.value = "";
-  }
-});
+renderPalette();
 
 // Stop, Pause, intervene, and filmstrip scrubbing are wired through
 // mountRunViewer's callbacks in renderRunViewer() above, not to static ids.
+// Enter/Ctrl+Enter/Tab/Escape inside the palette itself are wired through
+// mountPalette's own keydown handling in renderPalette() above; only the
+// global summon hotkey and the click-outside-to-dismiss below are this
+// file's to wire, the same split the wizard/grant modals already use
+// (their own Escape/Tab handling lives in ui/src/wizard/view.ts, not here).
+
+/**
+ * Ctrl+K/Cmd+K opens the palette from anywhere in the shell (design.md
+ * section 3: "a Raycast-grade... floating panel", reachable via "the
+ * existing Ctrl+K/Cmd+K global hotkey"). Declines while the wizard or the
+ * grant prompt is already up: both are their own modal already covering the
+ * screen, and opening a second one on top would stack two competing
+ * backdrops rather than reach either sensibly.
+ */
+function openPalette(): void {
+  if (!wizardBackdrop.hidden || !grantBackdrop.hidden) return;
+  paletteController.open();
+}
+
+paletteBackdrop.addEventListener("click", (event) => {
+  // Only a direct click on the dimmed backdrop itself dismisses the
+  // palette; a click that bubbled up from inside the floating panel must
+  // not (the panel is a descendant of the backdrop, so every click inside
+  // it also fires here unless this check narrows to the backdrop itself).
+  if (event.target === paletteBackdrop) paletteController.close();
+});
 
 document.addEventListener("keydown", (event) => {
   if (settings.getSnapshot().recordingChord) {
@@ -557,7 +703,6 @@ document.addEventListener("keydown", (event) => {
   }
   if (isGlobalPaletteHotkey(event)) {
     event.preventDefault();
-    paletteInput.focus();
-    paletteInput.select();
+    openPalette();
   }
 });

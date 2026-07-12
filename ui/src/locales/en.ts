@@ -134,4 +134,28 @@ export const paletteStrings = {
   placeholder: "Tell it what to do",
   submit: "Teach it",
   hint: "Press Enter to start teaching it from what's on screen right now",
+  // D3's floating overlay (docs/specs/design.md section 3, Palette). Appended
+  // rather than replacing anything above: placeholder/hint still do the same
+  // job they always did (the input's placeholder, and the teach row's own
+  // tooltip below), submit is kept even though the overlay has no separate
+  // submit button anymore (Enter drives everything), append-only during the
+  // campaign.
+  overlayLabel: "Command palette",
+  groupWorkflows: "Workflows",
+  groupActions: "Actions",
+  groupRecent: "Recent",
+  // design.md section 3: "Typing a sentence that matches nothing offers
+  // 'Teach this' as the amber primary row," quoted verbatim.
+  teachThis: "Teach this",
+  // Footer hints (design.md section 3: "Enter to run, Ctrl+Enter to dry run,
+  // Tab for details"). "Preview" here, not that middle phrase verbatim:
+  // contracts/microcopy_glossary.json maps that same internal concept to
+  // the user-facing word "preview", the same word this catalog would use
+  // anywhere else it came up.
+  footerRun: "Enter to run",
+  footerPreview: "Ctrl+Enter to preview",
+  footerDetails: "Tab for details",
+  openScreenHint: "Switch to this screen",
+  themeActionTitle: "Theme",
+  settingsHint: "Open Settings",
 };

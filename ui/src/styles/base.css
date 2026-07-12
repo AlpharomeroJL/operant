@@ -929,3 +929,118 @@ input:disabled {
   flex-direction: column;
   gap: var(--op-space-2);
 }
+
+/* Palette overlay (docs/specs/design.md section 3, Palette: "a Raycast-grade
+   centered top-third floating panel on Mica"). Shares .op-modal-backdrop's
+   fixed, full-viewport, horizontally-centering rule (used unmodified by the
+   grant prompt and the wizard); .op-palette-backdrop only overrides vertical
+   alignment, and only for this one backdrop, by carrying both classes on the
+   same element and relying on this rule coming later in the cascade (append-
+   only during the campaign) at equal selector specificity. */
+.op-palette-backdrop {
+  align-items: flex-start;
+}
+
+.op-palette-overlay {
+  margin-top: 12vh;
+  width: min(600px, 90vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--op-space-4);
+  border-radius: var(--op-radius-lg);
+  border: 1px solid var(--op-color-border);
+  background: var(--op-color-bg-elevated);
+  box-shadow: var(--op-shadow-modal);
+}
+
+.op-palette-overlay__input-row {
+  margin-bottom: var(--op-space-3);
+}
+
+.op-palette-overlay__listbox {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-3);
+}
+
+.op-palette-overlay__group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-1);
+}
+
+.op-palette-overlay__group-title {
+  margin: 0 0 var(--op-space-1);
+  font-size: var(--op-font-size-xs);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.op-palette-overlay__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--op-space-2) var(--op-space-3);
+  border-radius: var(--op-radius-md);
+  cursor: pointer;
+}
+
+/* :not(--teach): the teach row is always rendered selected (it is always
+   the only row shown), and must always keep its own amber background below
+   rather than this generic gray one; without the exclusion this rule's
+   extra attribute selector would outrank .op-palette-overlay__row--teach's
+   plain class on specificity alone regardless of source order. */
+.op-palette-overlay__row[data-selected="true"]:not(.op-palette-overlay__row--teach) {
+  background: var(--op-color-bg-sunken);
+}
+
+.op-palette-overlay__row-title {
+  margin: 0;
+  font-size: var(--op-font-size-base);
+  color: var(--op-color-text);
+}
+
+.op-palette-overlay__row-subtitle {
+  margin: 0;
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
+/* design.md section 3: "match-character highlighting." Bold weight, not a
+   color change: design.md section 1's thesis reserves the app's one signal
+   color for recording/active/primary-CTA, so highlighting a fuzzy match
+   (the single most frequent piece of chrome this screen paints) deliberately
+   never spends it. */
+.op-palette-overlay__match {
+  background: transparent;
+  color: inherit;
+  font-weight: var(--op-font-weight-semibold);
+}
+
+/* design.md section 3: "Typing a sentence that matches nothing offers
+   'Teach this' as the amber primary row." Always amber, like a primary
+   button (.op-button--primary above), not conditional on selection: this
+   row is always the only row shown, so it is always effectively selected. */
+.op-palette-overlay__row--teach {
+  background: var(--op-color-accent);
+  color: var(--op-color-accent-text);
+}
+
+.op-palette-overlay__row--teach .op-palette-overlay__row-subtitle {
+  color: var(--op-color-accent-text);
+}
+
+.op-palette-overlay__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-4);
+  margin-top: var(--op-space-3);
+  padding-top: var(--op-space-3);
+  border-top: 1px solid var(--op-color-border);
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+}
