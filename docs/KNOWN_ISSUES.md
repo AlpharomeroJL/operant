@@ -28,20 +28,6 @@ As items are fixed they are struck from this list and noted in the changelog.
   that data in place. Your data is never removed unexpectedly; the prompt just
   may not do what it offers. The folder path is being corrected.
 
-## Replay
-
-- **Replaying against a live app that has shifted may need a re-find.** A saved
-  workflow repeats each step at the place it learned. If you replay against an
-  app whose layout has moved, replay may need to find the element again by its
-  identity rather than its old position. The taught demo and example paths are
-  exact today; live re-finding at run time is being added, and it stays on your
-  machine with no model calls.
-
-- **A correction made in the middle of a run may not stick the same way.** If you
-  step in and correct Operant while a run is happening, that correction may not
-  fold into the saved workflow the same way a correction recorded ahead of time
-  does. This is an internal naming mismatch that is being reconciled.
-
 ## Undo
 
 - **There is no dedicated undo screen yet.** Undo works: every write action
