@@ -38,11 +38,14 @@ As items are fixed they are struck from this list and noted in the changelog.
   existing copy triggers a single Windows permission (UAC) prompt that a person
   has to click. Uninstalling does not have this prompt.
 
-- **The uninstaller's "remove saved data" prompt points at the wrong folder.**
-  When you uninstall, the prompt that offers to also remove your saved workflows
-  and recordings currently checks a folder Operant does not use, so it may leave
-  that data in place. Your data is never removed unexpectedly; the prompt just
-  may not do what it offers. The folder path is being corrected.
+- **The uninstaller's "remove saved data" prompt now targets the correct
+  folders, pending an end-to-end check.** The prompt that offers to also remove
+  your saved workflows and recordings now clears the real per-user data
+  directories (`%APPDATA%\dev.operant.shell` and `%LOCALAPPDATA%\dev.operant.shell`);
+  an earlier build checked a folder Operant does not use, so it could leave that
+  data in place. Your data is never removed unexpectedly. The corrected path is in
+  the installer script but not yet confirmed by a full install-and-uninstall run,
+  which is part of release smoke-testing.
 
 ## Replay
 

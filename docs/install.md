@@ -79,5 +79,5 @@ release.
 Reinstalling over an existing copy triggers one Windows permission (UAC)
 prompt; this is separate from the SmartScreen warning above and is normal
 for any installer that writes to a protected location. Uninstalling does
-not trigger a UAC prompt. See `docs/KNOWN_ISSUES.md` for a known issue with
-the uninstaller's "remove saved data" prompt.
+not trigger a UAC prompt. The uninstaller also offers to remove your saved
+data; see `docs/KNOWN_ISSUES.md` for its current verification status.
