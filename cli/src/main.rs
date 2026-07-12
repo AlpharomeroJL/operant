@@ -39,6 +39,8 @@ fn main() -> ExitCode {
         Some("explain") => finish(commands::explain::run(&args[1..])),
         Some("install") => finish(commands::install::run(&args[1..])),
         Some("publish") => finish(commands::publish::run(&args[1..])),
+        #[cfg(feature = "dev-ipc-record")]
+        Some("record-ipc") => finish(commands::record_ipc::run(&args[1..])),
         Some(verb) => {
             eprintln!("operant: verb '{verb}' not yet implemented in this build");
             ExitCode::FAILURE

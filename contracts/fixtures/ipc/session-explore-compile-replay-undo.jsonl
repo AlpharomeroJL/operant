@@ -1,0 +1,35 @@
+{"pv":1,"t":"ready"}
+{"args":{},"cmd":"get_capabilities","id":"cmd-1","pv":1,"t":"req"}
+{"id":"cmd-1","ok":true,"pv":1,"result":{"git_sha":"unknown","mock_planner_only":true,"real_input":false,"real_uia":false,"real_vision":false,"transport_kind":"stdio","version":"1.0.0"},"t":"res"}
+{"args":{"goal":"Write an invoice note in Notepad and save it","window_process":"notepad.exe"},"cmd":"start_explore","id":"cmd-2","pv":1,"t":"req"}
+{"id":"cmd-2","ok":true,"pv":1,"result":{"run_id":"run_0"},"t":"res"}
+{"env":{"payload":{"goal":"Write an invoice note in Notepad and save it","mode":"explore","run_id":"run_0"},"seq":0,"topic":"run.started","ts":"seq:0","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"run_id":"run_0","step":{"grounding":"uia","id":"s1","intent":"Click the text editor","irreversible":false,"kind":"click","pace":"instant","retry":{"attempts":2,"backoff_ms":250},"risk_class":"read","target":{"coords_last_known":{"dpi_scale":1.0,"monitor":"MON1","x":700.0,"y":514.0},"selectors":[{"kind":"automation_id","value":"RichEditD2DPT"},{"kind":"name_role_path","path":[{"name":"Untitled - Notepad","role":"window"},{"name":"Text editor","role":"document"}]}],"window":{"process":"notepad.exe"}},"timeout_ms":5000,"v":1}},"seq":1,"topic":"run.step.proposed","ts":"seq:1","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"gate_kind":"safety","result":"pass","run_id":"run_0","step_id":"s1"},"seq":2,"topic":"run.step.gated","ts":"seq:2","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_0","step_id":"s1"},"seq":3,"topic":"run.step.executed","ts":"seq:3","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"run_id":"run_0","step":{"grounding":"uia","id":"s2","intent":"Type the invoice note","irreversible":false,"kind":"type","pace":"instant","params":{"text":"Invoice 2026-07-11 total $142.50"},"retry":{"attempts":2,"backoff_ms":250},"risk_class":"write","target":{"window":{"process":"notepad.exe"}},"timeout_ms":5000,"v":1}},"seq":4,"topic":"run.step.proposed","ts":"seq:4","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"gate_kind":"safety","result":"pass","run_id":"run_0","step_id":"s2"},"seq":5,"topic":"run.step.gated","ts":"seq:5","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_0","step_id":"s2"},"seq":6,"topic":"run.step.executed","ts":"seq:6","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"run_id":"run_0","step":{"grounding":"uia","id":"s3","intent":"Save the file","irreversible":false,"kind":"key","pace":"instant","params":{"combo":"ctrl+s"},"retry":{"attempts":2,"backoff_ms":250},"risk_class":"write","target":{"window":{"process":"notepad.exe"}},"timeout_ms":5000,"v":1}},"seq":7,"topic":"run.step.proposed","ts":"seq:7","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"gate_kind":"safety","result":"pass","run_id":"run_0","step_id":"s3"},"seq":8,"topic":"run.step.gated","ts":"seq:8","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_0","step_id":"s3"},"seq":9,"topic":"run.step.executed","ts":"seq:9","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"outcome":"ok","run_id":"run_0","steps":3,"wall_ms":0},"seq":10,"topic":"run.completed","ts":"seq:10","v":1},"pv":1,"t":"evt","thumb":null}
+{"args":{"run_id":"run_0"},"cmd":"compile_run","id":"cmd-3","pv":1,"t":"req"}
+{"id":"cmd-3","ok":true,"pv":1,"result":{"name":"notepad-invoice-note","steps":3,"version":"1.0.0"},"t":"res"}
+{"env":{"payload":{"dsl_path":"compiled/workflow.ts","manifest_path":"compiled/manifest.json","name":"notepad-invoice-note","source_run_id":"run_0","version":"1.0.0"},"seq":11,"topic":"workflow.compiled","ts":"seq:11","v":1},"pv":1,"t":"evt","thumb":null}
+{"args":{"path":"compiled/compiled.json"},"cmd":"start_replay","id":"cmd-4","pv":1,"t":"req"}
+{"id":"cmd-4","ok":true,"pv":1,"result":{"post":[],"pre":["pass"],"run_id":"run_1","steps_executed":3},"t":"res"}
+{"env":{"payload":{"goal":"Write an invoice note in Notepad and save it","mode":"replay","run_id":"run_1","workflow_name":"notepad-invoice-note"},"seq":12,"topic":"run.started","ts":"seq:12","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"gate_kind":"pre","result":"pass","run_id":"run_1","step_id":"s1"},"seq":13,"topic":"run.step.gated","ts":"seq:13","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_1","step_id":"s1"},"seq":14,"topic":"run.step.executed","ts":"seq:14","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"gate_kind":"pre","result":"pass","run_id":"run_1","step_id":"s2"},"seq":15,"topic":"run.step.gated","ts":"seq:15","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_1","step_id":"s2"},"seq":16,"topic":"run.step.executed","ts":"seq:16","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"gate_kind":"pre","result":"pass","run_id":"run_1","step_id":"s3"},"seq":17,"topic":"run.step.gated","ts":"seq:17","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_1","step_id":"s3"},"seq":18,"topic":"run.step.executed","ts":"seq:18","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"outcome":"ok","run_id":"run_1","steps":3,"wall_ms":0},"seq":19,"topic":"run.completed","ts":"seq:19","v":1},"pv":1,"t":"evt","thumb":null}
+{"args":{"run_id":"run_0"},"cmd":"preview_undo","id":"cmd-5","pv":1,"t":"req"}
+{"id":"cmd-5","ok":true,"pv":1,"result":{"ok":true},"t":"res"}
+{"env":{"payload":{"entries":2,"irreversible":1,"items":[{"description":"sent the invoice email to boss@example.com","op":"irreversible","seq":2},{"op":"delete_created","path":"undo_demo.txt","seq":1}],"run_id":"run_0"},"seq":20,"topic":"undo.previewed","ts":"seq:20","v":1},"pv":1,"t":"evt","thumb":null}
+{"args":{"run_id":"run_0"},"cmd":"undo_run","id":"cmd-6","pv":1,"t":"req"}
+{"id":"cmd-6","ok":true,"pv":1,"result":{"restored":2},"t":"res"}
+{"env":{"payload":{"narration":["Cannot be undone: sent the invoice email to boss@example.com","Deleted the file the run created: undo_demo.txt"],"restored":2,"run_id":"run_0"},"seq":21,"topic":"undo.applied","ts":"seq:21","v":1},"pv":1,"t":"evt","thumb":null}

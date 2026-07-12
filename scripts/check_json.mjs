@@ -12,7 +12,7 @@ function walk(dir, out = []) {
     if (s.isDirectory()) {
       if (name === "node_modules" || name === "target") continue;
       walk(p, out);
-    } else if (name.endsWith(".json")) {
+    } else if (name.endsWith(".json") || name.endsWith(".jsonl")) {
       out.push(p);
     }
   }
@@ -22,9 +22,27 @@ function walk(dir, out = []) {
 let failed = 0;
 let count = 0;
 
-// All contract schemas parse and declare $schema.
+// All contract schemas and fixtures parse. A `.jsonl` file (the IPC session
+// fixtures, contracts/fixtures/ipc/) is newline-delimited JSON: each non-empty
+// line must be a valid JSON value on its own. A `.json` file must parse whole,
+// and a `.schema.json` must additionally declare $schema and $id.
 for (const f of walk("contracts")) {
   count++;
+  if (f.endsWith(".jsonl")) {
+    const lines = readFileSync(f, "utf8").split(/\r?\n/);
+    let bad = 0;
+    lines.forEach((line, i) => {
+      if (line.trim() === "") return;
+      try {
+        JSON.parse(line);
+      } catch (e) {
+        console.error(`check-json: JSONL PARSE FAIL ${f}:${i + 1}: ${e.message}`);
+        bad++;
+      }
+    });
+    if (bad) failed += bad;
+    continue;
+  }
   let doc;
   try {
     doc = JSON.parse(readFileSync(f, "utf8"));
