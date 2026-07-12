@@ -1122,3 +1122,175 @@ input:disabled {
   font-size: var(--op-font-size-xs);
   color: var(--op-color-text-muted);
 }
+
+/* Tray menu and the amber/gray/red glyph split (docs/specs/design.md
+   section 3, Tray, BINDING: "Glyph states: idle outline, amber pulse
+   recording, gray play replaying, red kill. Menu: the top three frecent
+   workflows as one-click Quick Runs, then Open, Pause all, and a panic
+   row"). Appended here rather than folded into the original Tray block
+   earlier in this file (search "Tray: status glyph") because this
+   campaign's shared-file convention is append-only: new rules land at the
+   end, existing ones are never edited in place. ui/src/tray/view.ts is what
+   renders the markup these rules style; ui/src/tray/state.ts computes which
+   data-state each rule below keys off. The pre-existing [data-state="running"]
+   and [data-state="halted-red"] rules above are unused now that
+   ui/src/tray/state.ts's TrayGlyphState only ever emits idle/recording/
+   replaying/kill, and are left in place rather than removed, for the same
+   append-only reason. */
+
+.op-tray__trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: var(--op-radius-control);
+  background: transparent;
+  cursor: pointer;
+}
+
+.op-tray__trigger:hover {
+  background: var(--op-color-bg-sunken);
+}
+
+.op-tray__trigger:focus-visible {
+  outline: 2px solid var(--op-color-focus-ring);
+  outline-offset: 2px;
+}
+
+/* "idle outline": a hollow ring, rather than the solid dot the original,
+   unqualified .op-tray__glyph rule above paints for every state alike. */
+.op-tray__glyph[data-state="idle"] {
+  background: transparent;
+  border: 1.5px solid var(--op-color-status-idle);
+}
+
+@keyframes op-tray-recording-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* "amber pulse recording". This stylesheet's global prefers-reduced-motion
+   rule (top of this file) zeroes every animation-duration, this keyframe
+   included, so a person who asked for reduced motion still gets a steady
+   amber dot, never a moving one; that rule predates this keyframe (its own
+   comment says "no @keyframes are defined at all," true when it was
+   written) but already covers it, since it targets animation-duration
+   universally rather than naming specific keyframes. */
+.op-tray__glyph[data-state="recording"] {
+  background: var(--op-color-status-running);
+  border: 1.5px solid var(--op-color-status-running);
+  animation: op-tray-recording-pulse 1600ms ease-in-out infinite;
+}
+
+/* "gray play replaying": a small play-triangle rather than a dot, so the
+   recording/replaying distinction still reads for someone who cannot tell
+   amber from gray. Built with the CSS border-triangle trick (this
+   stylesheet ships no icon font or SVG glyph set for a filled play glyph). */
+.op-tray__glyph[data-state="replaying"] {
+  width: 0;
+  height: 0;
+  border-radius: 0;
+  background: transparent;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 8px solid var(--op-color-text-muted);
+}
+
+/* "red kill": docs/ARCHITECTURE.md's C20 guardian set ("Tray turns red")
+   plus this packet's own extension, a halted run (any reason) painting the
+   same red glyph as the kill switch itself; ui/src/tray/state.ts's header
+   comment explains why the two share one visual state. */
+.op-tray__glyph[data-state="kill"] {
+  background: var(--op-color-status-halted);
+  border: 1.5px solid var(--op-color-status-halted);
+}
+
+/* The click-to-open menu itself. Anchored above the trigger (bottom: 100%)
+   rather than below it where .op-tray__notifications already anchors
+   (top: 100%, original Tray block above): real Windows 11 tray flyouts open
+   upward from a bottom-right icon (design.md section 1: "native to Windows
+   11"), and it keeps the two popovers from ever overlapping if both are
+   showing at once. */
+.op-tray__menu {
+  position: absolute;
+  bottom: 100%;
+  right: 0;
+  margin-bottom: var(--op-space-2);
+  width: 240px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--op-space-2);
+  border-radius: var(--op-radius-md);
+  border: 1px solid var(--op-color-border);
+  background: var(--op-color-bg-elevated);
+  box-shadow: var(--op-shadow-popover);
+  z-index: 20;
+}
+
+.op-tray__menu-heading {
+  margin: 0;
+  padding: var(--op-space-1) var(--op-space-2);
+  font-size: var(--op-font-size-xs);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.op-tray__menu-empty {
+  margin: 0;
+  padding: var(--op-space-1) var(--op-space-2) var(--op-space-2);
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
+.op-tray__menu-divider {
+  height: 1px;
+  margin: var(--op-space-2) 0;
+  background: var(--op-color-border);
+}
+
+.op-tray__menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--op-space-2);
+  border: none;
+  border-radius: var(--op-radius-control);
+  background: transparent;
+  color: var(--op-color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.op-tray__menu-item:hover:not(:disabled) {
+  background: var(--op-color-bg-sunken);
+}
+
+.op-tray__menu-item:focus-visible {
+  outline: 2px solid var(--op-color-focus-ring);
+  outline-offset: -2px;
+}
+
+.op-tray__menu-item:disabled {
+  color: var(--op-color-text-disabled);
+  cursor: default;
+}
+
+/* The panic row (docs/ARCHITECTURE.md C20: "global panic hotkey plus tray
+   button"). Danger-colored text on the same transparent/hover treatment
+   every other menu item uses, rather than a solid danger fill: design.md
+   section 1's thesis reserves a large fill for the one signal color, and
+   danger is reserved separately for "kill switch, destructive actions"
+   (section 2), not spent as a big red button either. */
+.op-tray__menu-item--panic {
+  color: var(--op-color-danger);
+}

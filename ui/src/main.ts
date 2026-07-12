@@ -197,7 +197,11 @@ const library = createLibrary(bus, {
 // does for the same workflow name.
 const dashboard = createDashboard(bus, { registry });
 const settings = createSettings(bus);
-const tray = createTray(bus);
+// Shares Library's own registry instance too (see the dashboard comment
+// just above), so the tray's Quick Runs menu (docs/specs/design.md section
+// 3, Tray) shows the same plain-language titles Library's cards do for the
+// same workflow name.
+const tray = createTray(bus, { registry });
 
 // The command palette (docs/specs/design.md section 3, Palette): a Raycast-
 // grade floating overlay, opened by the global Ctrl+K/Cmd+K hotkey handled
@@ -627,9 +631,40 @@ function renderSettingsPanel(): void {
   });
 }
 
+/**
+ * The tray preview (docs/specs/design.md section 3, Tray): the glyph
+ * trigger plus its click-to-open menu and notifications. The menu's Quick
+ * Runs only ever supply a workflow name; requestRun below is the same
+ * capability-grant-aware path Library's own Run button and a picked
+ * palette workflow row already use (ui/src/main.ts's own requestRun
+ * function), so a Quick Run is never a second, tray-private way to start a
+ * workflow. Open switches to the Home dashboard (design.md section 3: "the
+ * new default window view"), the closest in-page stand-in this shell has
+ * for "bring the real OS window to the front," which is ui/src-tauri's job,
+ * out of this lane's owned path. Every action closes the menu afterward,
+ * the same way choosing an item in a real OS tray menu would.
+ */
 function renderTrayPanel(): void {
   mountTray(trayMount, tray.getSnapshot(), {
     onDismissNotification: (id) => tray.dismissNotification(id),
+    onToggleMenu: () => tray.toggleMenu(),
+    onCloseMenu: () => tray.closeMenu(),
+    onQuickRun: (name) => {
+      requestRun(name);
+      tray.closeMenu();
+    },
+    onOpen: () => {
+      showScreen("dashboard");
+      tray.closeMenu();
+    },
+    onPauseAll: () => {
+      tray.pauseAll();
+      tray.closeMenu();
+    },
+    onPanic: () => {
+      tray.panic();
+      tray.closeMenu();
+    },
   });
 }
 
