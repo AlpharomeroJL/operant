@@ -4,7 +4,6 @@
 [![license](https://img.shields.io/badge/license-Apache%202.0-blue)](LICENSE)
 [![platform](https://img.shields.io/badge/platform-Windows-0078D6)](docs/ARCHITECTURE.md)
 [![local-first](https://img.shields.io/badge/local--first-yes-brightgreen)](docs/PRD.md)
-[![benchmark](https://img.shields.io/badge/benchmark-run%205%2F5-brightgreen)](BENCHMARKS.md)
 
 **Teach your computer once. It does it forever.**
 *No code. No cloud. Free.*
