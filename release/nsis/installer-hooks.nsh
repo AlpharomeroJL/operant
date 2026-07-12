@@ -22,7 +22,14 @@
 ;      the operant CLI works from any terminal after a default (per-user) install.
 ;   2. Prompt before deleting user data (workflows, recordings) on uninstall;
 ;      the base template only ever removes program binaries and registry keys,
-;      never $APPDATA content.
+;      never $APPDATA content. On accept it removes exactly the two real
+;      identifier-scoped data dirs the app writes to (see the PREUNINSTALL macro
+;      below); on decline it leaves them untouched. The removal goes through
+;      un.RemoveOperantDataDir, which refuses to act on an empty or non-absolute
+;      base path, so an unset $APPDATA/$LOCALAPPDATA can never become an
+;      RMDir /r of a drive root or a bare relative path. The exact manual
+;      install/uninstall check (decline preserves, accept removes only that)
+;      lives in release/nsis/VERIFY-UNINSTALL.md.
 ;
 ; Uses only core NSIS instructions plus the stock WinMessages.nsh header (no
 ; third-party plugin such as EnVar), since this environment cannot verify which
@@ -49,16 +56,30 @@
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  MessageBox MB_YESNO|MB_ICONQUESTION \
+  ; Default button is No (MB_DEFBUTTON2), so an accidental Enter keeps the data
+  ; rather than deleting it: the destructive choice must be made deliberately.
+  ; Any outcome other than an explicit Yes falls through to keep, below.
+  MessageBox MB_YESNO|MB_ICONQUESTION|MB_DEFBUTTON2 \
     "Remove saved Operant workflows and recordings too?$\r$\n$\r$\nChoose No to keep them on disk after uninstalling." \
     IDYES operant_remove_user_data
   Goto operant_keep_user_data
   operant_remove_user_data:
-    ; App data lives under the Tauri identifier (dev.operant.shell), not a
-    ; folder literally named "Operant". Remove both the local and roaming
-    ; identifier-scoped dirs so recordings and workflows are actually cleared.
-    RMDir /r "$LOCALAPPDATA\dev.operant.shell"
-    RMDir /r "$APPDATA\dev.operant.shell"
+    ; App data lives under the Tauri identifier (dev.operant.shell), NOT a folder
+    ; literally named "Operant" (see ui/src-tauri/tauri.conf.json identifier and
+    ; docs/specs/ipc-bridge.md section 5). Exactly two dirs hold everything the
+    ; app writes per user, and these are the only two removed here:
+    ;   %APPDATA%\dev.operant.shell       app_config_dir()/app_data_dir():
+    ;                                     config.json + recorder.sqlite3
+    ;                                     (the saved workflows and recordings)
+    ;   %LOCALAPPDATA%\dev.operant.shell  app_local_data_dir(): WebView2
+    ;                                     localStorage and cache
+    ; un.RemoveOperantDataDir appends the fixed "dev.operant.shell" leaf itself
+    ; and refuses an empty or non-absolute base, so a missing $LOCALAPPDATA or
+    ; $APPDATA is a no-op, never an RMDir of a root or bare path.
+    Push "$LOCALAPPDATA"
+    Call un.RemoveOperantDataDir
+    Push "$APPDATA"
+    Call un.RemoveOperantDataDir
   operant_keep_user_data:
 !macroend
 
@@ -137,6 +158,39 @@ FunctionEnd
 ; ---------------------------------------------------------------------------
 ; Uninstall-time helpers
 ; ---------------------------------------------------------------------------
+
+; Remove exactly one identifier-scoped Operant data directory,
+; "<base>\dev.operant.shell", guarded so an empty or non-absolute base path can
+; never turn into an RMDir of a drive root, the uninstaller's working directory,
+; or a bare relative path. Call with the base directory ($APPDATA or
+; $LOCALAPPDATA) on the stack. It is a hard no-op if that base is empty or does
+; not look like an absolute path. The "dev.operant.shell" leaf is a hardcoded
+; literal appended here, so the target is correct by construction and always
+; scoped to the app identifier; the caller can never pass in the leaf or a
+; wider path.
+Function un.RemoveOperantDataDir
+  Exch $R0            ; $R0 = base dir ($APPDATA / $LOCALAPPDATA)
+  Push $R1
+  ; Guard 1: refuse an empty base. Empty would make the path
+  ; "\dev.operant.shell", rooted at the current drive; never delete that.
+  StrCmp $R0 "" operant_u_data_skip
+  ; Guard 2: refuse a base that is not an absolute path. A real Windows APPDATA
+  ; or LOCALAPPDATA always contains a drive-letter colon (e.g. "C:\Users\...").
+  ; Anything without one is unexpanded or relative, so skip it rather than risk
+  ; deleting something under the uninstaller's working directory.
+  Push $R0
+  Push ":"
+  Call un.StrContains
+  Pop $R1
+  StrCmp $R1 "1" 0 operant_u_data_skip
+  ; Correct by construction: append the fixed identifier folder and remove only
+  ; that. The bare base is never the RMDir target.
+  StrCpy $R0 "$R0\dev.operant.shell"
+  RMDir /r "$R0"
+  operant_u_data_skip:
+    Pop $R1
+    Pop $R0
+FunctionEnd
 
 Function un.RemoveInstDirFromPath
   ReadRegStr $0 HKCU "Environment" "Path"
