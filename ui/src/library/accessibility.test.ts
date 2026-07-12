@@ -122,3 +122,76 @@ test("focus survives a rebuild: running a workflow keeps focus on the equivalent
     env.cleanup();
   }
 });
+
+test("focus and typed text survive a rebuild: typing into the live search box does not drop focus or lose a keystroke", () => {
+  const env = createDomEnv();
+  try {
+    const bus = createMockBusClient();
+    const library = createLibrary(bus, { registry: createMockRegistry() });
+    const container = env.document.createElement("div");
+    env.document.body.appendChild(container);
+
+    function render(): void {
+      mountLibrary(container, library.getSnapshot(), { onSearchChange: (q) => library.setSearchQuery(q) });
+    }
+    render();
+
+    const input = container.querySelector<HTMLInputElement>('[data-op-focus-key="library-search"]');
+    assert.ok(input, "the search input must be on screen");
+    input.focus();
+    input.value = "invoice";
+    input.dispatchEvent(new env.window.Event("input", { bubbles: true }));
+    render();
+
+    const inputAfter = container.querySelector<HTMLInputElement>('[data-op-focus-key="library-search"]');
+    assert.ok(inputAfter);
+    assert.notEqual(inputAfter, input, "the rebuild must have replaced the DOM node");
+    assert.equal(env.document.activeElement, inputAfter, "focus must carry onto the rebuilt search input");
+    assert.equal(inputAfter.value, "invoice", "the typed query must carry onto the rebuilt search input");
+    assert.equal(container.querySelectorAll(".op-library-card").length, 1, "the grid itself must already reflect the filter");
+
+    library.dispose();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("populated library with a live search and a drag in progress: still no axe violations", async () => {
+  const env = createDomEnv();
+  try {
+    const bus = createMockBusClient();
+    const library = createLibrary(bus, { registry: createMockRegistry() });
+    library.setSearchQuery("e"); // matches more than one seeded workflow; a non-trivial, non-empty filtered grid
+    const container = env.document.createElement("div");
+    env.document.body.appendChild(container);
+    mountLibrary(container, library.getSnapshot(), { onSearchChange: (q) => library.setSearchQuery(q), onReorder: (n, b) => library.reorder(n, b) });
+    await assertNoViolations(container, "populated library with an active search");
+    library.dispose();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("each card's glyph badge and last-run dot are decorative: aria-hidden, not the sole carrier of information", () => {
+  const env = createDomEnv();
+  try {
+    const bus = createMockBusClient();
+    const library = createLibrary(bus, { registry: createMockRegistry() });
+    const container = env.document.createElement("div");
+    env.document.body.appendChild(container);
+    const root = mountLibrary(container, library.getSnapshot());
+
+    const glyph = root.querySelector(".op-library-card__glyph");
+    assert.ok(glyph);
+    assert.equal(glyph?.getAttribute("aria-hidden"), "true");
+
+    const dot = root.querySelector(".op-library-card .op-status__dot");
+    assert.ok(dot);
+    assert.equal(dot?.getAttribute("aria-hidden"), "true");
+    assert.equal(dot?.getAttribute("data-state"), "pending");
+
+    library.dispose();
+  } finally {
+    env.cleanup();
+  }
+});

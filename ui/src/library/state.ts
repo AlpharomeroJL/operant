@@ -10,6 +10,9 @@ import { renderWorkflow, type RenderedWorkflow } from "../../../sdk/ts/src/rende
 import { createMockRegistry, type MockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
 import { workflowLibraryStrings } from "../strings/default.ts";
 import { libraryStrings } from "./strings.ts";
+import { assignGlyph } from "./glyph.ts";
+
+export type LastRunStatus = "pending" | "ok" | "failed";
 
 export interface LibraryCard {
   name: string;
@@ -21,6 +24,12 @@ export interface LibraryCard {
   runLabel: string;
   scheduleLabel: string;
   explainLabel: string;
+  /** design.md section 3, Library: "auto-assigned duotone glyph and hue." The letter half of that glyph (see ./glyph.ts); the hue half is glyphHueRotationDeg. */
+  glyphLetter: string;
+  /** Degrees to rotate the shared accent color's hue by for this card's glyph (./glyph.ts, ./view.ts's CSS filter); reuses the one signal color tokens.ts defines rather than a second, independent color set. */
+  glyphHueRotationDeg: number;
+  /** design.md section 3, Library: "a last-run dot." "pending" (never run; reuses the existing idle status color) until the first run.completed. */
+  lastRunStatus: LastRunStatus;
 }
 
 export interface LibrarySnapshot {
@@ -28,10 +37,16 @@ export interface LibrarySnapshot {
   cards: LibraryCard[];
   empty: boolean;
   emptyLabel: string;
+  /** design.md section 3, Library: "Search filters live." The text currently typed into the search field; round-tripped back into the input's value so ui/src/styles/focusPreserve.ts's rebuild-carries-focus mechanism keeps it in place across a re-render. */
+  searchQuery: string;
+  searchLabel: string;
+  searchPlaceholder: string;
 }
 
 interface WorkflowRuntime {
   lastRunAt: number | null;
+  /** null until the first run.completed for this workflow; independent of lastRunAt only in that both start null together and are always set together, kept as two fields because they mean different things (a timestamp vs an outcome), same as ui/src/dashboard/state.ts's RecentRunRecord. */
+  lastRunOutcome: "ok" | "failed" | null;
   exploreMs: number | null;
   replayMsTotal: number;
   replayCount: number;
@@ -55,6 +70,19 @@ export interface Library {
   /** No bus topic models "create a recurring trigger" yet (contracts/bus_events.md's scheduler topics all assume one already exists); this only reports the intent via onScheduleRequested. */
   schedule(name: string): void;
   explain(name: string): RenderedWorkflow | undefined;
+  /**
+   * design.md section 3, Library: "Drag to reorder." Moves `name` to just
+   * before `beforeName` in display order, or to the end when beforeName is
+   * null. No-op when name is not a known card; falls back to the end when
+   * beforeName no longer is (the card it was dropped relative to was
+   * removed in the meantime). Order is this screen's own display state, not
+   * ./mockRegistry.ts's (a real registry has no notion of a person's
+   * preferred card order), so it survives a workflow.installed/compiled
+   * update but not a fresh createLibrary call.
+   */
+  reorder(name: string, beforeName: string | null): void;
+  /** design.md section 3, Library: "Search filters live." Empty string clears the filter. */
+  setSearchQuery(query: string): void;
   dispose(): void;
 }
 
@@ -93,10 +121,34 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
   function runtimeOf(name: string): WorkflowRuntime {
     let r = runtimes.get(name);
     if (!r) {
-      r = { lastRunAt: null, exploreMs: null, replayMsTotal: 0, replayCount: 0 };
+      r = { lastRunAt: null, lastRunOutcome: null, exploreMs: null, replayMsTotal: 0, replayCount: 0 };
       runtimes.set(name, r);
     }
     return r;
+  }
+
+  // Display order for the card grid (design.md section 3, Library: "Drag to
+  // reorder"). Deliberately separate from registry.list()'s own insertion
+  // order: a person's preferred layout is this screen's display concern,
+  // not something a real workflow registry would have any notion of
+  // (./mockRegistry.ts's own header comment: it mirrors "manifests stored
+  // locally," not a person's card arrangement). reconcileOrder keeps this
+  // in sync whenever the registry changes: newly seen names are appended at
+  // the end, names no longer in the registry are dropped.
+  let order: string[] = registry.list().map((r) => r.manifest.name);
+  let searchQuery = "";
+
+  function reconcileOrder(): void {
+    order = order.filter((name) => registry.get(name) !== undefined);
+    for (const record of registry.list()) {
+      if (!order.includes(record.manifest.name)) order.push(record.manifest.name);
+    }
+  }
+
+  function matchesQuery(card: LibraryCard, query: string): boolean {
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    return card.title.toLowerCase().includes(q) || card.name.toLowerCase().includes(q);
   }
 
   function cardFor(record: MockWorkflowRecord): LibraryCard {
@@ -105,6 +157,8 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
       ? workflowLibraryStrings.lastRun(formatWhen(runtime.lastRunAt, now()))
       : libraryStrings.neverRun;
     const minutesSaved = minutesSavedFor(runtime);
+    const glyph = assignGlyph(record.manifest.name, record.manifest.description);
+    const lastRunStatus: LastRunStatus = runtime?.lastRunOutcome ?? "pending";
     return {
       name: record.manifest.name,
       title: record.manifest.description || record.manifest.name,
@@ -115,16 +169,29 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
       runLabel: workflowLibraryStrings.run,
       scheduleLabel: workflowLibraryStrings.schedule,
       explainLabel: workflowLibraryStrings.explain,
+      glyphLetter: glyph.letter,
+      glyphHueRotationDeg: glyph.hueRotationDeg,
+      lastRunStatus,
     };
   }
 
   function snapshot(): LibrarySnapshot {
-    const cards = registry.list().map(cardFor);
+    reconcileOrder();
+    const allCards = order.map((name) => registry.get(name)).filter((r): r is MockWorkflowRecord => r !== undefined).map(cardFor);
+    const query = searchQuery.trim();
+    const cards = query ? allCards.filter((c) => matchesQuery(c, query)) : allCards;
+    // Typing a search that matches nothing must never read as "you have no
+    // workflows" (workflowLibraryStrings.empty): only say that when the
+    // library truly has none, regardless of the search box.
+    const noSearchMatches = query.length > 0 && cards.length === 0 && allCards.length > 0;
     return {
       title: workflowLibraryStrings.title,
       cards,
       empty: cards.length === 0,
-      emptyLabel: workflowLibraryStrings.empty,
+      emptyLabel: noSearchMatches ? workflowLibraryStrings.noMatches : workflowLibraryStrings.empty,
+      searchQuery,
+      searchLabel: workflowLibraryStrings.searchLabel,
+      searchPlaceholder: workflowLibraryStrings.searchPlaceholder,
     };
   }
 
@@ -162,6 +229,10 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
         pendingRuns.delete(event.payload.run_id);
         const runtime = runtimeOf(pending.workflowName);
         runtime.lastRunAt = now();
+        // design.md section 3, Library: "a last-run dot." Set unconditionally
+        // (explore and replay both count as "the last run"), same as
+        // lastRunAt just above.
+        runtime.lastRunOutcome = event.payload.outcome === "ok" ? "ok" : "failed";
         if (pending.mode === RUN_MODE_REPLAY) {
           runtime.replayMsTotal += event.payload.wall_ms;
           runtime.replayCount += 1;
@@ -212,6 +283,27 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
     return renderWorkflow(record.manifest, [...record.steps]);
   }
 
+  function reorder(name: string, beforeName: string | null): void {
+    if (name === beforeName) return;
+    reconcileOrder();
+    const idx = order.indexOf(name);
+    if (idx === -1) return;
+    order.splice(idx, 1);
+    const beforeIdx = beforeName === null ? -1 : order.indexOf(beforeName);
+    if (beforeIdx === -1) {
+      order.push(name);
+    } else {
+      order.splice(beforeIdx, 0, name);
+    }
+    emit();
+  }
+
+  function setSearchQuery(query: string): void {
+    if (query === searchQuery) return;
+    searchQuery = query;
+    emit();
+  }
+
   return {
     getSnapshot: snapshot,
     subscribe(fn) {
@@ -221,6 +313,8 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
     run,
     schedule,
     explain,
+    reorder,
+    setSearchQuery,
     dispose() {
       unsubscribeBus();
       unsubscribeRegistry();

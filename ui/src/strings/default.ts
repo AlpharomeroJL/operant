@@ -29,13 +29,32 @@ export const navStrings = {
 };
 
 // Home dashboard (docs/specs/design.md section 3): "the new default window
-// view." Its real content (a plain-language hero line, sparkline, Up next,
-// Recent runs) is a later packet's job; this is D1 tokens-and-shell's
-// minimal themed placeholder so the nav has somewhere to route to in the
-// meantime (see ui/src/main.ts).
+// view." title/placeholderBody were D1 tokens-and-shell's minimal themed
+// placeholder before this screen had real content (ui/src/main.ts's
+// op-screen-dashboard); placeholderBody is unused now that D4 (ui/src/
+// dashboard/) fills it in, but stays defined, unrenamed, per this file's
+// append-only rule during the campaign. Everything below placeholderBody is
+// D4's: the hero line plus its sparkline's text equivalent, the Up
+// next/Recent runs section titles and their own empty notes, the quiet
+// first-run invite (design.md: "a quiet empty state that invites teaching
+// the first workflow"), and each recent run's one-line outcome (the last
+// two echo design.md section 3's own Toasts example, "Run complete, 14
+// steps"). ui/src/dashboard/strings.ts holds this screen's smaller, more
+// mechanical extras (today/tomorrow words, the weekday-name list, the
+// status dot's hidden text), the same split ui/src/library/strings.ts and
+// ui/src/tray/strings.ts already use against this file.
 export const dashboardStrings = {
   title: "Dashboard",
   placeholderBody: "Your weekly summary is coming here soon. Head to Library to run a saved workflow, or Runs to watch one live.",
+  heroLine: (hoursPhrase: string) => `Operant saved you ${hoursPhrase} this week`,
+  sparklineSummary: (values: string) => `Minutes saved by week, oldest to newest: ${values}.`,
+  upNextTitle: "Up next",
+  upNextEmpty: "Nothing scheduled yet.",
+  recentRunsTitle: "Recent runs",
+  recentRunsEmpty: "No runs yet.",
+  emptyInvite: "Nothing here yet. Teach Operant its first workflow from the command palette, or run one from Library, and it shows up here.",
+  outcomeOk: (steps: number) => `Run complete, ${steps} step${steps === 1 ? "" : "s"}`,
+  outcomeFailed: "Run did not finish",
 };
 
 // The shell header's dark/light/system control (docs/specs/design.md section
@@ -136,6 +155,14 @@ export const workflowLibraryStrings = {
   schedule: "Schedule",
   explain: "Explain",
   empty: "No workflows yet. Teach it something to save your first one.",
+  // D4's restyle (docs/specs/design.md section 3, Library: "Search filters
+  // live"). searchLabel is the input's accessible name; searchPlaceholder is
+  // its short visible placeholder; noMatches is shown instead of `empty`
+  // above when a search query matches nothing in an otherwise non-empty
+  // library, so typing a search never reads as "you have no workflows."
+  searchLabel: "Search your workflows",
+  searchPlaceholder: "Search",
+  noMatches: "No workflows match your search.",
 };
 
 export const grantPromptStrings = {
