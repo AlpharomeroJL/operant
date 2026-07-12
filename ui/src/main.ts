@@ -16,7 +16,6 @@ import {
   commonStrings,
   navStrings,
   themeToggleStrings,
-  dashboardStrings,
   undoEntryStrings,
 } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
@@ -37,6 +36,8 @@ import { settingsDetailStrings } from "./settings/strings.ts";
 import type { BackupPayload } from "./settings/mockStore.ts";
 import { createTray } from "./tray/state.ts";
 import { mountTray } from "./tray/view.ts";
+import { createToasts } from "./toasts/state.ts";
+import { mountToast } from "./toasts/view.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
 import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
@@ -198,6 +199,7 @@ const library = createLibrary(bus, {
 const dashboard = createDashboard(bus, { registry });
 const settings = createSettings(bus);
 const tray = createTray(bus);
+const toasts = createToasts(bus);
 
 // The command palette (docs/specs/design.md section 3, Palette): a Raycast-
 // grade floating overlay, opened by the global Ctrl+K/Cmd+K hotkey handled
@@ -259,10 +261,6 @@ let scheduleNotice: string | null = null;
 // and raw-details panes show, so a developer looking at one is looking at
 // the other, the same workflow, in plain English and in raw form.
 let selectedWorkflowName: string | null = null;
-// The one toast this shell shows at a time (design.md section 3's Toasts:
-// "Bottom-right, one line"): set from run.completed below, cleared on
-// dismiss or once its own Undo action opens ui/src/undo for that run.
-let activeToast: { runId: string; message: string } | null = null;
 
 // docs/specs/design.md section 3's nav map. design.md section 3 calls the
 // Home dashboard "the new default window view"; now that D4 (ui/src/
@@ -383,7 +381,7 @@ function renderUndoEntry(): void {
   button.className = "op-button op-undo-entry";
   button.textContent = undoEntryStrings.undoThisRun;
   button.addEventListener("click", () => {
-    dismissToast();
+    toasts.dismiss();
     undoScreen.open(runId);
   });
   undoEntryMount.append(button);
@@ -399,44 +397,20 @@ function renderUndoScreen(): void {
   });
 }
 
-function dismissToast(): void {
-  if (!activeToast) return;
-  activeToast = null;
-  renderToast();
-}
-
 /**
  * The bottom-right toast (design.md section 3's Toasts: "Bottom-right, one
- * line, verb-first... Amber only when an action is invited"). Its one
- * action opens the same ui/src/undo screen renderUndoEntry above does, for
- * whichever run just raised it; the message text reuses dashboardStrings'
- * existing run-outcome copy (ui/src/dashboard/view.ts's own recent-runs
- * rows say the same thing) rather than inventing a second wording for it.
+ * line, verb-first... Amber only when an action is invited"), F11:
+ * ui/src/toasts/ owns the state and the DOM building; this just mounts it
+ * and wires its one action to the same ui/src/undo screen renderUndoEntry
+ * above opens, for whichever run raised it.
  */
-function renderToast(): void {
-  toastMount.textContent = "";
-  if (!activeToast) return;
-  const { runId, message } = activeToast;
-
-  const toast = document.createElement("div");
-  toast.className = "op-toast";
-  toast.setAttribute("role", "status");
-
-  const text = document.createElement("span");
-  text.className = "op-toast__message";
-  text.textContent = message;
-
-  const action = document.createElement("button");
-  action.type = "button";
-  action.className = "op-toast__action";
-  action.textContent = undoEntryStrings.undoThisRun;
-  action.addEventListener("click", () => {
-    dismissToast();
-    undoScreen.open(runId);
+function renderToastPanel(): void {
+  mountToast(toastMount, toasts.getSnapshot(), {
+    onAction: (runId) => {
+      toasts.dismiss();
+      undoScreen.open(runId);
+    },
   });
-
-  toast.append(text, action);
-  toastMount.append(toast);
 }
 
 function closeExplain(): void {
@@ -700,20 +674,6 @@ bus.subscribe("*", (event) => {
   lastEvents.push(event);
   if (modeStore.get() === "advanced") renderAdvancedAudit();
 });
-// The toast's own trigger (design.md section 3's Toasts, "Run complete, 14
-// steps" is that section's own example): a completed run raises it exactly
-// once, independent of however many times runViewer's snapshot re-renders
-// afterward (a scrub selection after done, for instance, must not re-show
-// it).
-bus.subscribe("run.completed", (event) => {
-  if (event.topic !== "run.completed") return;
-  const { run_id, outcome, steps } = event.payload;
-  activeToast = {
-    runId: run_id,
-    message: outcome === "ok" ? dashboardStrings.outcomeOk(steps) : dashboardStrings.outcomeFailed,
-  };
-  renderToast();
-});
 connectedTools.subscribe(() => {
   if (modeStore.get() === "advanced") renderAdvancedTools();
 });
@@ -723,6 +683,7 @@ library.subscribe(renderLibraryPanel);
 dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
+toasts.subscribe(renderToastPanel);
 wizard.subscribe(renderWizardPanel);
 undoScreen.subscribe(renderUndoScreen);
 paletteController.subscribe(renderPalette);
@@ -767,7 +728,7 @@ renderSettingsPanel();
 renderTrayPanel();
 renderWizardPanel();
 renderUndoScreen();
-renderToast();
+renderToastPanel();
 renderPalette();
 
 // Stop, Pause, intervene, and filmstrip scrubbing are wired through
