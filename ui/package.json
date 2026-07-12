@@ -5,11 +5,15 @@
   "type": "module",
   "description": "Operant C13 shell UI and C19 zero-code design system: design tokens, default/Advanced mode switch, and a mocked event bus so the shell renders with no backend running.",
   "scripts": {
+    "predev": "npm run build:tokens",
     "dev": "vite",
+    "prebuild": "npm run build:tokens",
     "build": "vite build",
     "preview": "vite preview",
+    "pretest": "npm run build:tokens",
     "test": "node --import ./src/styles/testHooks.mjs --test",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:tokens": "node scripts/build-tokens.mjs"
   },
   "devDependencies": {
     "@types/jsdom": "^28.0.3",

@@ -12,6 +12,8 @@
 // Relative luminance and contrast ratio formulas: WCAG 2.1 section 1.4.3 /
 // Appendix G (https://www.w3.org/TR/WCAG21/#dfn-relative-luminance).
 
+import { DARK_COLORS, LIGHT_COLORS, type ColorRoles } from "../theme/tokens.ts";
+
 /** Relative luminance of a `#rrggbb` color, 0 (black) to 1 (white). */
 export function relativeLuminance(hex: string): number {
   const { r, g, b } = parseHex(hex);
@@ -52,10 +54,11 @@ function channelToLinear(channel8bit: number): number {
 
 /**
  * The design-token palette for one theme, mirroring ui/src/styles/tokens.css.
- * Kept as plain hex literals (not read from the .css file) so this stays a
- * pure, dependency-free computation; ./contrast.test.ts cross-checks these
- * literals against the actual tokens.css text so the two cannot drift apart
- * unnoticed.
+ * A narrow view of ui/src/theme/tokens.ts's fuller ColorRoles: exactly the
+ * fields this file's pairwise AA checks (below and in ./contrast.test.ts)
+ * exercise, so contrast.test.ts's tokens.css cross-check keeps comparing the
+ * same shape it always has. tokens.ts is still the single source of truth
+ * for the values themselves; this is just a projection of it.
  */
 export interface ThemeTokens {
   bg: string;
@@ -75,38 +78,42 @@ export interface ThemeTokens {
   focusRing: string;
 }
 
-export const LIGHT_TOKENS: ThemeTokens = {
-  bg: "#f7f7f8",
-  bgElevated: "#ffffff",
-  bgSunken: "#ececee",
-  border: "#d8d8dd",
-  borderStrong: "#86868f",
-  text: "#17171a",
-  textMuted: "#55555f",
-  accent: "#2f5fed",
-  accentHover: "#2249c4",
-  accentText: "#ffffff",
-  statusIdle: "#6b6b76",
-  statusRunning: "#1f8f5f",
-  statusHalted: "#d1293d",
-  statusWarning: "#b7791f",
-  focusRing: "#2f5fed",
-};
+function projectThemeTokens(colors: ColorRoles): ThemeTokens {
+  const {
+    bg,
+    bgElevated,
+    bgSunken,
+    border,
+    borderStrong,
+    text,
+    textMuted,
+    accent,
+    accentHover,
+    accentText,
+    statusIdle,
+    statusRunning,
+    statusHalted,
+    statusWarning,
+    focusRing,
+  } = colors;
+  return {
+    bg,
+    bgElevated,
+    bgSunken,
+    border,
+    borderStrong,
+    text,
+    textMuted,
+    accent,
+    accentHover,
+    accentText,
+    statusIdle,
+    statusRunning,
+    statusHalted,
+    statusWarning,
+    focusRing,
+  };
+}
 
-export const DARK_TOKENS: ThemeTokens = {
-  bg: "#17171a",
-  bgElevated: "#201f24",
-  bgSunken: "#101012",
-  border: "#33333a",
-  borderStrong: "#6b6b73",
-  text: "#f1f1f3",
-  textMuted: "#a7a7b3",
-  accent: "#7fa1ff",
-  accentHover: "#9db6ff",
-  accentText: "#0d1330",
-  statusIdle: "#9494a1",
-  statusRunning: "#3fcf8e",
-  statusHalted: "#ff6b7a",
-  statusWarning: "#e0ac47",
-  focusRing: "#7fa1ff",
-};
+export const LIGHT_TOKENS: ThemeTokens = projectThemeTokens(LIGHT_COLORS);
+export const DARK_TOKENS: ThemeTokens = projectThemeTokens(DARK_COLORS);

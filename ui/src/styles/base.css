@@ -4,6 +4,25 @@
   box-sizing: border-box;
 }
 
+/* design.md section 2: "prefers-reduced-motion disables all nonessential
+   motion. Nothing animates on load." Nothing in this stylesheet plays a
+   load-time animation (no @keyframes are defined at all: every `transition`
+   below only fires on a later, interactive property change), so this rule
+   is the nonessential-motion half: it collapses every transition/animation
+   duration to effectively zero for a person who asked for reduced motion,
+   without removing the property change itself (so state, e.g. a progress
+   bar's width, still ends up correct, it just gets there instantly). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 html,
 body {
   margin: 0;
@@ -29,6 +48,16 @@ button {
   color: inherit;
 }
 
+/* design.md section 2's ink scale: "disabled: 45 percent of secondary."
+   WCAG contrast does not apply to disabled controls (they carry no
+   information a person needs to act on right now), so this is styled for
+   legibility-as-quiet, not checked in ui/src/styles/contrast.test.ts. */
+button:disabled,
+input:disabled {
+  color: var(--op-color-text-disabled);
+  cursor: not-allowed;
+}
+
 .op-app {
   display: flex;
   flex-direction: column;
@@ -50,7 +79,8 @@ button {
   margin: 0;
 }
 
-.op-mode-toggle {
+.op-mode-toggle,
+.op-theme-toggle {
   display: inline-flex;
   align-items: center;
   gap: var(--op-space-2);
@@ -111,6 +141,12 @@ button {
   flex: none;
 }
 
+/* design.md section 2: "Replay is the calm default; explore is the amber
+   exception... determinism looks quiet." statusRunning (design.md's signal
+   color) is reserved for a step actively in progress/being recorded; a step
+   that finished successfully (ok/done) is statusDone (success green)
+   instead, quiet and conclusive rather than "still live," even though both
+   reused the same color before this token pass. */
 .op-status__dot[data-state="running"] {
   background: var(--op-color-status-running);
 }
@@ -118,7 +154,7 @@ button {
   background: var(--op-color-status-halted);
 }
 .op-status__dot[data-state="ok"] {
-  background: var(--op-color-status-running);
+  background: var(--op-color-status-done);
 }
 .op-status__dot[data-state="failed"] {
   background: var(--op-color-status-halted);
@@ -133,7 +169,7 @@ button {
   background: var(--op-color-status-warning);
 }
 .op-status__dot[data-state="done"] {
-  background: var(--op-color-status-running);
+  background: var(--op-color-status-done);
 }
 
 .op-palette {
@@ -292,7 +328,8 @@ button {
   gap: var(--op-space-2);
 }
 
-/* Nav: the Run / Library / Settings screen switcher. */
+/* Nav: the Dashboard / Library / Runs / Settings screen switcher
+   (docs/specs/design.md section 3). */
 .op-nav {
   display: inline-flex;
   gap: var(--op-space-1);
@@ -310,6 +347,18 @@ button {
   background: var(--op-color-bg-sunken);
   border-color: var(--op-color-border-strong);
   font-weight: var(--op-font-weight-medium);
+}
+
+/* Dashboard: minimal themed placeholder (docs/specs/design.md section 3's
+   Home dashboard is a later packet's real content; ui/src/main.ts routes
+   the nav here in the meantime, docs/specs/design.md section 3). */
+.op-dashboard-placeholder {
+  min-height: 240px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--op-space-2);
 }
 
 /* Tray: status glyph (idle/running/halted-red) plus its saved-time tooltip
@@ -436,7 +485,7 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 20, 25, 0.4);
+  background: var(--op-color-scrim);
   z-index: 30;
 }
 
@@ -445,7 +494,11 @@ button {
   width: 90%;
   padding: var(--op-space-5);
   border-radius: var(--op-radius-lg);
+  border: 1px solid var(--op-color-border);
   background: var(--op-color-bg-elevated);
+  /* design.md section 2: "the dark theme uses hairlines instead of shadows"
+     (--op-shadow-modal is `none` there); the border above is what gives this
+     modal a visible edge in that theme. */
   box-shadow: var(--op-shadow-modal);
 }
 

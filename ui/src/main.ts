@@ -1,10 +1,18 @@
 import "./styles/base.css";
 import { modeStore, type UiMode } from "./state/mode.ts";
+import { themeStore, type ThemeMode } from "./theme/store.ts";
 import { createMockBusClient } from "./bus/mockClient.ts";
 import type { BusEvent } from "./bus/types.ts";
 import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
 import { createRunViewer } from "./runViewer/state.ts";
-import { paletteStrings, runViewerStrings, commonStrings, navStrings } from "./strings/default.ts";
+import {
+  paletteStrings,
+  runViewerStrings,
+  commonStrings,
+  navStrings,
+  dashboardStrings,
+  themeToggleStrings,
+} from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
 import { advancedSurfaceVisibility } from "./advanced/state.ts";
 import { mountDslEditor, mountRawWorkflowDetails, mountAuditBrowser, mountConnectedTools } from "./advanced/view.ts";
@@ -40,16 +48,22 @@ root.innerHTML = `
     <header class="op-header">
       <h1 class="op-header__title" id="op-app-title"></h1>
       <nav class="op-nav" id="op-nav" aria-label="Screens">
-        <button type="button" class="op-nav__button" id="op-nav-run" aria-pressed="true"></button>
+        <button type="button" class="op-nav__button" id="op-nav-dashboard" aria-pressed="false"></button>
         <button type="button" class="op-nav__button" id="op-nav-library" aria-pressed="false"></button>
+        <button type="button" class="op-nav__button" id="op-nav-runs" aria-pressed="true"></button>
         <button type="button" class="op-nav__button" id="op-nav-settings" aria-pressed="false"></button>
       </nav>
       <div id="op-tray-mount"></div>
+      <button type="button" class="op-theme-toggle" id="op-theme-toggle"></button>
       <button type="button" class="op-mode-toggle" id="op-mode-toggle" aria-pressed="false">
         <span id="op-mode-toggle-label"></span>
       </button>
     </header>
-    <main class="op-main" id="op-screen-run">
+    <section class="op-panel op-screen op-dashboard-placeholder" id="op-screen-dashboard" hidden aria-labelledby="op-dashboard-heading">
+      <h2 class="op-panel__title" id="op-dashboard-heading"></h2>
+      <p class="op-empty" id="op-dashboard-body"></p>
+    </section>
+    <main class="op-main" id="op-screen-runs">
       <section class="op-panel" aria-labelledby="op-palette-heading">
         <h2 class="op-panel__title" id="op-palette-heading"></h2>
         <form class="op-palette" id="op-palette-form">
@@ -117,6 +131,9 @@ function byId<T extends HTMLElement>(id: string): T {
 const appTitle = byId<HTMLHeadingElement>("op-app-title");
 const modeToggleButton = byId<HTMLButtonElement>("op-mode-toggle");
 const modeToggleLabel = byId<HTMLSpanElement>("op-mode-toggle-label");
+const themeToggleButton = byId<HTMLButtonElement>("op-theme-toggle");
+const dashboardHeading = byId<HTMLHeadingElement>("op-dashboard-heading");
+const dashboardBody = byId<HTMLParagraphElement>("op-dashboard-body");
 const paletteHeading = byId<HTMLHeadingElement>("op-palette-heading");
 const paletteLabel = byId<HTMLLabelElement>("op-palette-label");
 const paletteInput = byId<HTMLInputElement>("op-palette-input");
@@ -140,11 +157,13 @@ const advancedRaw = byId<HTMLElement>("op-advanced-raw");
 const advancedAudit = byId<HTMLElement>("op-advanced-audit");
 const advancedTools = byId<HTMLElement>("op-advanced-tools");
 
-const navRun = byId<HTMLButtonElement>("op-nav-run");
+const navDashboard = byId<HTMLButtonElement>("op-nav-dashboard");
 const navLibrary = byId<HTMLButtonElement>("op-nav-library");
+const navRuns = byId<HTMLButtonElement>("op-nav-runs");
 const navSettings = byId<HTMLButtonElement>("op-nav-settings");
-const screenRun = byId<HTMLElement>("op-screen-run");
+const screenDashboard = byId<HTMLElement>("op-screen-dashboard");
 const screenLibrary = byId<HTMLElement>("op-screen-library");
+const screenRuns = byId<HTMLElement>("op-screen-runs");
 const screenSettings = byId<HTMLElement>("op-screen-settings");
 const trayMount = byId<HTMLElement>("op-tray-mount");
 const libraryMount = byId<HTMLElement>("op-library-mount");
@@ -170,9 +189,12 @@ interveneLabel.textContent = runViewerStrings.intervenePlaceholder;
 interveneInput.placeholder = runViewerStrings.intervenePlaceholder;
 interveneSubmit.textContent = runViewerStrings.interveneSubmit;
 advancedHeading.textContent = advancedStrings.toggleLabel;
-navRun.textContent = navStrings.run;
+navDashboard.textContent = navStrings.dashboard;
 navLibrary.textContent = navStrings.library;
+navRuns.textContent = navStrings.runs;
 navSettings.textContent = navStrings.settings;
+dashboardHeading.textContent = dashboardStrings.title;
+dashboardBody.textContent = dashboardStrings.placeholderBody;
 explainClose.textContent = libraryStrings.closeExplain;
 
 const bus = createMockBusClient();
@@ -226,18 +248,27 @@ let scheduleNotice: string | null = null;
 // the other, the same workflow, in plain English and in raw form.
 let selectedWorkflowName: string | null = null;
 
-type Screen = "run" | "library" | "settings";
-let activeScreen: Screen = "run";
+// docs/specs/design.md section 3's nav map. "runs" stays the initial screen
+// for now, even though design.md section 3 calls the Home dashboard "the new
+// default window view": its real content is a later packet's job (this
+// packet's op-screen-dashboard is a themed placeholder, see the shell markup
+// above), so the working default stays the screen with actual functionality
+// behind it. Flipping the default to "dashboard" once that packet lands is a
+// one-line change here.
+type Screen = "dashboard" | "runs" | "library" | "settings";
+let activeScreen: Screen = "runs";
 
 function selectedRecord(): MockWorkflowRecord | undefined {
   return selectedWorkflowName ? registry.get(selectedWorkflowName) : undefined;
 }
 
 function renderScreen(): void {
-  screenRun.hidden = activeScreen !== "run";
+  screenDashboard.hidden = activeScreen !== "dashboard";
+  screenRuns.hidden = activeScreen !== "runs";
   screenLibrary.hidden = activeScreen !== "library";
   screenSettings.hidden = activeScreen !== "settings";
-  navRun.setAttribute("aria-pressed", String(activeScreen === "run"));
+  navDashboard.setAttribute("aria-pressed", String(activeScreen === "dashboard"));
+  navRuns.setAttribute("aria-pressed", String(activeScreen === "runs"));
   navLibrary.setAttribute("aria-pressed", String(activeScreen === "library"));
   navSettings.setAttribute("aria-pressed", String(activeScreen === "settings"));
 }
@@ -478,8 +509,9 @@ settings.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
 wizard.subscribe(renderWizardPanel);
 
-navRun.addEventListener("click", () => showScreen("run"));
+navDashboard.addEventListener("click", () => showScreen("dashboard"));
 navLibrary.addEventListener("click", () => showScreen("library"));
+navRuns.addEventListener("click", () => showScreen("runs"));
 navSettings.addEventListener("click", () => showScreen("settings"));
 explainClose.addEventListener("click", closeExplain);
 
@@ -487,6 +519,25 @@ modeToggleButton.addEventListener("click", () => {
   modeStore.toggle();
 });
 modeStore.subscribe(renderMode);
+
+/**
+ * Dark/light/system (docs/specs/design.md section 3's Settings > Appearance
+ * choice, wired here as one compact header control, ui/src/theme/store.ts).
+ * themeStore.init() applies the resolved theme to <html data-theme="..."> so
+ * ui/src/styles/tokens.css's [data-theme] overrides take effect immediately
+ * on load, before anything else renders: every screen mounted after this
+ * point (including the very first renderScreen()/renderMode() below) reads
+ * whichever theme's custom properties are already in force, so nothing ever
+ * paints with a stale or unthemed color.
+ */
+function renderThemeToggle(mode: ThemeMode): void {
+  themeToggleButton.textContent = themeToggleStrings[mode];
+  themeToggleButton.title = themeToggleStrings.hint;
+}
+themeToggleButton.addEventListener("click", () => themeStore.cycle());
+themeStore.subscribe((mode) => renderThemeToggle(mode));
+themeStore.init();
+renderThemeToggle(themeStore.get());
 
 renderScreen();
 renderMode(modeStore.get());
