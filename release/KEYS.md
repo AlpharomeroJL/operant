@@ -80,8 +80,17 @@ wrapper.
    updater endpoint, bundle target, and `createUpdaterArtifacts` flag all
    match `docs/specs/release.md`.
 
-The current key id is `CEE33C7F3B56D5CA` (see
+The current key id is `8BE4B947B1566B7C` (see
 `release/keys/updater_pubkey.pub`, first line).
+
+Note on the v1.0.0 installer: the shipped `Operant_0.1.0_x64-setup.exe` was bundled
+before this key was set as current, so the pubkey embedded inside it (used only by the
+in-app auto-updater) is a prior key. That embedded value is inert in v1.0.0 because
+`tauri-plugin-updater` is not yet registered in the app (see docs/adr/0001, KI on the
+updater). Download integrity for the release is provided by the release-asset signature:
+the installer is signed with the current key above and its `.sig` verifies against the
+committed `release/keys/updater_pubkey.pub`. A future release that wires the updater will
+rebuild the installer so the embedded key matches the current key.
 
 ## Regenerating or rotating the key
 

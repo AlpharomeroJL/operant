@@ -37,7 +37,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG9wZXJhbnQgdXBkYXRlciBwdWJsaWMga2V5IENFRTMzQzdGM0I1NkQ1Q0EKUldUTzR6eC9PMWJWeW1saFhsTHZwSzd3UlM5bk9idWc4SlZTdDJWRUpkVmpXc0VUZGEvb29XT3MK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG9wZXJhbnQgdXBkYXRlciBwdWJsaWMga2V5IDhCRTRCOTQ3QjE1NjZCN0MKUldTTDVMbEhzVlpyZkJ1ZG5jeU5ZaFBUMDNZYStpV2dPSWdpZWxpOVMxVHk3YWJVWjBCdCtzTnAK",
       "endpoints": [
         "https://github.com/AlpharomeroJL/operant/releases/latest/download/latest.json"
       ],
