@@ -11,7 +11,12 @@
   --op-color-bg-elevated: #ffffff;
   --op-color-bg-sunken: #ececee;
   --op-color-border: #d8d8dd;
-  --op-color-border-strong: #b9b9c2;
+  /* WCAG 1.4.11 non-text contrast: this token outlines interactive
+     components (inputs, buttons, the mode toggle, the DSL editor), so it
+     needs 3:1 against the elevated surfaces those components sit on.
+     #86868f clears that against white, --op-color-bg, and --op-color-bg-sunken
+     alike (ui/src/styles/contrast.test.ts checks the exact ratios). */
+  --op-color-border-strong: #86868f;
 
   /* Color: text */
   --op-color-text: #17171a;
@@ -79,7 +84,9 @@
     --op-color-bg-elevated: #201f24;
     --op-color-bg-sunken: #101012;
     --op-color-border: #33333a;
-    --op-color-border-strong: #47474f;
+    /* #6b6b73: same 3:1 non-text-contrast requirement as the light value
+       above, against dark theme's elevated/base/sunken surfaces. */
+    --op-color-border-strong: #6b6b73;
 
     --op-color-text: #f1f1f3;
     --op-color-text-muted: #a7a7b3;
@@ -107,7 +114,7 @@
   --op-color-bg-elevated: #201f24;
   --op-color-bg-sunken: #101012;
   --op-color-border: #33333a;
-  --op-color-border-strong: #47474f;
+  --op-color-border-strong: #6b6b73;
   --op-color-text: #f1f1f3;
   --op-color-text-muted: #a7a7b3;
   --op-color-text-inverse: #17171a;
@@ -128,7 +135,7 @@
   --op-color-bg-elevated: #ffffff;
   --op-color-bg-sunken: #ececee;
   --op-color-border: #d8d8dd;
-  --op-color-border-strong: #b9b9c2;
+  --op-color-border-strong: #86868f;
   --op-color-text: #17171a;
   --op-color-text-muted: #55555f;
   --op-color-text-inverse: #ffffff;
