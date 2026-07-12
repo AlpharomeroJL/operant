@@ -75,6 +75,37 @@ test("metrics.week.rolled updates the saved-time tooltip and raises a weekly dig
   tray.dispose();
 });
 
+test("metrics.week.rolled's notification carries its own minutesSaved figure (F11: ui/src/tray/view.ts's restyled digest stat reads this, not the live tooltip)", () => {
+  const bus = createMockBusClient();
+  const tray = createTray(bus);
+
+  bus.publish("metrics.week.rolled", { week: "2026-W28", minutes_saved_total: 192 });
+  const [digest] = tray.getSnapshot().notifications;
+  assert.equal(digest.minutesSaved, 192);
+
+  // A second, later week must not rewrite the first notification's own
+  // figure: each undismissed digest keeps the number it was raised with.
+  bus.publish("metrics.week.rolled", { week: "2026-W29", minutes_saved_total: 5 });
+  const [first, second] = tray.getSnapshot().notifications;
+  assert.equal(first.minutesSaved, 192);
+  assert.equal(second.minutesSaved, 5);
+
+  tray.dispose();
+});
+
+test("run.halted's notification leaves minutesSaved undefined (not the digest kind)", () => {
+  const bus = createMockBusClient();
+  const tray = createTray(bus);
+
+  bus.publish("run.started", { run_id: "r1", goal: "g", mode: RUN_MODE_EXPLORE });
+  bus.publish("run.halted", { run_id: "r1", reason: "killswitch" });
+
+  const [halted] = tray.getSnapshot().notifications;
+  assert.equal(halted.minutesSaved, undefined);
+
+  tray.dispose();
+});
+
 test("dismissNotification removes just that one notification and notifies subscribers", () => {
   const bus = createMockBusClient();
   const tray = createTray(bus);

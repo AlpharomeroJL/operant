@@ -33,7 +33,19 @@ export function mountTray(container: HTMLElement, snapshot: TraySnapshot, opts: 
   if (snapshot.notifications.length) {
     const list = el("ul", "op-tray__notifications");
     for (const n of snapshot.notifications) {
-      const item = el("li", "op-tray__notification");
+      const isDigest = n.minutesSaved !== undefined;
+      const item = el("li", isDigest ? "op-tray__notification op-tray__notification--digest" : "op-tray__notification");
+      if (isDigest) {
+        // Decorative: op-tray__notification-body below already carries the
+        // full sentence ("Saved about N minutes this week") as the one
+        // accessible copy, so a screen reader is not made to hear the
+        // number twice.
+        const figure = el("span", "op-tray__digest-figure");
+        figure.setAttribute("aria-hidden", "true");
+        figure.append(el("strong", "op-tray__digest-number", String(n.minutesSaved)));
+        figure.append(el("span", "op-tray__digest-unit", ` ${trayNotificationStrings.digestUnit}`));
+        item.append(figure);
+      }
       item.append(el("strong", "op-tray__notification-title", n.title));
       item.append(el("span", "op-tray__notification-body", ` ${n.body}`));
       const dismiss = el("button", "op-button", trayNotificationStrings.dismiss);

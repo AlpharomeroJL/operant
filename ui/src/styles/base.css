@@ -692,6 +692,31 @@ input:disabled {
   font-weight: var(--op-font-weight-semibold);
 }
 
+/* The weekly time-saved digest (F11, FR-U8), restyled apart from a plain
+   alert like run.halted's: a mono, tabular-figure stat (design.md section
+   2's Type: "Numeric and step data: IBM Plex Mono, tabular figures... for
+   timers, counts") ahead of the same title/body/dismiss every other
+   notification already uses, so the one genuinely good-news notification in
+   the tray reads at a glance instead of blending into an alert list. */
+.op-tray__digest-figure {
+  display: flex;
+  align-items: baseline;
+  gap: var(--op-space-1);
+}
+
+.op-tray__digest-number {
+  font-family: var(--op-font-family-mono);
+  font-size: var(--op-font-size-md);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-success);
+  font-variant-numeric: tabular-nums;
+}
+
+.op-tray__digest-unit {
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+}
+
 /* Library: search field (design.md section 3: "Search filters live"). Reuses
    the palette input's field styling so the two text inputs in this app look
    like the same control. */

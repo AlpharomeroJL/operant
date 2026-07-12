@@ -27,6 +27,19 @@ export interface TrayNotification {
   id: string;
   title: string;
   body: string;
+  /**
+   * Set only for the weekly time-saved digest (FR-U8), so
+   * ui/src/tray/view.ts can give it a restyled, mono tabular-figure stat
+   * (F11, design.md section 2's Type: "Numeric and step data: IBM Plex
+   * Mono, tabular figures... for timers, counts") distinct from a plain
+   * alert like run.halted's. Captured at push time rather than read back
+   * from the live minutesSavedThisWeek/tooltip above deliberately: if a
+   * second weekly digest arrives before the first is dismissed, each one
+   * must keep showing its own week's figure, not both snapping to
+   * whichever is most recent. Every other notification leaves this
+   * undefined and keeps the plain, unrestyled treatment.
+   */
+  minutesSaved?: number;
 }
 
 export interface TraySnapshot {
@@ -66,9 +79,9 @@ export function createTray(bus: BusClient): Tray {
     for (const fn of listeners) fn(snap);
   }
 
-  function pushNotification(title: string, body: string): void {
+  function pushNotification(title: string, body: string, minutesSaved?: number): void {
     notificationSeq += 1;
-    notifications = [...notifications, { id: `n${notificationSeq}`, title, body }];
+    notifications = [...notifications, { id: `n${notificationSeq}`, title, body, minutesSaved }];
   }
 
   function handle(event: BusEvent): void {
@@ -93,7 +106,11 @@ export function createTray(bus: BusClient): Tray {
         return;
       case "metrics.week.rolled":
         minutesSavedThisWeek = event.payload.minutes_saved_total;
-        pushNotification(trayNotificationStrings.weeklyDigestTitle, trayStrings.savedTimeTooltip(minutesSavedThisWeek));
+        pushNotification(
+          trayNotificationStrings.weeklyDigestTitle,
+          trayStrings.savedTimeTooltip(minutesSavedThisWeek),
+          minutesSavedThisWeek,
+        );
         emit();
         return;
       default:
