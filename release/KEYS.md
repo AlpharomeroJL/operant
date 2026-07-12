@@ -5,6 +5,21 @@ artifact against an Ed25519 public key baked into `ui/src-tauri/tauri.conf.json`
 (`plugins.updater.pubkey`). The matching private key signs release artifacts at
 build/ship time and must never be committed to this repository.
 
+## No OS code signing (Authenticode)
+
+There is no Authenticode (Windows OS) code-signing certificate available on this
+build machine, so the NSIS installer itself is not OS-signed. Windows SmartScreen
+will therefore show an "unknown publisher" warning the first time a user runs the
+installer (choose "More info" then "Run anyway" to proceed).
+
+This is a separate trust mechanism from the updater. The installer's OS-level
+signature is absent; the auto-updater's integrity instead relies entirely on the
+Ed25519 signature documented below, which `tauri-plugin-updater` verifies before
+applying any update. Shipping an OS-signed installer would require purchasing an
+Authenticode certificate. Until that exists, the release notes must state plainly
+that the installer is unsigned so people downloading it expect the SmartScreen
+warning (see `release/RELEASE_NOTES_TEMPLATE.md`).
+
 ## Where the private key lives
 
 The private key is generated to, and read from, a per-user vault path outside
