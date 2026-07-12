@@ -11,7 +11,13 @@
 import { invoke as tauriInvoke } from "@tauri-apps/api/core";
 import { listen as tauriListen } from "@tauri-apps/api/event";
 import { matchesTopic, type BusClient } from "./mockClient.ts";
-import type { BusEnvelope, BusEvent, BusTopic, BusTopicPayloadMap } from "./types.ts";
+import type {
+  BusEnvelope,
+  BusEvent,
+  BusTopic,
+  BusTopicPayloadMap,
+  RunControlCommand,
+} from "./types.ts";
 
 // The Tauri event channel the shell forwards every core `evt` frame onto
 // (contracts/ipc.md section 2d). Its payload is that frame: the bus Envelope
@@ -147,6 +153,19 @@ export function createRealClient(bridge: TauriBridge = defaultBridge): BusClient
     void bridge.invoke(CORE_CALL_COMMAND, { cmd: route.cmd, args: route.args });
   }
 
+  // The B4 run viewer sends Stop/Pause/Resume/Intervene as run-control commands
+  // (contracts/ipc.md section 5b), not by publishing core-owned run.* topics.
+  // Route each straight to core_call under its contract name; like publish this
+  // is fire-and-forget, the observable outcome being the run.* event the core
+  // echoes back on operant://bus. `redirect` carries only the instruction; the
+  // other three carry the run_id (a null run_id lets the core target the active
+  // run, per the section 5b `run_id?` optional args).
+  function command(cmd: RunControlCommand): void {
+    const args: Record<string, unknown> =
+      cmd.cmd === "redirect" ? { instruction: cmd.instruction } : { run_id: cmd.run_id };
+    void bridge.invoke(CORE_CALL_COMMAND, { cmd: cmd.cmd, args });
+  }
+
   function close(): void {
     closed = true;
     listeners.clear();
@@ -156,5 +175,5 @@ export function createRealClient(bridge: TauriBridge = defaultBridge): BusClient
     }
   }
 
-  return { subscribe, publish, close };
+  return { subscribe, publish, command, close };
 }

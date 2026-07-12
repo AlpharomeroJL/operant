@@ -7,12 +7,41 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMockBusClient, type BusClient } from "../bus/mockClient.ts";
-import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY, GROUNDING_UIA, type RunMode } from "../bus/types.ts";
+import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY, GROUNDING_UIA, type RunControlCommand, type RunMode, type RunStepThumb } from "../bus/types.ts";
 import { createRunViewer } from "./state.ts";
 
 function startRun(bus: BusClient, runId = "r1", mode: RunMode = RUN_MODE_EXPLORE): void {
   bus.publish("run.started", { run_id: runId, goal: "test goal", mode });
 }
+
+/**
+ * A bus that records every run-control command the viewer sends. With
+ * `echo:false` it does NOT play the core back (no run.* echo), so a test can
+ * prove the viewer sends a command and never authors a run.* event itself; with
+ * `echo:true` it delegates to the real mock so the round trip advances state.
+ */
+function spyBus(echo = true): { bus: BusClient; commands: RunControlCommand[] } {
+  const inner = createMockBusClient();
+  const commands: RunControlCommand[] = [];
+  const bus: BusClient = {
+    ...inner,
+    command: (c) => {
+      commands.push(c);
+      if (echo) inner.command(c);
+    },
+  };
+  return { bus, commands };
+}
+
+const SAMPLE_THUMB: RunStepThumb = {
+  run_id: "r1",
+  step_id: "s1",
+  format: "png",
+  w: 320,
+  h: 200,
+  redacted: true,
+  data_b64: "aGVsbG8=",
+};
 
 test("starts idle, with no intervene field and no model reading yet", () => {
   const bus = createMockBusClient();
@@ -332,4 +361,112 @@ test("executed records the step duration for the mono time on its row", () => {
   bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
   bus.publish("run.step.executed", { run_id: "r1", step_id: "s1", outcome: "ok", ms: 128, grounding: GROUNDING_UIA });
   assert.equal(viewer.getSnapshot().steps[0].durationMs, 128);
+});
+
+// --- Run-control command inversion (contracts/ipc.md section 5b; ipc-bridge
+// section 8b) --- Stop/Pause/intervene must SEND commands to the core, not
+// publish core-owned run.* events themselves. The core (or the mock standing in
+// for it) echoes the resulting run.* back, which the handlers above render.
+
+test("stop sends the stop command and never authors run.halted itself", () => {
+  const { bus, commands } = spyBus(false);
+  const viewer = createRunViewer(bus);
+  const runTopics: string[] = [];
+  bus.subscribe("run", (e) => runTopics.push(e.topic));
+
+  bus.publish("run.started", { run_id: "r1", goal: "g", mode: RUN_MODE_EXPLORE });
+  runTopics.length = 0; // ignore the setup event; watch only what stop() causes
+
+  viewer.stop();
+
+  assert.deepEqual(commands, [{ cmd: "stop", run_id: "r1" }]);
+  assert.deepEqual(runTopics, [], "the viewer must not publish run.* itself; the core echoes it back");
+});
+
+test("togglePause sends the pause command, then the resume command across a cycle", () => {
+  const { bus, commands } = spyBus(); // echo so the state advances through the cycle
+  const viewer = createRunViewer(bus);
+  bus.publish("run.started", { run_id: "r1", goal: "g", mode: RUN_MODE_EXPLORE });
+
+  viewer.togglePause(); // running -> pause
+  assert.equal(viewer.getSnapshot().runState, "paused");
+  viewer.togglePause(); // paused -> resume
+  assert.equal(viewer.getSnapshot().runState, "running");
+
+  assert.deepEqual(commands, [
+    { cmd: "pause", run_id: "r1" },
+    { cmd: "resume", run_id: "r1" },
+  ]);
+});
+
+test("intervene sends a single redirect command and never authors run.* itself", () => {
+  const { bus, commands } = spyBus(false);
+  const viewer = createRunViewer(bus);
+  const runTopics: string[] = [];
+  bus.subscribe("run", (e) => runTopics.push(e.topic));
+
+  bus.publish("run.started", { run_id: "r1", goal: "g", mode: RUN_MODE_EXPLORE });
+  bus.publish("run.paused", { run_id: "r1", by: "human" }); // core echo puts the run in paused
+  runTopics.length = 0;
+
+  assert.equal(viewer.intervene("  use ctrl+s  "), true);
+  assert.deepEqual(commands, [{ cmd: "redirect", run_id: "r1", instruction: "use ctrl+s" }]);
+  assert.deepEqual(runTopics, [], "no run.redirected/run.resumed is authored by the viewer");
+});
+
+test("a redirect the core echoes back arrives as run.redirected then run.resumed, resuming the run", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  const topics: string[] = [];
+  bus.subscribe("run", (e) => topics.push(e.topic));
+
+  startRun(bus, "r1");
+  viewer.togglePause(); // -> run.paused echo
+  topics.length = 0;
+
+  assert.equal(viewer.intervene("use ctrl+s"), true);
+  assert.deepEqual(topics, ["run.redirected", "run.resumed"], "redirect captures the correction and resumes on its own");
+  assert.equal(viewer.getSnapshot().runState, "running");
+});
+
+// --- Flight-recorder thumbnails (contracts/ipc.md section 7) --- The redacted
+// screenshot rides the evt frame as a sidecar beside the envelope, so it
+// reaches the viewer through the subscription's second argument, never inside
+// the bus payload.
+
+test("a redacted thumbnail on the executed frame is stored on its step row", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish("run.step.proposed", { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } });
+  bus.publish(
+    "run.step.executed",
+    { run_id: "r1", step_id: "s1", outcome: "ok", ms: 12, grounding: GROUNDING_UIA },
+    { thumb: SAMPLE_THUMB },
+  );
+  assert.deepEqual(viewer.getSnapshot().steps[0].thumb, SAMPLE_THUMB);
+});
+
+test("a thumbnail may already ride the proposed frame", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1");
+  bus.publish(
+    "run.step.proposed",
+    { run_id: "r1", step: { v: 1, id: "s1", kind: "wait" } },
+    { thumb: SAMPLE_THUMB },
+  );
+  assert.deepEqual(viewer.getSnapshot().steps[0].thumb, SAMPLE_THUMB);
+});
+
+test("a null thumbnail (headless/mock core) leaves the row without one, so the filmstrip draws a placeholder", () => {
+  const bus = createMockBusClient();
+  const viewer = createRunViewer(bus);
+  startRun(bus, "r1", RUN_MODE_REPLAY);
+  bus.publish(
+    "run.step.executed",
+    { run_id: "r1", step_id: "s1", outcome: "ok", ms: 12, grounding: GROUNDING_UIA },
+    { thumb: null },
+  );
+  assert.equal(viewer.getSnapshot().steps[0].thumb, undefined);
 });

@@ -367,3 +367,56 @@ export type BusTopic = keyof BusTopicPayloadMap;
 export type BusEvent = {
   [T in BusTopic]: BusEnvelope<T, BusTopicPayloadMap[T]>;
 }[BusTopic];
+
+// --- IPC evt-frame sidecar + run-control commands ---
+// Mirrored from the shell-to-core IPC contract (contracts/ipc.md), not from
+// contracts/bus_events.md: these ride the IPC `evt`/`req` frames, they are not
+// bus envelope payloads. Kept here beside BusEvent because the bus client
+// (ui/src/bus/mockClient.ts) is where both cross the shell boundary.
+
+/**
+ * The flight-recorder screenshot thumbnail carried alongside `env` on a
+ * run-step `evt` frame (contracts/ipc.md section 7). It rides the frame as a
+ * SIBLING of the envelope, never inside the bus payload, so the bus event stays
+ * byte-identical to contracts/bus_events.md. Present only on run-step frames
+ * (`run.step.executed`, and `run.step.proposed` when the producer has one);
+ * `null` on every other event and on a headless/mock core. Redaction is
+ * required and fail-closed at the producer: `redacted` is always `true` and a
+ * frame that could not be cleanly redacted carries no thumbnail at all.
+ */
+export interface RunStepThumb {
+  run_id: string;
+  step_id: string;
+  format: "png";
+  /** Downscaled thumbnail dimensions (bounded; a thumbnail, not a full frame). */
+  w: number;
+  h: number;
+  redacted: true;
+  /** base64 of the encoded PNG of the redacted, downscaled image. */
+  data_b64: string;
+}
+
+/**
+ * The non-envelope sidecar carried alongside `env` on an IPC `evt` frame
+ * (contracts/ipc.md section 2d). A real transport (ui/src/bus/tauriClient.ts,
+ * lane B3) dispatches `listener(frame.env, { thumb: frame.thumb })`; every
+ * existing subscriber ignores the optional second argument, so this is purely
+ * additive. Today the only sidecar is the flight-recorder `thumb`.
+ */
+export interface EvtSidecar {
+  thumb: RunStepThumb | null;
+}
+
+/**
+ * A run-control command the shell sends to the core (contracts/ipc.md section
+ * 5b). These are shell-to-core commands, NOT bus events: the core (or the mock
+ * standing in for it) echoes the resulting `run.*` event back, which the run
+ * viewer's existing handlers render. `redirect` captures a correction and then
+ * resumes automatically (crates/orchestrator/src/explore/control.rs), so its
+ * echo is `run.redirected` followed by `run.resumed`.
+ */
+export type RunControlCommand =
+  | { cmd: "stop"; run_id: string }
+  | { cmd: "pause"; run_id: string }
+  | { cmd: "resume"; run_id: string }
+  | { cmd: "redirect"; run_id: string; instruction: string };

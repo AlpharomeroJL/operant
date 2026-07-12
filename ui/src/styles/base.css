@@ -350,6 +350,21 @@ input:disabled {
   opacity: 0.45;
 }
 
+/* When a real redacted screenshot rode the evt frame (contracts/ipc.md section
+   7) it replaces the placeholder bars: the producer already redacted and
+   downscaled it, so the shell only fits it edge to edge in the frame. */
+.op-filmstrip__thumb--image {
+  padding: 0;
+}
+
+.op-filmstrip__image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--op-radius-md);
+}
+
 .op-filmstrip__index {
   font-family: var(--op-font-family-mono);
   font-size: var(--op-font-size-xs);
