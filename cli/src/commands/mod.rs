@@ -11,3 +11,4 @@ pub mod publish;
 #[cfg(feature = "dev-ipc-record")]
 pub mod record_ipc;
 pub mod run;
+pub mod serve;

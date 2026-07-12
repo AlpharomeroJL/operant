@@ -201,7 +201,7 @@ fn export_trajectory(run: &RunRecord, steps: &[StepRecord]) -> serde_json::Value
 /// element tree is modeled, so a mock run is only meaningful for a Notepad-shaped
 /// task; a real teach run uses `--features real-uia` and the live `UiaPerceiver`.
 #[cfg(not(feature = "real-uia"))]
-fn fixture_perceiver(window_process: &str) -> Result<FixturePerceiver> {
+pub(crate) fn fixture_perceiver(window_process: &str) -> Result<FixturePerceiver> {
     const RAW: &str = include_str!("../../../contracts/fixtures/snapshot_notepad.json");
     let mut snap: operant_ir::Snapshot =
         serde_json::from_str(RAW).context("parsing the bundled fixture snapshot")?;
@@ -215,7 +215,7 @@ fn fixture_perceiver(window_process: &str) -> Result<FixturePerceiver> {
 /// as `MockPlannerBackend` does. The real planner is the `AgentBridgeBackend`
 /// under `dev-agent-bridge`; this is the headless/demo stand-in.
 #[cfg(not(feature = "dev-agent-bridge"))]
-fn scripted_mock_planner() -> MockPlannerBackend {
+pub(crate) fn scripted_mock_planner() -> MockPlannerBackend {
     // Center-of-bounds of the fixture's "Text editor" element ((100+1200/2),
     // (156+716/2)), i.e. the exact point the FixturePerceiver resolves the
     // click to, baked in so mock REPLAY (which has no live perceiver) clicks

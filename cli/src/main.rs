@@ -40,6 +40,7 @@ fn main() -> ExitCode {
         Some("explain") => finish(commands::explain::run(&args[1..])),
         Some("install") => finish(commands::install::run(&args[1..])),
         Some("publish") => finish(commands::publish::run(&args[1..])),
+        Some("serve") => finish(commands::serve::run(&args[1..])),
         #[cfg(feature = "dev-ipc-record")]
         Some("record-ipc") => finish(commands::record_ipc::run(&args[1..])),
         Some(verb) => {
@@ -49,7 +50,7 @@ fn main() -> ExitCode {
         None => {
             println!("operant 1.0.0");
             println!(
-                "usage: operant <run|capabilities|explore|compile|import|dry-run|list|install|publish|bench|doctor|explain> [args]"
+                "usage: operant <run|capabilities|explore|compile|import|dry-run|list|install|publish|serve|bench|doctor|explain> [args]"
             );
             ExitCode::SUCCESS
         }
