@@ -11,6 +11,7 @@ import type { BusEvent } from "../bus/types.ts";
 import { commonStrings, dashboardStrings } from "../strings/default.ts";
 import { dashboardCopyStrings } from "./strings.ts";
 import { WEEKLY_METRICS_FIXTURE, UP_NEXT_FIXTURE, type WeeklyMetric, type UpcomingRunFixture } from "./mockMetrics.ts";
+import type { DashboardSource, RecentRunData, UpcomingRunData } from "./source.ts";
 import { createMockRegistry, type MockRegistry } from "../library/mockRegistry.ts";
 
 export interface UpNextRow {
@@ -67,6 +68,14 @@ export interface DashboardSnapshot {
 export interface Dashboard {
   getSnapshot(): DashboardSnapshot;
   subscribe(fn: (snap: DashboardSnapshot) => void): () => void;
+  /**
+   * Load real numbers from the source (metrics, recent runs, upcoming) and
+   * then notify subscribers. A no-op resolved promise when there is no source
+   * (dev/Demo), so the caller can always await it. ui/src/main.ts calls this
+   * once after mount; it is also the re-query hook for a core restart
+   * (contracts/ipc.md section 8b).
+   */
+  refresh(): Promise<void>;
   dispose(): void;
 }
 
@@ -80,9 +89,20 @@ export interface CreateDashboardOptions {
   upNext?: readonly UpcomingRunFixture[];
   /** Oldest recent run dropped once this many are held. */
   recentRunsLimit?: number;
+  /**
+   * The real data source (./source.ts: contracts/ipc.md get_metrics /
+   * list_runs / get_run / list_triggers). When present, the dashboard shows
+   * real numbers and the honest empty state, and the fixtures above are never
+   * read; when absent (dev/Demo/tests), it falls back to ./mockMetrics.ts.
+   * ui/src/main.ts passes createTauriDashboardSource(), which is undefined
+   * off-Tauri.
+   */
+  source?: DashboardSource;
 }
 
 const RECENT_RUNS_DEFAULT_LIMIT = 5;
+/** The sparkline shows the last 8 weeks (docs/specs/design.md section 3); get_metrics is asked for exactly that many. */
+const METRICS_WEEKS = 8;
 /** The sparkline's SVG viewBox, in user units; ui/src/styles/base.css sizes the element itself on screen. */
 export const SPARKLINE_WIDTH = 160;
 export const SPARKLINE_HEIGHT = 40;
@@ -175,6 +195,8 @@ function computeSparklinePoints(values: readonly number[]): SparklinePoint[] {
 }
 
 interface RecentRunRecord {
+  /** The run id, so a run seeded from list_runs/get_run is not also shown a second time when its live run.completed arrives. */
+  runId: string;
   workflowName: string;
   title: string;
   outcome: RunOutcome;
@@ -185,7 +207,12 @@ interface RecentRunRecord {
 export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {}): Dashboard {
   const now = opts.now ?? (() => Date.now());
   const registry = opts.registry ?? createMockRegistry();
-  const weeklyMetrics = opts.weeklyMetrics ?? WEEKLY_METRICS_FIXTURE;
+  const source = opts.source;
+  // Fixture inputs are the dev/Demo fallback, read only when no real source is
+  // wired. With a source, ./mockMetrics.ts is never consulted: real (possibly
+  // empty) data wins, so an empty real store shows the honest empty state
+  // rather than fixture numbers.
+  const weeklyMetricsFixture = opts.weeklyMetrics ?? WEEKLY_METRICS_FIXTURE;
   const upNextFixture = opts.upNext ?? UP_NEXT_FIXTURE;
   const recentRunsLimit = opts.recentRunsLimit ?? RECENT_RUNS_DEFAULT_LIMIT;
 
@@ -193,11 +220,35 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
   let recentRunRecords: RecentRunRecord[] = [];
   const listeners = new Set<(snap: DashboardSnapshot) => void>();
 
+  // Real-source load state: empty until refresh() resolves, so the first paint
+  // of a real dashboard is the honest empty baseline, never a flash of fixture
+  // data. loadToken lets a newer refresh() supersede an older one in flight.
+  let loadedMetrics: readonly WeeklyMetric[] = [];
+  let loadedUpcoming: readonly UpcomingRunData[] = [];
+  let loadToken = 0;
+
   function titleFor(workflowName: string): string {
     return registry.get(workflowName)?.manifest.description || workflowName;
   }
 
+  /** The weekly minutes-saved series: real (from the source) when one is wired, the fixture otherwise. */
+  function weeklyValues(): readonly number[] {
+    const metrics = source ? loadedMetrics : weeklyMetricsFixture;
+    return metrics.map((m) => m.minutesSaved);
+  }
+
   function upNextRows(nowMs: number): UpNextRow[] {
+    // Real Up next comes from the scheduler (list_triggers, already formatted
+    // by the source); the fixture path resolves its relative-to-now schedule
+    // here. list_triggers is not-yet-implemented today, so a real source's
+    // loadedUpcoming is empty and the "nothing scheduled yet" state shows.
+    if (source) {
+      return loadedUpcoming.map((u) => ({
+        workflowName: u.workflowName,
+        title: titleFor(u.workflowName),
+        whenLabel: u.whenLabel,
+      }));
+    }
     return upNextFixture.map((f) => ({
       workflowName: f.workflowName,
       title: titleFor(f.workflowName),
@@ -218,16 +269,21 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
 
   function snapshot(): DashboardSnapshot {
     const nowMs = now();
-    const values = weeklyMetrics.map((m) => m.minutesSaved);
+    const values = weeklyValues();
+    const hasMetrics = values.length > 0;
     const thisWeekMinutes = values[values.length - 1] ?? 0;
     const upNext = upNextRows(nowMs);
     const recentRuns = recentRunRows(nowMs);
     return {
       title: dashboardStrings.title,
-      heroLine: dashboardStrings.heroLine(formatHoursPhrase(thisWeekMinutes)),
+      // Honest empty hero when there is no weekly history at all (a real store
+      // with nothing recorded, or metrics unavailable): never a fabricated
+      // hours figure. A real series of genuine zeros is still real data and
+      // reads "0 hours".
+      heroLine: hasMetrics ? dashboardStrings.heroLine(formatHoursPhrase(thisWeekMinutes)) : dashboardStrings.heroEmpty,
       sparklineValues: values,
       sparklinePoints: computeSparklinePoints(values),
-      sparklineSummary: dashboardStrings.sparklineSummary(formatMinutesList(values)),
+      sparklineSummary: hasMetrics ? dashboardStrings.sparklineSummary(formatMinutesList(values)) : dashboardStrings.sparklineEmpty,
       upNextTitle: dashboardStrings.upNextTitle,
       upNext,
       upNextEmptyLabel: dashboardStrings.upNextEmpty,
@@ -260,13 +316,16 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
         if (!pending) return;
         pendingRuns.delete(event.payload.run_id);
         const record: RecentRunRecord = {
+          runId: event.payload.run_id,
           workflowName: pending.workflowName,
           title: titleFor(pending.workflowName),
           outcome: event.payload.outcome === "ok" ? "ok" : "failed",
           steps: event.payload.steps,
           completedAtMs: now(),
         };
-        recentRunRecords = [record, ...recentRunRecords].slice(0, recentRunsLimit);
+        // Dedup by run id: a run already seeded from list_runs/get_run must not
+        // appear twice when its live run.completed also arrives.
+        recentRunRecords = [record, ...recentRunRecords.filter((r) => r.runId !== record.runId)].slice(0, recentRunsLimit);
         emit();
         return;
       }
@@ -277,12 +336,41 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
 
   const unsubscribe = bus.subscribe("*", handle);
 
+  async function refresh(): Promise<void> {
+    if (!source) return;
+    const token = ++loadToken;
+    const [metrics, runs, upcoming] = await Promise.all([
+      source.getWeeklyMetrics(METRICS_WEEKS).catch(() => [] as readonly WeeklyMetric[]),
+      source.getRecentRuns(recentRunsLimit).catch(() => [] as readonly RecentRunData[]),
+      source.getUpcomingRuns().catch(() => [] as readonly UpcomingRunData[]),
+    ]);
+    // A newer refresh() started while this one was in flight: discard this
+    // (stale) result so the latest query always wins.
+    if (token !== loadToken) return;
+    loadedMetrics = metrics;
+    loadedUpcoming = upcoming;
+    // Seed Recent runs from the durable store (list_runs/get_run). Live
+    // run.completed events prepend to this via handle() above; its dedup keeps
+    // a run from showing twice. workflowName is left empty because a real run's
+    // title is its own goal, not a registry lookup.
+    recentRunRecords = runs.map((r) => ({
+      runId: r.runId,
+      workflowName: "",
+      title: r.title,
+      outcome: r.outcome,
+      steps: r.steps,
+      completedAtMs: r.completedAtMs,
+    }));
+    emit();
+  }
+
   return {
     getSnapshot: snapshot,
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
+    refresh,
     dispose() {
       unsubscribe();
       listeners.clear();

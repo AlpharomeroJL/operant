@@ -33,6 +33,7 @@ import { createLibrary } from "./library/state.ts";
 import { mountLibrary } from "./library/view.ts";
 import { libraryStrings } from "./library/strings.ts";
 import { createDashboard } from "./dashboard/state.ts";
+import { createTauriDashboardSource } from "./dashboard/source.ts";
 import { mountDashboard } from "./dashboard/view.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
@@ -275,8 +276,10 @@ const library = createLibrary(bus, {
 });
 // Shares Library's own registry instance (not a second createMockRegistry())
 // so Up next/Recent runs show the exact same plain-language titles Library
-// does for the same workflow name.
-const dashboard = createDashboard(bus, { registry });
+// does for the same workflow name. The source is the real IPC data path
+// (get_metrics/list_runs/get_run/list_triggers) under Tauri, and undefined in
+// dev/Demo so the dashboard falls back to ./dashboard/mockMetrics.ts fixtures.
+const dashboard = createDashboard(bus, { registry, source: createTauriDashboardSource() });
 const settings = createSettings(bus);
 // Shares Library's own registry instance too (see the dashboard comment
 // just above), so the tray's Quick Runs menu (docs/specs/design.md section
@@ -912,6 +915,11 @@ renderRunViewer();
 renderUndoEntry();
 renderLibraryPanel();
 renderDashboardPanel();
+// Load the dashboard's real numbers (metrics, recent runs, upcoming) once the
+// panel and its subscription are wired above. A no-op in dev/Demo (no source);
+// under Tauri it replaces the honest empty baseline with real data via the
+// dashboard.subscribe(renderDashboardPanel) emit.
+void dashboard.refresh();
 renderSettingsPanel();
 renderTrayPanel();
 renderWizardPanel();

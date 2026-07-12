@@ -57,7 +57,15 @@ export const dashboardStrings = {
   title: "Dashboard",
   placeholderBody: "Your weekly summary is coming here soon. Head to Library to run a saved workflow, or Runs to watch one live.",
   heroLine: (hoursPhrase: string) => `Operant saved you ${hoursPhrase} this week`,
+  // Honest empty hero (B6): shown in place of heroLine when real metrics are
+  // unavailable or empty, so the dashboard never fabricates an hours figure.
+  // Mirrors the core's own honest phrasing (crates/recorder/src/metrics.rs
+  // digest_copy(0.0): "No time saved this week yet").
+  heroEmpty: "No time saved to show yet",
   sparklineSummary: (values: string) => `Minutes saved by week, oldest to newest: ${values}.`,
+  // The sparkline's visually-hidden text equivalent when there is no weekly
+  // history yet (B6): the empty companion to sparklineSummary above.
+  sparklineEmpty: "Minutes saved by week: no history yet.",
   upNextTitle: "Up next",
   upNextEmpty: "Nothing scheduled yet.",
   recentRunsTitle: "Recent runs",
