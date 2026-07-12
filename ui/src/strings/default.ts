@@ -194,3 +194,17 @@ export const doctorStrings = {
   title: "Check my setup",
   fixButton: "Fix it",
 };
+
+// The Undo screen's entry points (docs/specs/design.md section 3's Undo
+// screen and Toasts sections; section 4 fixes this exact button verb:
+// "Verbs on buttons say what happens: ... 'Undo this run'"). ui/src/main.ts
+// wires this one shared label at both call sites (the button beside a
+// completed run in the run viewer, and the action on the toast a completed
+// run raises) so neither drifts from the other or from ui/src/undo/
+// strings.ts's own screen title, which uses the same words. Everything else
+// the screen itself shows lives in that module's own strings.ts, the same
+// split as ui/src/library/strings.ts and ui/src/tray/strings.ts against
+// this file.
+export const undoEntryStrings = {
+  undoThisRun: "Undo this run",
+};

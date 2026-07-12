@@ -929,3 +929,81 @@ input:disabled {
   flex-direction: column;
   gap: var(--op-space-2);
 }
+
+/* Undo screen (docs/specs/design.md section 3): a preview list of
+   restorations in plain English with a checkmark per restorable item; an
+   irreversible one is grayed, its own sentence already saying "cannot be
+   undone" (ui/src/undo/mockJournal.ts's previewLine/appliedLine), so no
+   separate badge is needed. The outer .op-step-list (shared with the run
+   viewer and the wizard's demo list, see that class's own comment above) and
+   .op-status__dot are reused as-is for the done phase, so a confirmed undo
+   reads as the flight recorder's own instrument run in reverse; the card
+   chrome is ui/src/grants/view.ts's .op-grant-prompt, also reused as-is. */
+.op-undo-screen {
+  max-width: 480px;
+}
+
+.op-undo-screen__summary {
+  margin: 0 0 var(--op-space-3);
+  color: var(--op-color-text-muted);
+}
+
+.op-undo-item {
+  display: flex;
+  align-items: center;
+  gap: var(--op-space-3);
+  padding: var(--op-space-2) var(--op-space-3);
+  border-radius: var(--op-radius-md);
+  background: var(--op-color-bg-sunken);
+}
+
+.op-undo-item__check {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  color: var(--op-color-success);
+  font-weight: var(--op-font-weight-semibold);
+}
+
+.op-undo-item--irreversible {
+  color: var(--op-color-text-disabled);
+}
+
+/* The run-detail entry point and the toast (design.md's Toasts section:
+   "Bottom-right, one line, verb-first... Amber only when an action is
+   invited."). ui/src/main.ts wires both, each opening the Undo screen above
+   through the same onConfirm/onClose-driven mount. */
+.op-undo-entry {
+  margin-top: var(--op-space-3);
+}
+
+.op-toast {
+  position: fixed;
+  right: var(--op-space-5);
+  bottom: var(--op-space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--op-space-3);
+  padding: var(--op-space-3) var(--op-space-4);
+  border-radius: var(--op-radius-md);
+  border: 1px solid var(--op-color-border);
+  background: var(--op-color-bg-elevated);
+  box-shadow: var(--op-shadow-popover);
+  z-index: 40;
+}
+
+.op-toast__message {
+  font-size: var(--op-font-size-sm);
+}
+
+/* Amber only because it invites an action (design.md section 1's one-signal-
+   color rule): the only clickable, action-inviting part of the toast. */
+.op-toast__action {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: var(--op-font-weight-medium);
+  color: var(--op-color-accent);
+  cursor: pointer;
+}
