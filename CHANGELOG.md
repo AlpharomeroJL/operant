@@ -12,9 +12,10 @@ screen, and a working auto-updater. See `docs/specs/design.md`.
 
 ### Fixed
 
-- Replaying a workflow against a live window whose layout has moved now finds
-  each element again by its identity at run time, instead of clicking the
-  spot it was taught. Re-finding stays on your machine with no model calls.
+- Replay can now re-find an element by its identity at run time when a window has
+  moved, with no model calls (previously it always clicked the taught location).
+  Wiring this into the installed app's run path and verifying it live are still
+  in progress.
 - A correction made in the middle of a run now folds into the saved workflow the
   same way a correction recorded ahead of time does.
 

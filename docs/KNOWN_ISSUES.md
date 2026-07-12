@@ -28,6 +28,15 @@ As items are fixed they are struck from this list and noted in the changelog.
   that data in place. Your data is never removed unexpectedly; the prompt just
   may not do what it offers. The folder path is being corrected.
 
+## Replay
+
+- **Live re-find is implemented but not yet wired into the installed app.**
+  Replay can now re-find an element by its identity at run time when a window has
+  moved, with no model calls, and this is covered by tests. Connecting it to the
+  installed app's run path and verifying it live on a real desktop (moving a
+  window between teaching and replay) is the remaining step; until then the
+  installed app replays each step at the location it was taught.
+
 ## Undo
 
 - **There is no dedicated undo screen yet.** Undo works: every write action
