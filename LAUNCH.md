@@ -601,3 +601,14 @@ registry (`https://github.com/AlpharomeroJL/operant-registry`) both exist from P
 0 and their URLs do not change. The seventeen named model backends, the license
 (Apache 2.0), and the product thesis are quoted from the frozen PRD, not measured,
 so they are not placeholders either.
+
+## Capture TODOs (V1 asset pass, .claude/skills/operant-capture/SKILL.md)
+
+TODO: `assets/10-undo.gif` is a placeholder, not a real capture. There is no
+undo view or state module anywhere in ui/src, and docs/specs/ui.md's screen
+list (tray, command palette, run viewer, workflow library, grant prompt,
+drift card, settings, Advanced toggle) does not include one either, so there
+was no real "Undo last run" screen to capture honestly. Once ui/src grows a
+real undo screen wired to the existing `undo.previewed` / `undo.applied` bus
+events (contracts/bus_events.md), recapture this asset from that real UI and
+replace the placeholder.
