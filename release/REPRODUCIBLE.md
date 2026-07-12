@@ -78,6 +78,68 @@ To rebuild just the CLI binary (no UI/installer) for the workspace tests and
 cargo build --workspace
 ```
 
+## Bundling the core sidecar
+
+The shell (`ui/src-tauri`) runs the core (`operant`) as a supervised child
+process over stdio, not linked in-process (`docs/adr/0002-core-sidecar-ipc.md`,
+`contracts/ipc.md`). At runtime the shell resolves the core binary in this
+order (`ui/src-tauri/src/bridge/mod.rs`, `resolve_core_bin`):
+
+1. `OPERANT_CORE_BIN` (an explicit path; the dev convenience: point it at the
+   freshly built `operant.exe`).
+2. `operant-<target-triple>.exe`, then `operant.exe`, next to the shell
+   executable (the bundled sidecar).
+3. a bare `operant` on `PATH`.
+
+A missing core is not fatal: the supervisor reports a disconnected status and
+keeps retrying, so the shell still runs.
+
+To bundle the core into the release installer as a Tauri sidecar:
+
+1. Build the core release binary with the SHIPPING feature set. Per
+   `docs/adr/0002`, the shipped core MUST be built with `real-uia` and
+   `real-input` and WITHOUT the dev-only `dev-agent-bridge` and `dev-ipc-record`
+   features:
+
+   ```
+   cargo build --release -p operant-cli --features real-uia,real-input
+   ```
+
+   The capability handshake is the runtime backstop: a mis-built core that
+   cannot really automate forces the shell's blocking screen
+   (`contracts/ipc.md` section 3), so even a wrong build cannot masquerade as a
+   product.
+
+2. Copy the built binary to the Tauri `externalBin` location, named with the
+   target triple:
+
+   ```
+   New-Item -ItemType Directory -Force ui/src-tauri/binaries
+   Copy-Item <target>/release/operant.exe ui/src-tauri/binaries/operant-x86_64-pc-windows-msvc.exe
+   ```
+
+3. Enable the sidecar in `ui/src-tauri/tauri.conf.json` by adding to `bundle`:
+
+   ```json
+   "externalBin": ["binaries/operant"]
+   ```
+
+4. `cargo tauri build` (the "One-command rebuild" step above) then bundles
+   `binaries/operant-<triple>.exe` next to the shell executable in the NSIS
+   installer. `resolve_core_bin` finds it there at runtime with no shell code
+   change.
+
+**Why `externalBin` is not committed active:** `tauri-build` validates at
+compile time (during a plain `cargo build`, not only `cargo tauri build`) that
+`binaries/operant-<triple>.exe` exists, and fails the build if it does not
+(`resource path binaries\operant-x86_64-pc-windows-msvc.exe doesn't exist`).
+Committing an active `externalBin` entry that points at the not-yet-built core
+would break the `cargo build` / `cargo test` gate and every lane's shell build.
+It is therefore enabled only at release time, once step 2 has placed the binary.
+The `serve` subcommand the shell spawns (`operant serve`) is the core side of
+the bridge (lane B1); until it exists, a bundled core would answer the spawn but
+the handshake surfaces its true capabilities regardless.
+
 ## Regenerating the SBOM
 
 ```

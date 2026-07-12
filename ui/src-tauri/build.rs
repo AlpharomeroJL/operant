@@ -1,6 +1,15 @@
 fn main() {
     tauri_build::build();
 
+    // The target triple, so the shell can resolve the bundled core sidecar
+    // (`operant-<triple>.exe`) beside its own executable at runtime
+    // (src/bridge/mod.rs::resolve_core_bin, matching Tauri's externalBin
+    // naming). TARGET is always set for build scripts.
+    println!(
+        "cargo:rustc-env=OPERANT_TARGET_TRIPLE={}",
+        std::env::var("TARGET").unwrap_or_default()
+    );
+
     // Common-Controls v6 manifest for cargo test and example binaries on
     // Windows.
     //
