@@ -1,15 +1,24 @@
 //! `operant run <compiled.json>`: replay a compiled workflow via
-//! `operant_replay::Replayer` against a mock synthesizer, headless and
-//! deterministic (C14/FR-O4). Every side effect goes through
-//! `operant-replay`'s injected `Synthesizer`; nothing here can reach a
-//! model or a network call (`crates/replay`'s own crate-graph guarantee,
-//! `crates/replay/src/lib.rs`'s `replay_crate_is_backend_free` test).
+//! `operant_replay::Replayer` (C14/FR-O4). The default build -- and every
+//! test, `just golden`, and `just ci` -- replays against a mock synthesizer,
+//! headless and deterministic. A REAL build (compiled with both the
+//! `real-uia` and `real-input` features) instead drives the real Windows
+//! synthesizer AND installs a live UIA `Perceiver`, so a click re-resolves
+//! its selector chain against the live desktop at run time (KI-1) rather than
+//! replaying the coordinate cached at teach time.
+//!
+//! Every side effect still goes through `operant-replay`'s injected
+//! `Synthesizer`, and replay stays model- and network-free in BOTH builds: a
+//! `Perceiver` is a PERCEPTION backend, never a model backend, so nothing
+//! here can reach a model or a network call (`crates/replay`'s own crate-graph
+//! guarantee, `crates/replay/src/lib.rs`'s `replay_crate_is_backend_free` test).
 
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
+use operant_action::Synthesizer;
 use operant_gates::EvalContext;
 use operant_ir::GateResult;
 use operant_replay::{CompiledWorkflow, Replayer};
@@ -31,9 +40,43 @@ pub fn run(args: &[String]) -> Result<()> {
     };
     let ctx = EvalContext::new().with_snapshot(gate_snapshot);
 
-    let replayer = Replayer::with_mock();
-    let report = replayer.replay_compiled(&workflow, &inputs, &ctx, &ctx)?;
+    // Construct the replayer. A REAL run (compiled with BOTH `real-uia` and
+    // `real-input`) drives real Windows input AND installs a live UIA
+    // Perceiver, so a click re-resolves its selector chain against the live
+    // desktop at run time (KI-1) rather than replaying the coordinate cached
+    // at teach time. Every other build -- the default, `just golden`, `just
+    // ci`, every test -- keeps the deterministic, model-free mock path.
+    // Replay stays backend-free either way: a Perceiver is a PERCEPTION
+    // backend, never a model backend (crates/replay is proven backend-free by
+    // its own crate graph and `replay_crate_is_backend_free`).
+    #[cfg(all(feature = "real-uia", feature = "real-input"))]
+    {
+        use operant_action::WindowsSynthesizer;
+        use operant_perception_uia::UiaPerceiver;
+        let replayer = Replayer::new(WindowsSynthesizer::new())
+            .with_perceiver(Box::new(UiaPerceiver::new()));
+        report_replay(&replayer, &workflow, &inputs, &ctx)?;
+    }
+    #[cfg(not(all(feature = "real-uia", feature = "real-input")))]
+    {
+        let replayer = Replayer::with_mock();
+        report_replay(&replayer, &workflow, &inputs, &ctx)?;
+    }
+    Ok(())
+}
 
+/// Replay a compiled workflow through `replayer` and print the step count and
+/// pre/post gate results. Generic over the [`Synthesizer`] so the identical
+/// reporting path serves both the default mock replayer and, in a `real-uia`
+/// + `real-input` build, the real Windows-backed one whose click steps
+/// re-resolve against the live desktop.
+fn report_replay<S: Synthesizer>(
+    replayer: &Replayer<S>,
+    workflow: &CompiledWorkflow,
+    inputs: &BTreeMap<String, String>,
+    ctx: &EvalContext,
+) -> Result<()> {
+    let report = replayer.replay_compiled(workflow, inputs, ctx, ctx)?;
     println!(
         "replayed `{}` v{}: {} step(s) executed",
         workflow.manifest.name, workflow.manifest.version, report.steps_executed

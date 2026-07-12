@@ -26,6 +26,25 @@ operant-action.workspace = true
 # `run`/`dry-run` build the pre/post EvalContext `operant-replay`'s
 # Replayer needs to evaluate a compiled workflow's gates headless.
 operant-gates.workspace = true
+# Real UIA Perceiver (`UiaPerceiver`, behind ITS `real-uia` feature) so a
+# REAL `operant run` re-resolves a click's selector chain against the live
+# desktop at run time (KI-1) instead of replaying the coordinate cached at
+# teach time. Optional so the default build never links the `windows` crate;
+# mirrors operant-action's own `real-input` feature. A Perceiver is a
+# PERCEPTION backend, never a model backend, so this keeps replay model-free.
+operant-perception-uia = { workspace = true, optional = true }
 anyhow.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+
+[features]
+# A REAL run drives real Windows input (`real-input` -> operant-action's
+# WindowsSynthesizer) AND installs a live UIA Perceiver (`real-uia` ->
+# operant-perception-uia's UiaPerceiver) so `operant run` re-resolves each
+# click against the live desktop (KI-1, cli/src/commands/run.rs). Both are
+# needed together to construct the real run path; either alone falls back to
+# the deterministic mock path. The heavy `windows`-crate deps stay behind
+# these features so the default build (and `just golden`/`just ci`) never
+# links them and replay stays deterministic and model-free.
+real-uia = ["dep:operant-perception-uia", "operant-perception-uia/real-uia"]
+real-input = ["operant-action/real-input"]
