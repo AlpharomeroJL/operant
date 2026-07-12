@@ -56,4 +56,7 @@ pub enum RegistryError {
 
     #[error("install of {name}@{version} was not approved")]
     NotApproved { name: String, version: String },
+
+    #[error("publisher private key is invalid: {0}")]
+    PrivateKeyInvalid(String),
 }
