@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Playground - Operant</title>
+  <link rel="stylesheet" href="../style.css">
+  <link rel="stylesheet" href="playground.css">
+</head>
+<body>
+  <header>
+    <nav>
+      <a href="../index.html" class="logo">Operant</a>
+      <ul class="nav-links">
+        <li><a href="../index.html#guides">Guides</a></li>
+        <li><a href="../index.html#cookbook">Cookbook</a></li>
+        <li><a href="../index.html#benchmarks">Benchmarks</a></li>
+        <li><a href="../index.html#architecture">Architecture</a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main>
+    <section class="guide-header">
+      <h1>Playground</h1>
+      <p class="tagline">Watch teach once, replay forever, run in your browser</p>
+      <p>
+        This page loads the exact same deterministic replay executor that ships in the
+        desktop app (<code>crates/replay</code>), compiled to WebAssembly, and runs it
+        against a fixture invoice app below. No server, no model call, no network
+        request after the page loads: the compiled workflow is a static file, and the
+        wasm module verifies every step, including a real postcondition check, entirely
+        on your machine.
+      </p>
+    </section>
+
+    <section id="playground-demo" class="guide-content">
+      <div class="playground-grid">
+        <div class="playground-app">
+          <h3>Fixture app</h3>
+          <iframe id="fixture-frame" src="fixtures/webapp.html" title="Fixture invoice app"></iframe>
+        </div>
+        <div class="playground-panel">
+          <h3>Compiled workflow replay</h3>
+          <button id="replay-btn" type="button">Replay the workflow</button>
+          <p id="playground-status" aria-live="polite">Not started.</p>
+          <ol id="playground-log"></ol>
+        </div>
+      </div>
+    </section>
+
+    <section id="playground-notes">
+      <h2>How this works</h2>
+      <ul>
+        <li>The workflow was taught once (record, then compile) against this exact fixture page; the compiled workflow is <code>fixtures/compiled_workflow.json</code>, checked in as a static asset.</li>
+        <li>Clicking replay loads <code>pkg/operant_replay.wasm</code> and calls its one exported function, <code>replay_fixture</code>, with the compiled workflow and the fixture page's markup.</li>
+        <li>Inside the wasm module, the same <code>Replayer</code> and <code>browser</code> namespace adapter the desktop app uses dispatch each step against an in-memory copy of the page, including a real assert step against the button's label: rename or remove that button and replay fails, the same way <code>contracts/fixtures/webapp/drift.html</code> does in the test suite.</li>
+        <li>This page mirrors that verified replay into the visible iframe on the left, step by step, so you can watch it happen rather than take the pass/fail summary on faith.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer>
+    <p>Operant is open source under the Apache 2.0 license. Built with local privacy in mind.</p>
+  </footer>
+
+  <script type="module" src="playground.js"></script>
+</body>
+</html>

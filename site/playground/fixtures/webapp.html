@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Operant Fixture Invoices</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    input { display: block; width: 300px; padding: 6px 8px; margin-top: 4px; font-size: 14px; }
+    button { margin-top: 16px; padding: 8px 20px; font-size: 14px; cursor: pointer; }
+    ul { margin-top: 24px; padding-left: 0; list-style: none; }
+    li { padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; margin-bottom: 6px; }
+    .count { color: #555; margin-top: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Operant Fixture Invoices</h1>
+  <p>A deterministic victim app for teaching, replay, drift, and demo mode. No network, no build step.</p>
+  <form id="invoice-form" autocomplete="off">
+    <label for="customer">Customer</label>
+    <input id="customer" name="customer" aria-label="Customer" type="text">
+    <label for="amount">Amount</label>
+    <input id="amount" name="amount" aria-label="Amount" type="text" inputmode="decimal">
+    <label for="date">Date</label>
+    <input id="date" name="date" aria-label="Date" type="date">
+    <button id="save-btn" type="submit">Save invoice</button>
+  </form>
+  <p class="count">Saved: <span id="invoice-count" aria-label="Saved count">0</span></p>
+  <ul id="invoice-list" aria-label="Saved invoices"></ul>
+  <script>
+    (function () {
+      var KEY = "operant-fixture-invoices";
+      var list = document.getElementById("invoice-list");
+      var count = document.getElementById("invoice-count");
+      function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch (e) { return []; } }
+      function render(items) {
+        list.innerHTML = "";
+        items.forEach(function (it) {
+          var li = document.createElement("li");
+          li.textContent = it.customer + " | $" + it.amount + " | " + it.date;
+          li.setAttribute("data-amount", it.amount);
+          list.appendChild(li);
+        });
+        count.textContent = String(items.length);
+      }
+      document.getElementById("invoice-form").addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        var items = load();
+        items.push({
+          customer: document.getElementById("customer").value,
+          amount: document.getElementById("amount").value,
+          date: document.getElementById("date").value
+        });
+        localStorage.setItem(KEY, JSON.stringify(items));
+        render(items);
+      });
+      render(load());
+    })();
+  </script>
+</body>
+</html>

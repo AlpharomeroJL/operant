@@ -1,0 +1,17 @@
+{
+  "name": "operant-playground",
+  "version": "1.0.0",
+  "description": "Docs-site playground: the deterministic replay executor (crates/replay) compiled to wasm, driving the fixture invoice app in-browser. `npm run build` regenerates pkg/ from the Rust crate; `npm test` is the headless-browser proof that a local build loads and replays it.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
