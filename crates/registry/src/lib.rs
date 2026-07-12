@@ -27,6 +27,7 @@ mod hex;
 mod install;
 mod manifest;
 mod pin;
+mod sign;
 mod verify;
 
 pub use canonical::to_canonical_json;
@@ -37,12 +38,24 @@ pub use install::{
 };
 pub use manifest::{DslPin, ManifestSignature, RegistryManifest};
 pub use pin::{PinOutcome, PinStore};
+pub use sign::{parse_publisher_key_pem, sign_manifest};
 pub use verify::{
     fingerprint, parse_publisher_key_hex, verify_manifest_signature, SignatureOutcome,
 };
 
+pub use ed25519_dalek::SigningKey;
+
 /// Crate marker used by the workspace smoke test.
 pub const CRATE: &str = "operant-registry";
+
+/// BLAKE3 hash of `bytes`, hex-encoded: the same hash `DslVerified::verify_dsl`
+/// checks a fetched DSL file against, and what `operant publish` (L7B) computes
+/// to fill in a draft manifest's `dsl.hash` before signing. Exposed so callers
+/// never need their own hex/blake3 plumbing just to produce a manifest this
+/// crate will later accept.
+pub fn dsl_hash(bytes: &[u8]) -> String {
+    hex::encode(blake3::hash(bytes).as_bytes())
+}
 
 #[cfg(test)]
 mod tests {
