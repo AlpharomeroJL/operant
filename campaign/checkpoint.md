@@ -69,6 +69,26 @@ See `campaign/RESUME.md` for the one-move continue procedure.
   textual conflict in the module list, the doc-comment verb summary, and the usage string. Resolved
   by combining both additions (all five verbs listed together); the `match` dispatch arms themselves
   had already auto-merged cleanly since each lane appended a distinct arm. No logic changes.
+- FG-007 (X15, real bug, not cache): X15 gave `operant-replay` `[lib] crate-type = ["rlib",
+  "cdylib"]` so wasm-bindgen could build it as a wasm module. `operant-replay` is a normal `rlib`
+  dependency of `operant-compiler`, `operant-orchestrator`, `operant-cli`, and `e2e/golden-path`;
+  declaring `cdylib` unconditionally (crate-type is not conditionable by feature or target in
+  Cargo.toml) made every `cargo build/test --workspace` also build a native cdylib for it. This
+  reproducibly broke `operant-orchestrator`'s doctest link with `E0460` ("found possibly newer
+  version of crate") inside `cargo test --workspace`, even from a fully clean `CARGO_TARGET_DIR`
+  (confirmed not a stale-cache artifact: `cargo test -p operant-orchestrator --doc` alone passed
+  every time; only the combined `--workspace` build failed). Fixed at gate by splitting the
+  wasm-bindgen bridge out of `crates/replay` into a new `crates/replay-wasm`: a standalone crate
+  with its own empty `[workspace]` table (deliberately NOT a member of the root workspace, so
+  `cargo build --workspace` never touches it), `crate-type = ["cdylib"]` only there, depending on
+  `operant-replay` (back to plain `rlib`, zero behavior change) via a path dependency. Built
+  explicitly via `cargo build --manifest-path crates/replay-wasm/Cargo.toml --target
+  wasm32-unknown-unknown`; `site/playground/build.mjs` updated to call that instead of `-p
+  operant-replay --features wasm`. Verified from a full `cargo clean` that `just ci` passes and
+  `site/playground`'s own Playwright suite (payload size, replay, idempotence) all still pass
+  against the regenerated `pkg/`. General lesson for any future lane: never give a crate-type
+  other than the default (`rlib`) to a crate with native dependents inside this workspace; a
+  wasm-bindgen bridge belongs in its own leaf crate, always.
 
 ## Packet ledger
 

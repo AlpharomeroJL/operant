@@ -1,14 +1,16 @@
-// Regenerates `pkg/` from `crates/replay`: cargo build for
-// wasm32-unknown-unknown with the `wasm` feature, `wasm-bindgen` to produce
-// the JS glue, then `wasm-opt -Oz` if it is on PATH (best-effort, mirrors
-// `just check-markdown`'s own "skip if the tool is not installed" posture:
-// this script's job is reproducibility for whoever has the toolchain
-// installed, not a CI gate by itself).
+// Regenerates `pkg/` from `crates/replay-wasm` (a standalone cdylib-only
+// crate, deliberately its own workspace and not a member of the root
+// workspace: see crates/replay-wasm/Cargo.toml for why): cargo build for
+// wasm32-unknown-unknown, `wasm-bindgen` to produce the JS glue, then
+// `wasm-opt -Oz` if it is on PATH (best-effort, mirrors `just
+// check-markdown`'s own "skip if the tool is not installed" posture: this
+// script's job is reproducibility for whoever has the toolchain installed,
+// not a CI gate by itself).
 //
 // Requires: `rustup target add wasm32-unknown-unknown`, the `wasm-bindgen`
-// CLI at the SAME version as the `wasm-bindgen` crate this workspace pins
-// (`crates/replay/Cargo.toml`'s `wasm` feature), and, optionally,
-// `wasm-opt` (from binaryen) for the size pass.
+// CLI at the SAME version as the `wasm-bindgen` crate
+// `crates/replay-wasm/Cargo.toml` pins, and, optionally, `wasm-opt` (from
+// binaryen) for the size pass.
 //
 // Run from this directory: `node build.mjs`.
 
@@ -38,16 +40,14 @@ function haveTool(cmd) {
 
 run("cargo", [
   "build",
-  "-p",
-  "operant-replay",
-  "--features",
-  "wasm",
+  "--manifest-path",
+  join(repoRoot, "crates", "replay-wasm", "Cargo.toml"),
   "--target",
   "wasm32-unknown-unknown",
   "--release",
 ]);
 
-const wasmIn = join(targetDir, "wasm32-unknown-unknown", "release", "operant_replay.wasm");
+const wasmIn = join(targetDir, "wasm32-unknown-unknown", "release", "operant_replay_wasm.wasm");
 if (!existsSync(wasmIn)) {
   console.error(`build.mjs: expected cargo output at ${wasmIn}, not found`);
   process.exit(1);
@@ -56,7 +56,7 @@ if (!existsSync(wasmIn)) {
 if (!haveTool("wasm-bindgen")) {
   console.error(
     "build.mjs: `wasm-bindgen` CLI not found on PATH. Install the version matching " +
-      "the `wasm-bindgen` crate in crates/replay/Cargo.toml (`cargo install wasm-bindgen-cli " +
+      "the `wasm-bindgen` crate in crates/replay-wasm/Cargo.toml (`cargo install wasm-bindgen-cli " +
       "--version <ver>`) and re-run.",
   );
   process.exit(1);

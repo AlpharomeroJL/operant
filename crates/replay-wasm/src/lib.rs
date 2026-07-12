@@ -1,12 +1,21 @@
-//! wasm-bindgen bridge (feature `wasm`, wasm32-unknown-unknown only): the
-//! JS-callable surface the docs-site playground (`site/playground/`)
-//! drives. This wraps the exact same [`Replayer`] plus
+//! wasm-bindgen bridge, wasm32-unknown-unknown only: the JS-callable surface
+//! the docs-site playground (`site/playground/`) drives. This is a separate
+//! crate from `operant-replay` (not a feature-gated module inside it)
+//! specifically so `operant-replay` itself never declares `crate-type =
+//! ["cdylib"]`: adding a cdylib output to a crate every other native crate
+//! in the workspace links against (`operant-orchestrator`, `operant-cli`,
+//! `e2e/golden-path`, ...) made `cargo test --workspace` build a native
+//! cdylib for it unconditionally, which corrupted rustc's metadata
+//! resolution for dependent doctests (`E0460`, "found possibly newer
+//! version of crate"). Splitting the wasm-bindgen surface into its own
+//! cdylib-only crate, built only via `cargo build -p operant-replay-wasm
+//! --target wasm32-unknown-unknown`, avoids that entirely: `operant-replay`
+//! stays a plain `rlib` exactly as it always was.
+//!
+//! This wraps the exact same [`Replayer`] plus
 //! `operant_action::adapters::browser::{FixtureBrowser, BrowserAdapter}`
 //! code a native build uses; the only wasm-specific thing here is the
 //! `String`/`JsValue` boundary at the edges, not the replay logic itself.
-//! Off by default: see this crate's `Cargo.toml` for why enabling it
-//! changes dependency resolution but never this crate's own compiled
-//! behavior.
 //!
 //! `FixtureBrowser::attach_html` (unlike [`Browser::attach`]) never
 //! touches the filesystem, so the whole call graph this module drives is
@@ -21,9 +30,8 @@ use operant_action::adapters::browser::{BrowserAdapter, FixtureBrowser};
 use operant_action::{AdapterRegistry, MockSynthesizer};
 use operant_gates::EvalContext;
 use operant_ir::GateResult;
+use operant_replay::{CompiledWorkflow, Replayer};
 use wasm_bindgen::prelude::*;
-
-use crate::{CompiledWorkflow, Replayer};
 
 /// Replay `workflow_json` (a serialized [`CompiledWorkflow`]) against
 /// `page_html` (the fixture webapp's markup) through the real `browser`
