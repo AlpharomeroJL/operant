@@ -31,9 +31,12 @@
 
 pub mod compose;
 
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
 use std::collections::BTreeMap;
 
-use operant_action::{Executor, MockSynthesizer, NoopSleeper, Synthesizer};
+use operant_action::{AdapterRegistry, Executor, MockSynthesizer, NoopSleeper, Synthesizer};
 use operant_gates::{evaluate_gate, EvalContext, GateError};
 use operant_ir::{Action, ActionKind, GateKind, GateResult, Manifest, Pace};
 use serde::{Deserialize, Serialize};
@@ -94,6 +97,17 @@ impl<S: Synthesizer> Replayer<S> {
     pub fn new(synth: S) -> Self {
         Self {
             exec: Executor::new(synth).with_sleeper(Box::new(NoopSleeper)),
+        }
+    }
+
+    /// Build a replayer with a caller-supplied [`AdapterRegistry`], for
+    /// compiled workflows that dispatch `adapter_call` steps (C5's `browser`
+    /// namespace, for one: it has no `coords_last_known` to resolve, so it
+    /// replays through a registered adapter rather than the synthesizer's
+    /// point-based click/type). Same instant pacing as [`Self::new`].
+    pub fn with_adapters(synth: S, adapters: AdapterRegistry) -> Self {
+        Self {
+            exec: Executor::with_adapters(synth, adapters).with_sleeper(Box::new(NoopSleeper)),
         }
     }
 

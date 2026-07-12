@@ -5,6 +5,16 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+# `cdylib` is what `wasm-bindgen` needs: on wasm32-unknown-unknown, `cargo
+# build` for a cdylib target emits a `.wasm` module directly (there is no
+# separate linker step the way a native `.dll`/`.so` would need). `rlib`
+# stays first so every other crate in the workspace keeps linking against
+# this crate exactly as it did before (dev-dependents, `e2e/golden-path`,
+# `cli`); the extra cdylib output on native targets is an unused sibling
+# artifact, not a behavior change.
+[lib]
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 operant-ir.workspace = true
 operant-action.workspace = true
@@ -21,3 +31,25 @@ tracing.workspace = true
 # is a TEST-ONLY edge: the shipped replay crate links only ir, action, and
 # gates, so zero-model replay stays enforced by the crate graph.
 operant-compiler.workspace = true
+
+[features]
+# Off by default. Enabling it does two things, both scoped to
+# wasm32-unknown-unknown and both inert for the native (non-wasm)
+# build/test path CI covers:
+#   - turns on `src/wasm.rs`, the wasm-bindgen bridge the docs-site
+#     playground (`site/playground/`) calls into;
+#   - steers dependency resolution so `cargo build -p operant-replay
+#     --features wasm --target wasm32-unknown-unknown` succeeds.
+#     `operant-action` pulls in `ahash`, which pulls in `getrandom`; on
+#     wasm32-unknown-unknown that needs the `wasm_js` backend enabled
+#     (Cargo feature-unifies the single `getrandom` in the dependency
+#     graph, so enabling it here is enough) plus the
+#     `getrandom_backend="wasm_js"` cfg flag, set target-scoped in
+#     `.cargo/config.toml` at the repo root.
+# Never enabled by default or by CI's native build/test path, so
+# `check-airgap` and every existing test keep passing with this feature off.
+wasm = ["dep:getrandom", "dep:wasm-bindgen"]
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"], optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
