@@ -35,6 +35,7 @@ import { trayStrings } from "../strings/default.ts";
 import { trayNotificationStrings, trayMenuStrings } from "./strings.ts";
 import { frecencyScore } from "../palette/frecency.ts";
 import { createMockRegistry, type MockRegistry } from "../library/mockRegistry.ts";
+import { enginePanic, createBusPanicClient, type PanicClient } from "../safety/panic.ts";
 
 export type TrayGlyphState = "idle" | "recording" | "replaying" | "kill";
 
@@ -100,7 +101,7 @@ export interface Tray {
   closeMenu(): void;
   /** Pauses the one tracked run, if any is currently under way (publishes run.paused). No-op otherwise. */
   pauseAll(): void;
-  /** The panic row / kill switch (docs/ARCHITECTURE.md's C20): publishes killswitch.engaged. The glyph and its notification follow reactively, the same publish-then-react-off-the-bus pattern ui/src/runViewer/state.ts's stop() uses for run.halted. */
+  /** The panic row / kill switch (docs/ARCHITECTURE.md's C20). Drives the two-path stop (contracts/ipc.md section 5b: the cooperative `stop` plus the unblockable `kill` backstop) through ../safety/panic.ts, rather than the cosmetic killswitch.engaged self-publish A5 flagged as "renders but does not stop." The core echoes killswitch.engaged and the glyph/notification follow reactively off that echo, the same publish-then-react-off-the-bus pattern ui/src/runViewer/state.ts's stop() uses for run.halted. */
   panic(): void;
   dispose(): void;
 }
@@ -109,6 +110,8 @@ export interface CreateTrayOptions {
   /** Shared with ui/src/library/state.ts's registry in ui/src/main.ts, so Quick Runs show the same plain-language titles Library does for the same workflow name. Defaults to its own seeded registry so the tray still renders standalone (tests). */
   registry?: MockRegistry;
   now?: () => number;
+  /** The two-path stop seam (../safety/panic.ts). Defaults to createBusPanicClient over this bus (the mock/dev core echo); the real transport client (lane B3) drops in here so panic() drives stop_run + engage_killswitch + B2's core_kill. Tests inject a spy to prove BOTH stop and kill fire. */
+  panicClient?: PanicClient;
 }
 
 interface WorkflowUsage {
@@ -126,6 +129,10 @@ function glyphForMode(mode: RunMode): TrayGlyphState {
 export function createTray(bus: BusClient, opts: CreateTrayOptions = {}): Tray {
   const registry = opts.registry ?? createMockRegistry();
   const now = opts.now ?? (() => Date.now());
+  // The two-path stop (../safety/panic.ts). Defaults to the mock/dev client that
+  // echoes the core's events onto this same bus; a real transport client drops
+  // in via opts without changing panic() below.
+  const panicClient = opts.panicClient ?? createBusPanicClient(bus, now);
 
   let glyph: TrayGlyphState = "idle";
   // The run this tray is currently tracking, for pauseAll() to act on and
@@ -287,7 +294,13 @@ export function createTray(bus: BusClient, opts: CreateTrayOptions = {}): Tray {
   }
 
   function panic(): void {
-    bus.publish("killswitch.engaged", { at_ms: now() });
+    // Inverted (docs/specs/ipc-bridge.md section 8b): drive the two-path stop
+    // COMMANDS, not a cosmetic killswitch.engaged self-publish. Pass the tracked
+    // run so `stop` closes it cooperatively; `kill` is the unblockable backstop.
+    // The core echoes killswitch.engaged (the mock client stands in for it) and
+    // handle() below turns the glyph kill off that echo, so the red state now
+    // proves a real stop instead of only painting one.
+    enginePanic(panicClient, currentRunId ? { runId: currentRunId } : {});
   }
 
   return {
