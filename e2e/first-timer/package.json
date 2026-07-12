@@ -6,10 +6,12 @@
   "private": true,
   "scripts": {
     "test": "playwright test",
+    "test:release": "node release/run.mjs",
     "postinstall": "playwright install chromium"
   },
   "devDependencies": {
-    "@playwright/test": "^1.61.1"
+    "@playwright/test": "^1.61.1",
+    "selenium-webdriver": "^4.46.0"
   },
   "engines": {
     "node": ">=18.0.0"
