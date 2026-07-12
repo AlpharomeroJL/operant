@@ -12,11 +12,25 @@ function collect(): { events: DownloadEnvelope[]; onEvent: (e: DownloadEnvelope)
   return { events, onEvent: (e) => events.push(e) };
 }
 
+// Wait for a condition instead of a fixed wall-clock duration. The simulated
+// download is timer-driven, so a fixed `setTimeout(60)` guess is flaky under
+// load (the ticks slip past the deadline); polling for the actual condition
+// makes these tests deterministic on any machine speed.
+async function waitFor(predicate: () => boolean, timeoutMs = 2000, stepMs = 2): Promise<void> {
+  const start = Date.now();
+  while (!predicate()) {
+    if (Date.now() - start > timeoutMs) throw new Error("waitFor: condition not met within timeout");
+    await new Promise((resolve) => setTimeout(resolve, stepMs));
+  }
+}
+
+const hasTopic = (events: DownloadEnvelope[], topic: string) => events.some((e) => e.topic === topic);
+
 test("a fresh download emits started, monotonic progress, then completed with a well-formed envelope", async () => {
   const { events, onEvent } = collect();
   startDownload({ totalBytes: 100, ticks: 5, tickMs: 3, onEvent });
 
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  await waitFor(() => hasTopic(events, "download.completed"));
 
   assert.equal(events[0].topic, "download.started");
   const last = events[events.length - 1];
@@ -44,9 +58,14 @@ test("a fresh download emits started, monotonic progress, then completed with a 
 
 test("pause keeps whatever arrived and resume continues from that offset, not from zero", async () => {
   const { events, onEvent } = collect();
-  const handle = startDownload({ totalBytes: 120, ticks: 6, tickMs: 8, onEvent });
+  // tickMs is generous so there is ample room to pause mid-flight (after the
+  // first progress tick, well before completion) without racing the timer.
+  const handle = startDownload({ totalBytes: 120, ticks: 6, tickMs: 20, onEvent });
 
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  // Pause as soon as the first progress has arrived: deterministically
+  // mid-flight (one of six ticks done), never before any byte and never
+  // already complete.
+  await waitFor(() => hasTopic(events, "download.progress"));
   handle.pause();
 
   const paused = events.find((e) => e.topic === "download.paused");
@@ -55,8 +74,11 @@ test("pause keeps whatever arrived and resume continues from that offset, not fr
   assert.ok(resumedFrom > 0, "some bytes must have arrived before pause");
   assert.ok(resumedFrom < 120, "must not already be complete");
 
+  // No further events fire while paused. Waiting several tick intervals makes
+  // this absence assertion robust: if a tick were still scheduled it would have
+  // fired well within this window.
   const countBeforeResume = events.length;
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 120));
   assert.equal(events.length, countBeforeResume, "no further events while paused");
 
   handle.resume();
@@ -64,7 +86,7 @@ test("pause keeps whatever arrived and resume continues from that offset, not fr
   assert.equal(resumeStarted.topic, "download.started");
   assert.equal(resumeStarted.payload.resumedFrom, resumedFrom);
 
-  await new Promise((resolve) => setTimeout(resolve, 80));
+  await waitFor(() => hasTopic(events, "download.completed"));
   const completed = events.find((e) => e.topic === "download.completed");
   assert.ok(completed, "expected the download to finish after resuming");
   assert.equal(completed!.payload.bytesWritten, 120);
@@ -72,25 +94,26 @@ test("pause keeps whatever arrived and resume continues from that offset, not fr
 
 test("cancel stops all further events even if a tick was already scheduled", async () => {
   const { events, onEvent } = collect();
-  const handle = startDownload({ totalBytes: 100, ticks: 4, tickMs: 8, onEvent });
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  const handle = startDownload({ totalBytes: 100, ticks: 4, tickMs: 20, onEvent });
+  // Cancel mid-flight, with a next tick already scheduled by the progress emit.
+  await waitFor(() => hasTopic(events, "download.progress"));
   handle.cancel();
   const countAtCancel = events.length;
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  await new Promise((resolve) => setTimeout(resolve, 120));
   assert.equal(events.length, countAtCancel, "cancel must stop every future emit, not just clear the timer");
-  assert.ok(!events.some((e) => e.topic === "download.completed"));
+  assert.ok(!hasTopic(events, "download.completed"));
 });
 
 test("a failing transfer emits download.failed with the given code, and never completes", async () => {
   const { events, onEvent } = collect();
   startDownload({ totalBytes: 100, ticks: 5, tickMs: 5, failAt: 2, failCode: "CHECKSUM_MISMATCH", onEvent });
 
-  await new Promise((resolve) => setTimeout(resolve, 60));
+  await waitFor(() => hasTopic(events, "download.failed"));
 
   const failed = events.find((e) => e.topic === "download.failed");
   assert.ok(failed, "expected a download.failed envelope");
   assert.equal(failed!.payload.code, "CHECKSUM_MISMATCH");
-  assert.ok(!events.some((e) => e.topic === "download.completed"));
+  assert.ok(!hasTopic(events, "download.completed"));
 });
 
 test("probeCompatibility: below the minimum fails, below the slow threshold warns, otherwise ok", () => {

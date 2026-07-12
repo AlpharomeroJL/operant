@@ -1,0 +1,29 @@
+{
+  "note": "The shell to core capability handshake, framed per contracts/ipc.md section 3. This is a real capture from a default (mock) recorder build, so real_uia and real_input are false: the BLOCKING case that must force the shell's blocking screen. A real-capable core reports the same shape with the booleans true.",
+  "ready": {
+    "pv": 1,
+    "t": "ready"
+  },
+  "request": {
+    "args": {},
+    "cmd": "get_capabilities",
+    "id": "cmd-1",
+    "pv": 1,
+    "t": "req"
+  },
+  "response": {
+    "id": "cmd-1",
+    "ok": true,
+    "pv": 1,
+    "result": {
+      "git_sha": "unknown",
+      "mock_planner_only": true,
+      "real_input": false,
+      "real_uia": false,
+      "real_vision": false,
+      "transport_kind": "stdio",
+      "version": "1.0.0"
+    },
+    "t": "res"
+  }
+}

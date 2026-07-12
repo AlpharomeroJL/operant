@@ -74,3 +74,11 @@ real-transport = []
 # instead of the scripted `MockPlannerBackend`. Opt-in only, never in a release
 # build; lets an operator act as the planner brain for a real teach run.
 dev-agent-bridge = ["operant-orchestrator/dev-agent-bridge"]
+# IPC fixture recorder (P1): builds the dev-only `operant record-ipc` verb
+# (cli/src/commands/record_ipc.rs), which drives a real explore -> compile ->
+# replay -> undo session against the core Bus and writes the frozen IPC contract
+# fixtures under contracts/fixtures/ipc/, framed per contracts/ipc.md. Opt-in
+# only, never in a release build (like `dev-agent-bridge`); it links no network
+# or model transport, so replay stays deterministic and offline. Uses crates the
+# CLI already depends on (orchestrator, recorder, compiler, replay, gates).
+dev-ipc-record = []
