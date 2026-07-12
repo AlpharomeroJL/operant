@@ -16,7 +16,7 @@ calls, both checked in CI.
 
 <a id="see-it-replay"></a>
 
-{ASSET:04-replay.gif}
+![Animated run viewer replaying the same copy-invoice-total task with the model indicator reading "Running from memory, no thinking needed": the same four steps as 02-explore.gif complete almost instantly, ending on Done.](assets/04-replay.gif)
 
 *The same task, taught once. The second run has the model indicator off and finishes
 instantly.*
@@ -34,7 +34,7 @@ No cargo, no npm, no terminal. The installer is a single Windows executable.
    A demo mode is also there if you would rather watch it work first.
 4. Teach it your first task by demonstration or by voice, then save it as a workflow.
 
-{ASSET:00-onboarding.gif}
+![Animated walkthrough of the Operant setup wizard: the welcome screen, choosing to download a free local model with a live progress bar from 0 to done, a guided first task filling out a sample invoice step by step, and picking a schedule, ending with the wizard closed and the main Run screen visible.](assets/00-onboarding.gif)
 
 *The setup wizard: pick a model, watch the download, land on done.*
 
@@ -48,16 +48,16 @@ Two things hold no matter what Operant is doing.
 below the planner, so no model decision can delay it. CI holds the freeze under
 100 ms.
 
-{ASSET:12-killswitch.gif}
+![Animated kill switch demo: a run is mid-step (Click Downloads, Click Invoice.pdf) with the model indicator on, then the panic hotkey fires and the run freezes, the run viewer reads "Stopped, needs you", and the tray icon turns red with an "Operant stopped" notification.](assets/12-killswitch.gif)
 
 **Every run can be undone.** Write actions record an inverse before they run, so
 "Undo last run" is a real replay of real inverses, narrated in plain English.
 Anything without a safe inverse, like a sent email, is labeled irreversible before
 you run it, not after.
 
-{ASSET:10-undo.gif}
+![Placeholder graphic labeled "Placeholder, not a real capture" stating that this asset will show a finished run, an "Undo last run" action, and the restored files narrated in plain English, and noting this screen does not exist in ui/src yet (see LAUNCH.md's Capture TODOs).](assets/10-undo.gif)
 
-Operant also keeps score. {ASSET:11-timesaved.png} is the tray showing estimated
+Operant also keeps score. ![Screenshot of a tray notification reading "Your weekly time saved: Saved about 192 minutes this week" with a Dismiss button.](assets/11-timesaved.png) is the tray showing estimated
 time saved this week, the screenshot people actually share. If it saves you time,
 [star the repo](https://github.com/AlpharomeroJL/operant).
 
@@ -78,8 +78,8 @@ both asserted in CI, not just promised.
 
 ### Explore once, replay forever
 
-{ASSET:02-explore.gif} is a live teach run with the model indicator on.
-{ASSET:04-replay.gif} is the same task run again with the model indicator off. Same
+![Animated run viewer stepping through a live teaching run with the model indicator reading "Thinking live": steps to click Downloads, click Invoice.pdf, copy, and paste appear one at a time and turn green.](assets/02-explore.gif) is a live teach run with the model indicator on.
+![Animated run viewer replaying the same copy-invoice-total task with the model indicator reading "Running from memory, no thinking needed": the same four steps as 02-explore.gif complete almost instantly, ending on Done.](assets/04-replay.gif) is the same task run again with the model indicator off. Same
 result, second run instant.
 
 ```text
@@ -110,10 +110,10 @@ costs 15 to 25 model calls and 2700 to 4500 tokens per task. Full numbers, from
 | drift_repaired | re-infer (mock) | 5/5 | 6ms | 6ms | 15 | 2700 |
 | notepad | replay | 5/5 | 1ms | 1ms | 0 | 0 |
 | notepad | re-infer (mock) | 5/5 | 7ms | 7ms | 25 | 4500 |
-| web | replay | 5/5 | 1ms | 1ms | 0 | 0 |
-| web | re-infer (mock) | 5/5 | 7ms | 7ms | 25 | 4500 |
+| web | replay | 5/5 | 0ms | 0ms | 0 | 0 |
+| web | re-infer (mock) | 5/5 | 6ms | 6ms | 25 | 4500 |
 
-{ASSET:07-bench.png}
+![Table image of the Operant benchmark headline from BENCHMARKS.md, comparing compiled replay (near-zero latency, zero model calls) against re-inferring every step (higher latency, dozens of model calls and tokens) across three tasks.](assets/07-bench.png)
 
 Replay wins at zero model calls by construction, not by configuration: the replay
 executor links against a backend-free crate, so a model call during replay is not a
@@ -261,7 +261,7 @@ Details: [docs/specs/mcp.md](docs/specs/mcp.md).
 
 Checked against each project's own public documentation. "Not documented" means no
 public evidence either way was found, not a claim that the feature is absent;
-corrections are welcome as an issue. Last checked: {COMPARISON_LAST_CHECKED_DATE}.
+corrections are welcome as an issue. Last checked: 2026-07-11.
 
 | | Operant | Simular | UI-TARS Desktop | Open Interpreter | UFO |
 |---|---|---|---|---|---|
