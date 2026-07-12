@@ -17,7 +17,7 @@ import { createRunViewer } from "./runViewer/state.ts";
 import { mountRunViewer } from "./runViewer/view.ts";
 import { createUndoScreen } from "./undo/state.ts";
 import { mountUndoScreen } from "./undo/view.ts";
-import { createRealJournalSource } from "./undo/realJournal.ts";
+import { createMockUndoCommands } from "./undo/realJournal.ts";
 import { journalForRun as fixtureJournalForRun } from "./undo/mockJournal.ts";
 import {
   commonStrings,
@@ -260,12 +260,14 @@ navSettings.textContent = navStrings.settings;
 explainClose.textContent = libraryStrings.closeExplain;
 
 const runViewer = createRunViewer(bus);
-// F1b: real per-run journal data (crates/recorder's Recorder::publish_undo_preview,
-// once a transport carries it onto this bus) wins over ./undo/mockJournal.ts's
-// fixture when present for a run; the fixture stays the fallback otherwise.
-const realJournalSource = createRealJournalSource(bus);
+// B10: the undo screen sends the preview_undo / undo_run commands and renders
+// the core's echoed undo.previewed / undo.applied (contracts/ipc.md 5c). With
+// no Tauri bridge yet (the whole shell still runs on the mock bus above), the
+// dev/Demo core stand-in previews from ./undo/mockJournal.ts's fixture; this is
+// the one line that swaps for a real invoke-backed UndoCommands once the bridge
+// lands, with no change to ui/src/undo/state.ts.
 const undoScreen = createUndoScreen(bus, {
-  journalForRun: (runId) => realJournalSource.journalForRun(runId) ?? fixtureJournalForRun(runId),
+  commands: createMockUndoCommands(bus, fixtureJournalForRun),
 });
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
