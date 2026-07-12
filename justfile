@@ -52,6 +52,11 @@ gate id:
 golden:
     cd e2e/golden-path; cargo test
 
+# UI gate: TypeScript typecheck (node --test only strips types, it does not typecheck) plus tests.
+# Run `cd ui; npm install` once first.
+ui:
+    cd ui; npm run typecheck; node --test
+
 # Regenerate signed/binary fixtures (deterministic; keypair guarded).
 fixtures:
     cd contracts/fixtures; node generate.mjs

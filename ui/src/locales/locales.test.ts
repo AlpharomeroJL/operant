@@ -44,8 +44,9 @@ test("wizard switches locale properly", () => {
   wizardStrings = getWizardStrings();
   assert.equal(wizardStrings.welcomeStrings.heading, "Bienvenido a Operant");
 
-  // Verify palette strings also switch
-  assert.equal(wizardStrings.paletteStrings?.placeholder, undefined);
+  // The wizard catalog does not carry palette strings; assert their absence.
+  // Cast to any: paletteStrings is intentionally not on the wizard-strings type.
+  assert.equal((wizardStrings as any).paletteStrings?.placeholder, undefined);
 
   // Reset to English
   setLocale("en");
