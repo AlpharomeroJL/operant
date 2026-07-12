@@ -309,3 +309,33 @@ test("keyboard-only: Tab and Enter alone drive Continue through every screen up 
     env.cleanup();
   }
 });
+
+test("mic_check confirms the configured engine and renders the honest, not-green probe (DOM)", async () => {
+  const env = createDomEnv();
+  try {
+    const wizard = createWizard(createMockBusClient());
+    const { container, render } = mount(env, wizard);
+    wizard.continueWelcome();
+    wizard.chooseChatGPT();
+    // Let the async probe settle (it resolves on a microtask; a macrotask tick
+    // guarantees it ran), then rebuild the screen from the updated snapshot.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    render();
+
+    const text = container.textContent ?? "";
+    assert.ok(text.includes("You're set up with ChatGPT."), "the mic check confirms the configured engine");
+
+    const probe = container.querySelector<HTMLElement>("[data-op-probe-state]");
+    assert.ok(probe, "the honest probe status line is rendered");
+    assert.equal(
+      probe?.getAttribute("data-op-probe-state"),
+      "not_implemented",
+      "an unwired probe renders as not_implemented, never a green result",
+    );
+    assert.equal(probe?.textContent, "We could not check the connection yet.");
+
+    wizard.dispose();
+  } finally {
+    env.cleanup();
+  }
+});

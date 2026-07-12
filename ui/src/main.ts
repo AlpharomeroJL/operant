@@ -49,6 +49,7 @@ import { mountToast } from "./toasts/view.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
 import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
+import { createMockBackendConfigurator } from "./wizard/engine.ts";
 import { tourStore } from "./tour/state.ts";
 import { mountTourCallout } from "./tour/view.ts";
 
@@ -350,7 +351,12 @@ function markWizardDone(): void {
     // Storage unavailable: the wizard just shows again next launch.
   }
 }
-const wizard = createWizard(bus);
+// The engine-config seam (ui/src/wizard/engine.ts): a mocked configurator that
+// writes real config.changed onto the same bus a live core would echo on. Swap
+// this for a real invoke-backed configurator when the Tauri command bridge
+// lands, the same drop-in the mock bus client itself will get.
+const backendConfigurator = createMockBackendConfigurator(bus);
+const wizard = createWizard(bus, { backend: backendConfigurator });
 let wizardDismissed = wizardAlreadyDone();
 
 // The currently streaming canned demo, if any: cancels the timers behind a

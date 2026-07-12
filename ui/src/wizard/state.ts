@@ -29,6 +29,12 @@ import {
 } from "./downloader.ts";
 import type { ScreenContent } from "./mediaPresence.ts";
 import {
+  createMockBackendConfigurator,
+  type BackendConfigurator,
+  type BackendProvider,
+  type ProbeState,
+} from "./engine.ts";
+import {
   welcomeStrings,
   setupPathStrings,
   providerDisplayNames,
@@ -36,6 +42,7 @@ import {
   guidedTaskStrings,
   scheduleStrings,
   downloadErrorStrings,
+  engineStatusStrings,
 } from "./strings.ts";
 
 export type WizardScreenId = "welcome" | "setup_path" | "mic_check" | "guided_task" | "schedule";
@@ -66,6 +73,20 @@ const SCHEDULE_OPTION_IDS: readonly ScheduleOptionId[] = [
   "when_app_opens",
   "when_email_arrives",
 ];
+
+// Per-provider config the wizard writes through configure_backend
+// (docs/specs/ipc-bridge.md section 7: "Config::set model/provider/key"). The
+// wizard has no model picker (docs/specs/zero-code.md keeps first-run choice
+// minimal), so it writes a sensible default the shell/core may resolve or
+// override; a real model-selection surface is a later concern. The local path
+// points at the on-device endpoint the local-model sidecar serves; that
+// download plus VRAM/disk sidecar is a separate IPC surface whose live wiring
+// is a C2 follow-up.
+const PROVIDER_DEFAULTS: Record<BackendProvider, { model: string; endpoint?: string }> = {
+  chatgpt: { model: "gpt-4o" },
+  claude: { model: "claude-sonnet-5" },
+  local: { model: "llama3.1:8b", endpoint: "http://127.0.0.1:11434" },
+};
 
 interface LocalState {
   phase: LocalPhase;
@@ -108,6 +129,15 @@ interface ScheduleState {
   selected: ScheduleOptionId | null;
 }
 
+interface BackendState {
+  provider: BackendProvider | null;
+  model: string | null;
+  /** True once a setup path has written real config through configure_backend. */
+  configured: boolean;
+  /** The honest probe state; `not_implemented` while probe_backend is unwired. */
+  probe: ProbeState;
+}
+
 interface InternalState {
   screen: WizardScreenId;
   complete: boolean;
@@ -116,6 +146,7 @@ interface InternalState {
   micCheck: MicCheckState;
   guidedTask: GuidedTaskState;
   schedule: ScheduleState;
+  backend: BackendState;
 }
 
 export interface StaticCardSnapshot {
@@ -203,6 +234,19 @@ export interface ScheduleSnapshot {
   canContinue: boolean;
 }
 
+export interface BackendSnapshot {
+  /** True once a setup path wrote real config; the confirmation renders only then. */
+  configured: boolean;
+  provider: BackendProvider | null;
+  model: string | null;
+  /** The honest probe state (never a faked green result while probe_backend is unwired). */
+  probeState: ProbeState;
+  /** "You're set up with X." Empty until configured. */
+  confirmLabel: string;
+  /** The honest probe line; empty until configured. Never claims a working connection unless it is one. */
+  probeLabel: string;
+}
+
 export interface WizardSnapshot {
   screen: WizardScreenId;
   complete: boolean;
@@ -219,6 +263,7 @@ export interface WizardSnapshot {
   micCheck: MicCheckSnapshot;
   guidedTask: GuidedTaskSnapshot;
   schedule: ScheduleSnapshot;
+  backend: BackendSnapshot;
   /** The active screen's content, for the media-presence check (ui/src/wizard/mediaPresence.ts). */
   mediaContent: ScreenContent;
 }
@@ -245,6 +290,13 @@ export interface CreateWizardOptions {
   download?: DownloadSimOptions;
   /** Delay between guided-task steps, ms. Tests pass something tiny. */
   guidedTaskStepDelayMs?: number;
+  /**
+   * The engine-config seam. Defaults to a mocked configurator wired to `bus`
+   * (ui/src/wizard/engine.ts); ui/src/main.ts injects it explicitly so a real
+   * invoke-backed configurator can be swapped in later without touching the
+   * wizard, and tests inject spies to assert what config gets written.
+   */
+  backend?: BackendConfigurator;
 }
 
 export interface Wizard {
@@ -378,6 +430,34 @@ function accessKeySnapshot(a: AccessKeyState): AccessKeyCardSnapshot {
   };
 }
 
+function probeLabelFor(state: ProbeState): string {
+  switch (state) {
+    case "checking":
+      return engineStatusStrings.probe.checking;
+    case "reachable":
+      return engineStatusStrings.probe.reachable;
+    case "unreachable":
+      return engineStatusStrings.probe.unreachable;
+    case "not_implemented":
+      return engineStatusStrings.probe.not_implemented;
+    case "unavailable":
+      return engineStatusStrings.probe.unavailable;
+    default:
+      return "";
+  }
+}
+
+function backendSnapshot(b: BackendState): BackendSnapshot {
+  return {
+    configured: b.configured,
+    provider: b.provider,
+    model: b.model,
+    probeState: b.probe,
+    confirmLabel: b.configured && b.provider ? engineStatusStrings.confirm(engineStatusStrings.names[b.provider]) : "",
+    probeLabel: b.configured ? probeLabelFor(b.probe) : "",
+  };
+}
+
 function guidedTaskSnapshot(g: GuidedTaskState, runSnap: RunViewerSnapshot): GuidedTaskSnapshot {
   const G = guidedTaskStrings;
   const done = runSnap.runState === "done";
@@ -419,7 +499,15 @@ function mediaContentFor(screen: WizardScreenId, data: ScreenData): ScreenConten
     case "mic_check":
       return {
         screen,
-        visible: [data.micCheck.heading, data.micCheck.body, data.micCheck.levelMeterLabel],
+        visible: [
+          data.micCheck.heading,
+          data.micCheck.body,
+          data.micCheck.levelMeterLabel,
+          // Present only once a real path configured a backend; the media-presence
+          // check filters the empty strings the demo path leaves here.
+          data.backend.confirmLabel,
+          data.backend.probeLabel,
+        ],
         audible: { cueLabel: data.micCheck.sampleButton },
       };
     case "guided_task":
@@ -470,6 +558,7 @@ function toSnapshot(s: InternalState, runSnap: RunViewerSnapshot, diskNeededByte
       continueButton: scheduleStrings.continueButton,
       canContinue: s.schedule.selected !== null,
     },
+    backend: backendSnapshot(s.backend),
   };
 
   return {
@@ -487,6 +576,7 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
   const vramMinMb = opts.vramMinMb ?? 4000;
   const vramSlowMb = opts.vramSlowMb ?? 6000;
   const downloadOpts = opts.download ?? {};
+  const backend = opts.backend ?? createMockBackendConfigurator(bus);
 
   let state: InternalState = {
     screen: "welcome",
@@ -496,7 +586,15 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
     micCheck: { played: false, level: 0 },
     guidedTask: { demo: false, saved: false, stop: null },
     schedule: { selected: null },
+    backend: { provider: null, model: null, configured: false, probe: "idle" },
   };
+
+  // Guards for the async probe: `disposed` stops a late probe from touching a
+  // torn-down wizard, and `backendGeneration` stops a stale probe (from a setup
+  // path the user backed out of) clobbering a newer one. Determinism: the
+  // config write is synchronous, only the probe label settles on a microtask.
+  let disposed = false;
+  let backendGeneration = 0;
 
   const listeners = new Set<(snap: WizardSnapshot) => void>();
   const runViewerInternal = createRunViewer(bus);
@@ -517,19 +615,51 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
     emit();
   }
 
-  function signIn(): void {
+  // Writes real engine config through configure_backend and kicks off the
+  // honest probe. Never blocks navigation on the round trip and never keeps the
+  // access key (it is handed to the configurator and dropped). Mutates state
+  // but does not emit: the caller emits once, after it also sets the screen.
+  function configureBackendFor(provider: BackendProvider, apiKey?: string): void {
+    const def = PROVIDER_DEFAULTS[provider];
+    const generation = ++backendGeneration;
+    state = { ...state, backend: { provider, model: def.model, configured: true, probe: "checking" } };
+
+    // configure_backend: provider + model (+ endpoint for local) become real
+    // config; the shell/core takes the access key for secure storage. Fire and
+    // forget: the config.changed echoes fire synchronously inside the mock.
+    void backend.configureBackend({ provider, model: def.model, apiKey, endpoint: def.endpoint });
+
+    // probe_backend: honest by contract. A not-yet-implemented core answers
+    // not_implemented, which we surface as "probe unavailable"; a rejected probe
+    // degrades to the same honest "could not check" state. Never a faked green.
+    void backend.probeBackend({ provider, model: def.model, endpoint: def.endpoint }).then(
+      (res) => {
+        if (disposed || generation !== backendGeneration) return;
+        state = { ...state, backend: { ...state.backend, probe: res.state } };
+        emit();
+      },
+      () => {
+        if (disposed || generation !== backendGeneration) return;
+        state = { ...state, backend: { ...state.backend, probe: "unavailable" } };
+        emit();
+      },
+    );
+  }
+
+  function chooseChatGPT(): void {
     if (state.screen !== "setup_path") return;
     abandonLocalDownload();
+    configureBackendFor("chatgpt");
     state = { ...state, screen: "mic_check" };
     emit();
   }
 
-  function chooseChatGPT(): void {
-    signIn();
-  }
-
   function chooseClaude(): void {
-    signIn();
+    if (state.screen !== "setup_path") return;
+    abandonLocalDownload();
+    configureBackendFor("claude");
+    state = { ...state, screen: "mic_check" };
+    emit();
   }
 
   function handleDownloadEvent(ev: DownloadEnvelope): void {
@@ -616,6 +746,10 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
 
   function continueAfterLocalDownload(): void {
     if (state.screen !== "setup_path" || state.local.phase !== "complete") return;
+    // The download itself is a separate IPC surface (its live wiring is a C2
+    // follow-up); here we write the config that selects the on-device model so
+    // teaching runs against it afterward.
+    configureBackendFor("local");
     state = { ...state, screen: "mic_check" };
     emit();
   }
@@ -636,9 +770,13 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
   function continueWithAccessKey(): void {
     if (state.screen !== "setup_path") return;
     const provider = state.accessKey.detected ?? state.accessKey.manual;
-    if (!state.accessKey.text.trim() || !provider) return;
+    const key = state.accessKey.text.trim();
+    if (!key || !provider) return;
     abandonLocalDownload();
-    state = { ...state, screen: "mic_check" };
+    configureBackendFor(provider, key);
+    // Key safety: hand the key off once, then drop it from webview state so no
+    // snapshot, re-render, or later screen can hold or leak the raw value.
+    state = { ...state, screen: "mic_check", accessKey: { text: "", detected: null, manual: null } };
     emit();
   }
 
@@ -707,6 +845,7 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
   }
 
   function dispose(): void {
+    disposed = true;
     state.guidedTask.stop?.();
     abandonLocalDownload();
     unsubscribeRunViewer();

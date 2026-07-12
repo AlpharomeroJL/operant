@@ -132,6 +132,22 @@ export const wizardShellStrings = {
   progressLabel: "Progreso de la configuración",
 };
 
+export const engineStatusStrings = {
+  confirm: (name: string) => `Ya está configurado con ${name}.`,
+  names: {
+    chatgpt: "ChatGPT",
+    claude: "Claude",
+    local: "el modelo en esta computadora",
+  },
+  probe: {
+    checking: "Comprobando la conexión.",
+    reachable: "La conexión funciona bien.",
+    unreachable: "No pudimos conectarnos, pero puedes continuar y configurarlo más tarde.",
+    not_implemented: "Todavía no pudimos comprobar la conexión.",
+    unavailable: "Todavía no pudimos comprobar la conexión.",
+  },
+};
+
 export const paletteStrings = {
   placeholder: "Dile qué hacer",
   submit: "Enséñalo",
