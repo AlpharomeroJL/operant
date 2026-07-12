@@ -4,6 +4,13 @@
   box-sizing: border-box;
 }
 
+/* [hidden] must always win. Some layout classes (e.g. .op-main's display:grid)
+   otherwise override the UA [hidden] rule, so a screen toggled hidden would
+   still paint over the active one. This keeps hidden screens actually hidden. */
+[hidden] {
+  display: none !important;
+}
+
 /* design.md section 2: "prefers-reduced-motion disables all nonessential
    motion. Nothing animates on load." Nothing in this stylesheet plays a
    load-time animation (no @keyframes are defined at all: every `transition`
