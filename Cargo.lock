@@ -1420,6 +1420,7 @@ dependencies = [
  "anyhow",
  "operant-action",
  "operant-compiler",
+ "operant-core",
  "operant-gates",
  "operant-ir",
  "serde",
