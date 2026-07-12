@@ -22,6 +22,16 @@ import { fileURLToPath } from "node:url";
 import { createMockBusClient } from "../bus/mockClient.ts";
 import type { BusEvent } from "../bus/types.ts";
 import { createWizard } from "./state.ts";
+import { createMockBackendConfigurator } from "./engine.ts";
+
+/** Collects (key, value) pairs from every config.changed the wizard publishes. */
+function collectConfigChanges(bus: ReturnType<typeof createMockBusClient>): { key: string; value: unknown }[] {
+  const changes: { key: string; value: unknown }[] = [];
+  bus.subscribe("config.changed", (e) => {
+    if (e.topic === "config.changed") changes.push({ key: e.payload.key, value: e.payload.value });
+  });
+  return changes;
+}
 
 function waitUntil(subscribe: (fn: () => void) => () => void, predicate: () => boolean): Promise<void> {
   if (predicate()) return Promise.resolve();
@@ -452,4 +462,134 @@ test("dispose cleans up without throwing, mid-download and mid-run", () => {
   wizard.continueWelcome();
   wizard.startLocalDownload();
   assert.doesNotThrow(() => wizard.dispose());
+});
+
+// ---- Engine config (lane B8): completing a setup path configures a real backend ----
+
+test("choosing ChatGPT writes real engine config through configure_backend (provider, model, and a real planner)", () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  const wizard = createWizard(bus);
+
+  wizard.continueWelcome();
+  wizard.chooseChatGPT();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+
+  const byKey = new Map(changes.map((c) => [c.key, c.value]));
+  assert.equal(byKey.get("model.provider"), "chatgpt");
+  assert.ok(typeof byKey.get("model.name") === "string" && (byKey.get("model.name") as string).length > 0, "a model is written");
+  // The point of writing config is that start_teach_run can assemble a real
+  // planner afterward: the demo's mock planner is replaced.
+  assert.equal(byKey.get("model.planner"), "real_planner");
+  assert.equal(wizard.getSnapshot().backend.configured, true);
+
+  wizard.dispose();
+});
+
+test("the access key path configures the detected provider and never lets the raw key reach the bus or linger in state", () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  // Watch every topic, not just config.changed: the raw key must appear on none.
+  const allPayloads: string[] = [];
+  bus.subscribe("*", (e) => allPayloads.push(JSON.stringify(e.payload)));
+
+  const configurator = createMockBackendConfigurator(bus);
+  const wizard = createWizard(bus, { backend: configurator });
+  wizard.continueWelcome();
+
+  const SECRET = "sk-ant-super-secret-key-value-do-not-leak";
+  wizard.setAccessKeyText(SECRET);
+  wizard.continueWithAccessKey();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+
+  const byKey = new Map(changes.map((c) => [c.key, c.value]));
+  assert.equal(byKey.get("model.provider"), "claude", "sk-ant- keys are recognized as Claude");
+  assert.equal(byKey.get("model.planner"), "real_planner");
+
+  // Key safety: the raw key rides no bus event of any topic.
+  for (const p of allPayloads) {
+    assert.ok(!p.includes(SECRET), "the raw access key must never be published on the bus");
+  }
+  // The shell/core got the key (out of band); the webview kept only the fact of it.
+  const configured = configurator.getConfigured();
+  assert.ok(configured, "configure_backend was called");
+  assert.equal(configured?.hadApiKey, true, "the key was handed off to the shell/core");
+  // ...and the webview drops the raw key from its own state after handoff.
+  assert.equal(wizard.getSnapshot().setupPath.accessKey.text, "", "the raw key is cleared from state after handoff");
+
+  wizard.dispose();
+});
+
+test("probe_backend is surfaced honestly: an unwired core reports not_implemented, never a faked green result", async () => {
+  const bus = createMockBusClient();
+  const wizard = createWizard(bus);
+
+  wizard.continueWelcome();
+  wizard.chooseChatGPT();
+  // Synchronously the probe is still in flight; it must not pretend to be green.
+  assert.equal(wizard.getSnapshot().backend.probeState, "checking");
+
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().backend.probeState !== "checking");
+
+  const b = wizard.getSnapshot().backend;
+  assert.equal(b.probeState, "not_implemented", "the default (not-yet-implemented) core answers not_implemented");
+  assert.notEqual(b.probeState, "reachable", "a not-yet-implemented probe must never render as reachable");
+  assert.equal(b.probeLabel, "We could not check the connection yet.");
+
+  wizard.dispose();
+});
+
+test("a reachable probe result flows through to the snapshot (the probe is wired, not hardcoded to one state)", async () => {
+  const bus = createMockBusClient();
+  const configurator = createMockBackendConfigurator(bus, { probe: { state: "reachable", detail: "reachable" } });
+  const wizard = createWizard(bus, { backend: configurator });
+
+  wizard.continueWelcome();
+  wizard.chooseClaude();
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().backend.probeState !== "checking");
+
+  assert.equal(wizard.getSnapshot().backend.probeState, "reachable");
+  wizard.dispose();
+});
+
+test("finishing the local-model download configures the on-device model, including its endpoint", async () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  const wizard = createWizard(bus, {
+    diskFreeBytes: 50_000_000_000,
+    diskNeededBytes: 4_000_000_000,
+    vramMb: 8000,
+    download: { totalBytes: 10, ticks: 2, tickMs: 3 },
+  });
+
+  wizard.continueWelcome();
+  wizard.startLocalDownload();
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().setupPath.local.phase === "complete");
+  wizard.continueAfterLocalDownload();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+
+  const byKey = new Map(changes.map((c) => [c.key, c.value]));
+  assert.equal(byKey.get("model.provider"), "local");
+  assert.equal(byKey.get("model.planner"), "real_planner");
+  assert.ok(typeof byKey.get("model.endpoint") === "string", "the local path writes an on-device endpoint");
+
+  wizard.dispose();
+});
+
+test("the demo path is Demo mode: it configures no real model and never flips the planner to real", async () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  const wizard = createWizard(bus, { guidedTaskStepDelayMs: 3 });
+
+  wizard.continueWelcome();
+  wizard.startDemo();
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().guidedTask.done);
+
+  assert.equal(wizard.getSnapshot().backend.configured, false, "a zero-grants demo must not configure a real model");
+  assert.ok(
+    !changes.some((c) => c.key === "model.planner"),
+    "the demo must leave the planner on its mock default",
+  );
+
+  wizard.dispose();
 });

@@ -305,6 +305,22 @@ function renderMicCheck(snap: WizardSnapshot, opts: WizardMountOptions): HTMLEle
   const root = el("section", "op-wizard__screen");
   root.append(screenHeading(m.heading));
   root.append(el("p", "op-wizard__body", m.body));
+
+  // Every real setup path (ChatGPT, Claude, access key, local model) lands here
+  // after writing config, so this is where the wizard confirms the engine is
+  // set up. The probe line stays honest: probe_backend is not-yet-implemented,
+  // so it reads "could not check yet" rather than painting a green connection.
+  // The demo path skips this screen, so this block never claims a demo is a
+  // configured backend.
+  if (snap.backend.configured) {
+    root.append(el("p", "op-wizard-card__check", snap.backend.confirmLabel));
+    const probe = el("p", "op-wizard-card__status", snap.backend.probeLabel);
+    probe.setAttribute("aria-live", "polite");
+    // A stable hook so tests can assert the honest state without matching copy.
+    probe.setAttribute("data-op-probe-state", snap.backend.probeState);
+    root.append(probe);
+  }
+
   root.append(button(m.sampleButton, "op-button", opts.onPlayMicSample, false, "mic-sample-button"));
 
   const meter = el("div", "op-mic-meter");

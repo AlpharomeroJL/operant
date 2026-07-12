@@ -137,6 +137,29 @@ export const wizardShellStrings = {
   progressLabel: "Setup progress",
 };
 
+// Copy for the engine-config confirmation the mic-check screen shows once a
+// setup path has written real config (ui/src/wizard/engine.ts). The probe
+// lines stay honest: probe_backend is not-yet-implemented in the contract, so
+// the not-yet-checked wording never claims a working connection. Every string
+// uses only user-facing vocabulary from contracts/microcopy_glossary.json
+// (note: "model", never the internal word for it).
+export const engineStatusStrings = {
+  confirm: (name: string) => `You're set up with ${name}.`,
+  names: {
+    chatgpt: "ChatGPT",
+    claude: "Claude",
+    local: "the model on this computer",
+  },
+  probe: {
+    checking: "Checking the connection.",
+    reachable: "The connection looks good.",
+    unreachable: "We could not reach it, but you can keep going and set this up later.",
+    // Honest not-yet-implemented / probe-unavailable wording: never a green result.
+    not_implemented: "We could not check the connection yet.",
+    unavailable: "We could not check the connection yet.",
+  },
+};
+
 export const paletteStrings = {
   placeholder: "Tell it what to do",
   submit: "Teach it",

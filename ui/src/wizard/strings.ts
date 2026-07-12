@@ -28,6 +28,7 @@ export const guidedTaskStrings = enCatalog.guidedTaskStrings;
 export const scheduleStrings = enCatalog.scheduleStrings;
 export const downloadErrorStrings = enCatalog.downloadErrorStrings;
 export const wizardShellStrings = enCatalog.wizardShellStrings;
+export const engineStatusStrings = enCatalog.engineStatusStrings;
 
 // For locale-aware access (e.g., in tests), use this function to get the
 // current locale's strings.
