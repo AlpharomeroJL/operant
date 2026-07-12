@@ -165,21 +165,68 @@ test("explain() on an unknown workflow returns undefined", () => {
   library.dispose();
 });
 
-test("schedule() reports the request with the workflow's plain title, does not touch the bus", () => {
+test("schedule() calls upsert_trigger and, with no core trigger store, resolves unavailable without faking a schedule or touching the bus", async () => {
   const bus = createMockBusClient();
   const events: string[] = [];
   bus.subscribe("*", (e) => events.push(e.topic));
-  const requests: Array<{ name: string; title: string }> = [];
+  const resolved: Array<{ name: string; title: string; scheduled: boolean; unavailable: boolean }> = [];
   const library = createLibrary(bus, {
     registry: oneWorkflowRegistry(),
-    onScheduleRequested: (name, title) => requests.push({ name, title }),
+    onScheduleResolved: (outcome) => resolved.push(outcome),
   });
 
-  library.schedule("copy-invoice-total");
+  const outcome = await library.schedule("copy-invoice-total");
 
-  assert.deepEqual(requests, [{ name: "copy-invoice-total", title: "Copy the invoice total into the spreadsheet" }]);
+  // The core has no trigger store, so the honest outcome is "unavailable":
+  // never scheduled, never faked.
+  assert.deepEqual(outcome, {
+    name: "copy-invoice-total",
+    title: "Copy the invoice total into the spreadsheet",
+    scheduled: false,
+    unavailable: true,
+  });
+  assert.deepEqual(resolved, [outcome], "onScheduleResolved reports the same honest outcome");
   assert.deepEqual(events, [], "scheduling a trigger is not modeled on the bus yet; this must not fake one");
 
+  library.dispose();
+});
+
+test("schedule() sends the workflow name to the upsert_trigger command", async () => {
+  const bus = createMockBusClient();
+  const calls: Array<{ workflow_name: string; enabled: boolean }> = [];
+  const library = createLibrary(bus, {
+    registry: oneWorkflowRegistry(),
+    scheduler: {
+      listTriggers: async () => ({ ok: false, error: { code: "not_implemented", message: "x", retryable: false } }),
+      upsertTrigger: async (args) => {
+        calls.push({ workflow_name: args.workflow_name, enabled: args.enabled });
+        return { ok: false, error: { code: "not_implemented", message: "x", retryable: false } };
+      },
+    },
+  });
+
+  await library.schedule("copy-invoice-total");
+
+  assert.deepEqual(calls, [{ workflow_name: "copy-invoice-total", enabled: true }]);
+  library.dispose();
+});
+
+test("schedule() on an unknown workflow resolves undefined and never calls the scheduler", async () => {
+  const bus = createMockBusClient();
+  let called = false;
+  const library = createLibrary(bus, {
+    registry: oneWorkflowRegistry(),
+    scheduler: {
+      listTriggers: async () => ({ ok: false, error: { code: "not_implemented", message: "x", retryable: false } }),
+      upsertTrigger: async () => {
+        called = true;
+        return { ok: false, error: { code: "not_implemented", message: "x", retryable: false } };
+      },
+    },
+  });
+
+  assert.equal(await library.schedule("nope"), undefined);
+  assert.equal(called, false, "an unknown workflow must not reach the scheduler");
   library.dispose();
 });
 

@@ -30,6 +30,7 @@ import { mountLibrary } from "./library/view.ts";
 import { libraryStrings } from "./library/strings.ts";
 import { createDashboard } from "./dashboard/state.ts";
 import { mountDashboard } from "./dashboard/view.ts";
+import { createUnavailableSchedulerCommands } from "./scheduler/commands.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
@@ -198,17 +199,30 @@ const undoScreen = createUndoScreen(bus, {
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
 
+// The scheduler command surface (contracts/ipc.md section 5e). This build has
+// no core trigger store, so both scheduler commands honestly answer
+// not_implemented (ui/src/scheduler/commands.ts); the library's Schedule action
+// and the dashboard's Up next both surface that truthfully rather than
+// fabricating a schedule. What the core needs to make this real is specified in
+// docs/roadmap/scheduler-live.md.
+const scheduler = createUnavailableSchedulerCommands();
+
 const library = createLibrary(bus, {
   registry,
-  onScheduleRequested: (_name, title) => {
-    scheduleNotice = libraryStrings.scheduleNotice(title);
+  scheduler,
+  onScheduleResolved: (outcome) => {
+    // Only the honest not-available message ships: no build can create a real
+    // trigger yet, so there is no success copy to show. A non-not_implemented
+    // failure (not reachable today) falls back to the generic error line.
+    scheduleNotice = outcome.unavailable ? libraryStrings.scheduleUnavailable(outcome.title) : commonStrings.errorGeneric;
     renderLibraryPanel();
   },
 });
 // Shares Library's own registry instance (not a second createMockRegistry())
 // so Up next/Recent runs show the exact same plain-language titles Library
-// does for the same workflow name.
-const dashboard = createDashboard(bus, { registry });
+// does for the same workflow name. Shares the scheduler surface too, so Up
+// next reflects the same not-available truth the Schedule action does.
+const dashboard = createDashboard(bus, { registry, scheduler });
 const settings = createSettings(bus);
 // Shares Library's own registry instance too (see the dashboard comment
 // just above), so the tray's Quick Runs menu (docs/specs/design.md section

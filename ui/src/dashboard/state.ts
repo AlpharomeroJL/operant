@@ -2,20 +2,35 @@
 // window view." A hero line in plain language plus a sparkline of the last
 // 8 weeks, an Up next list of scheduled runs, a Recent runs list, and a
 // quiet empty state inviting teaching the first workflow. Turns
-// ./mockMetrics.ts's fixtures plus run.started/run.completed bus events
-// (contracts/bus_events.md) into the snapshot ./view.ts renders. Pure and
-// DOM-free, same split as ui/src/library/state.ts and ui/src/tray/state.ts.
+// ./mockMetrics.ts's weekly-metrics fixture plus run.started/run.completed bus
+// events (contracts/bus_events.md) into the snapshot ./view.ts renders. Pure
+// and DOM-free, same split as ui/src/library/state.ts and ui/src/tray/state.ts.
+//
+// Up next is NOT fabricated: it is sourced from the list_triggers command
+// (contracts/ipc.md section 5e) via the injected scheduler surface. The core
+// has no trigger store yet, so list_triggers answers `not_implemented`
+// (section 5g) and Up next honestly reports scheduling is not available rather
+// than inventing future runs. See docs/roadmap/scheduler-live.md for what the
+// core needs before this list can carry real entries.
 
 import type { BusClient } from "../bus/mockClient.ts";
 import type { BusEvent } from "../bus/types.ts";
 import { commonStrings, dashboardStrings } from "../strings/default.ts";
 import { dashboardCopyStrings } from "./strings.ts";
-import { WEEKLY_METRICS_FIXTURE, UP_NEXT_FIXTURE, type WeeklyMetric, type UpcomingRunFixture } from "./mockMetrics.ts";
+import { WEEKLY_METRICS_FIXTURE, type WeeklyMetric } from "./mockMetrics.ts";
 import { createMockRegistry, type MockRegistry } from "../library/mockRegistry.ts";
+import { createUnavailableSchedulerCommands, isNotImplemented, type SchedulerCommands, type TriggerRecord } from "../scheduler/commands.ts";
 
 export interface UpNextRow {
   workflowName: string;
   title: string;
+  /**
+   * A plain description of when this trigger runs. Sourced from the trigger's
+   * own spec as returned by list_triggers (contracts/ipc.md section 5e); the
+   * shell never computes a next-fire time itself (that is the core scheduler's
+   * job, docs/roadmap/scheduler-live.md). No row is ever shown in this build:
+   * the core has no trigger store, so list_triggers returns nothing.
+   */
   whenLabel: string;
 }
 
@@ -48,6 +63,16 @@ export interface DashboardSnapshot {
   upNextTitle: string;
   upNext: readonly UpNextRow[];
   upNextEmptyLabel: string;
+  /**
+   * True when scheduling itself is not wired: the list_triggers command
+   * answered `not_implemented` (contracts/ipc.md section 5g). ./view.ts shows
+   * upNextUnavailableLabel instead of upNextEmptyLabel in this case, so the
+   * screen says "scheduling is not available yet" rather than the weaker
+   * "nothing scheduled yet," which would imply scheduling works and is merely
+   * empty. Always true in this build.
+   */
+  upNextUnavailable: boolean;
+  upNextUnavailableLabel: string;
   recentRunsTitle: string;
   recentRuns: readonly RecentRunRow[];
   recentRunsEmptyLabel: string;
@@ -76,8 +101,14 @@ export interface CreateDashboardOptions {
   now?: () => number;
   /** Last 8 weeks, oldest first. Defaults to ./mockMetrics.ts's fixture. */
   weeklyMetrics?: readonly WeeklyMetric[];
-  /** Defaults to ./mockMetrics.ts's fixture. Pass [] to exercise the empty Up next state. */
-  upNext?: readonly UpcomingRunFixture[];
+  /**
+   * The scheduler command surface (contracts/ipc.md section 5e) that feeds Up
+   * next. Defaults to the honest not-yet-wired implementation, which answers
+   * list_triggers with `not_implemented` because the core has no trigger store
+   * yet (see ../scheduler/commands.ts). Up next is driven entirely by this: it
+   * is never fabricated from a fixture.
+   */
+  scheduler?: SchedulerCommands;
   /** Oldest recent run dropped once this many are held. */
   recentRunsLimit?: number;
 }
@@ -87,7 +118,6 @@ const RECENT_RUNS_DEFAULT_LIMIT = 5;
 export const SPARKLINE_WIDTH = 160;
 export const SPARKLINE_HEIGHT = 40;
 const SPARKLINE_PADDING = 4;
-const MS_PER_DAY = 86_400_000;
 
 function formatMinutesList(values: readonly number[]): string {
   return values.join(", ");
@@ -100,49 +130,6 @@ function formatHoursPhrase(minutes: number): string {
   const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
   const unit = rounded === 1 ? "hour" : "hours";
   return `${text} ${unit}`;
-}
-
-/** Local midnight for the given instant; see formatHumaneTime's header note on why this shell uses local time throughout rather than reconciling a server timezone. */
-function startOfDayMs(ms: number): number {
-  const d = new Date(ms);
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-}
-
-/** Resolves a fixture's relative-to-now schedule (daysFromNow/hour/minute) into an absolute instant, so "tomorrow at 9" is always actually tomorrow relative to whatever now() returns. */
-function targetMsFor(fixture: UpcomingRunFixture, nowMs: number): number {
-  const d = new Date(nowMs);
-  d.setDate(d.getDate() + fixture.daysFromNow);
-  d.setHours(fixture.hour, fixture.minute, 0, 0);
-  return d.getTime();
-}
-
-/**
- * "tomorrow at 9 am" (design.md section 3's own example, plus an am/pm
- * suffix design.md's prose elides but a real schedule should not: "9" alone
- * is genuinely ambiguous between morning and evening). This shell has no
- * server-side timezone to reconcile against (single-user desktop app,
- * ui/src-tauri's own machine), so, like the rest of this codebase (e.g.
- * ui/src/library/state.ts's formatWhen), this reads plain local Date
- * getters throughout rather than normalizing to UTC first.
- */
-function formatHumaneTime(targetMs: number, nowMs: number): string {
-  const dayDiff = Math.round((startOfDayMs(targetMs) - startOfDayMs(nowMs)) / MS_PER_DAY);
-  const target = new Date(targetMs);
-
-  let dayWord: string;
-  if (dayDiff === 0) dayWord = dashboardCopyStrings.today;
-  else if (dayDiff === 1) dayWord = dashboardCopyStrings.tomorrow;
-  else if (dayDiff > 1 && dayDiff < 7) dayWord = dashboardCopyStrings.weekdayNames[target.getDay()];
-  else if (dayDiff >= 7) dayWord = dashboardCopyStrings.inDays(dayDiff);
-  else dayWord = dashboardCopyStrings.weekdayNames[target.getDay()]; // defensive: a past instant is not expected from this fixture's always-future offsets
-
-  const hours24 = target.getHours();
-  const minutes = target.getMinutes();
-  const ampm = hours24 < 12 ? "am" : "pm";
-  const hour12raw = hours24 % 12;
-  const hour12 = hour12raw === 0 ? 12 : hour12raw;
-  const minutePart = minutes === 0 ? "" : `:${String(minutes).padStart(2, "0")}`;
-  return `${dayWord} at ${hour12}${minutePart} ${ampm}`;
 }
 
 /** Same shape as ui/src/library/state.ts's formatWhen (kept local rather than shared: both are small, screen-owned pure functions, not shared infrastructure). */
@@ -186,24 +173,59 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
   const now = opts.now ?? (() => Date.now());
   const registry = opts.registry ?? createMockRegistry();
   const weeklyMetrics = opts.weeklyMetrics ?? WEEKLY_METRICS_FIXTURE;
-  const upNextFixture = opts.upNext ?? UP_NEXT_FIXTURE;
+  const scheduler = opts.scheduler ?? createUnavailableSchedulerCommands();
   const recentRunsLimit = opts.recentRunsLimit ?? RECENT_RUNS_DEFAULT_LIMIT;
 
   const pendingRuns = new Map<string, { workflowName: string }>();
   let recentRunRecords: RecentRunRecord[] = [];
+  // Up next state, sourced from the list_triggers command, never a fixture.
+  // Defaults to "unavailable" (not merely empty): the honest starting point is
+  // that scheduling is off until list_triggers proves otherwise, so no snapshot
+  // ever momentarily implies a working-but-empty scheduler. The probe below
+  // confirms it (or, once a real store exists, fills in rows).
+  let upNext: UpNextRow[] = [];
+  let scheduleUnavailable = true;
+  let disposed = false;
   const listeners = new Set<(snap: DashboardSnapshot) => void>();
 
   function titleFor(workflowName: string): string {
     return registry.get(workflowName)?.manifest.description || workflowName;
   }
 
-  function upNextRows(nowMs: number): UpNextRow[] {
-    return upNextFixture.map((f) => ({
-      workflowName: f.workflowName,
-      title: titleFor(f.workflowName),
-      whenLabel: formatHumaneTime(targetMsFor(f, nowMs), nowMs),
-    }));
+  function upNextRowFor(trigger: TriggerRecord): UpNextRow {
+    return {
+      workflowName: trigger.workflow_name,
+      title: titleFor(trigger.workflow_name),
+      // The configured spec, shown verbatim: the shell does not compute a
+      // next-fire time (that is the core scheduler's job). A friendlier
+      // "tomorrow at 9 am" label needs a core-supplied next-fire field on
+      // list_triggers, tracked in docs/roadmap/scheduler-live.md.
+      whenLabel: trigger.spec,
+    };
   }
+
+  // Wire Up next to list_triggers (contracts/ipc.md section 5e). The core has
+  // no trigger store yet, so this resolves `not_implemented` and Up next stays
+  // unavailable; when a real store lands, the same call fills in real rows with
+  // no change here. Fire-and-forget: the constructor stays synchronous and the
+  // result arrives through emit(), which ui/src/main.ts already re-renders on.
+  void scheduler
+    .listTriggers()
+    .then((res) => {
+      if (disposed) return;
+      if (res.ok) {
+        upNext = res.result.map(upNextRowFor);
+        scheduleUnavailable = false;
+      } else {
+        upNext = [];
+        scheduleUnavailable = isNotImplemented(res);
+      }
+      emit();
+    })
+    .catch(() => {
+      // A transport-level failure is not a schedule; leave Up next unavailable
+      // rather than inventing entries.
+    });
 
   function recentRunRows(nowMs: number): RecentRunRow[] {
     return recentRunRecords.map((r) => ({
@@ -220,7 +242,6 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
     const nowMs = now();
     const values = weeklyMetrics.map((m) => m.minutesSaved);
     const thisWeekMinutes = values[values.length - 1] ?? 0;
-    const upNext = upNextRows(nowMs);
     const recentRuns = recentRunRows(nowMs);
     return {
       title: dashboardStrings.title,
@@ -231,9 +252,16 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
       upNextTitle: dashboardStrings.upNextTitle,
       upNext,
       upNextEmptyLabel: dashboardStrings.upNextEmpty,
+      upNextUnavailable: scheduleUnavailable,
+      upNextUnavailableLabel: dashboardStrings.upNextUnavailable,
       recentRunsTitle: dashboardStrings.recentRunsTitle,
       recentRuns,
       recentRunsEmptyLabel: dashboardStrings.recentRunsEmpty,
+      // The quiet first-run invite shows only when there is genuinely nothing
+      // to show: no upcoming triggers and no runs. Scheduling being unavailable
+      // does not force the invite (a person with runs still sees their runs);
+      // it just means Up next carries no rows, which it never does in this
+      // build.
       empty: upNext.length === 0 && recentRuns.length === 0,
       emptyLabel: dashboardStrings.emptyInvite,
       emptyActionLabel: commonStrings.teachFirstWorkflow,
@@ -284,6 +312,7 @@ export function createDashboard(bus: BusClient, opts: CreateDashboardOptions = {
       return () => listeners.delete(fn);
     },
     dispose() {
+      disposed = true;
       unsubscribe();
       listeners.clear();
     },

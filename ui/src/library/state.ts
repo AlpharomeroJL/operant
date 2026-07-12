@@ -8,6 +8,7 @@ import type { BusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_REPLAY, type BusEvent } from "../bus/types.ts";
 import { renderWorkflow, type RenderedWorkflow } from "../../../sdk/ts/src/render/index.js";
 import { createMockRegistry, type MockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
+import { createUnavailableSchedulerCommands, isNotImplemented, TRIGGER_KIND_CRON, type SchedulerCommands } from "../scheduler/commands.ts";
 import { commonStrings, workflowLibraryStrings } from "../strings/default.ts";
 import { libraryStrings } from "./strings.ts";
 import { assignGlyph } from "./glyph.ts";
@@ -68,6 +69,23 @@ interface PendingRun {
   startedAt: number;
 }
 
+/**
+ * What happened when a person pressed Schedule on a card. `scheduled` is true
+ * only when the core actually created a recurring trigger; `unavailable` is
+ * true when the core has no trigger store wired yet and answered the
+ * upsert_trigger command with `not_implemented` (contracts/ipc.md section 5g).
+ * In every build today `unavailable` is the outcome: the two are kept as
+ * separate booleans (rather than one "ok") so the shell can tell an honest
+ * "scheduling is not available yet" apart from a real, retryable failure, and
+ * so the success path is ready to render truthfully the day the store lands.
+ */
+export interface ScheduleOutcome {
+  name: string;
+  title: string;
+  scheduled: boolean;
+  unavailable: boolean;
+}
+
 export interface Library {
   getSnapshot(): LibrarySnapshot;
   subscribe(fn: (snap: LibrarySnapshot) => void): () => void;
@@ -77,8 +95,15 @@ export interface Library {
    * mode). No-op for an unknown name.
    */
   run(name: string): void;
-  /** No bus topic models "create a recurring trigger" yet (contracts/bus_events.md's scheduler topics all assume one already exists); this only reports the intent via onScheduleRequested. */
-  schedule(name: string): void;
+  /**
+   * Asks the core to create a recurring trigger for this workflow via the
+   * upsert_trigger command (contracts/ipc.md section 5e). Resolves with the
+   * honest outcome and also reports it through onScheduleResolved. The core has
+   * no trigger store yet, so this resolves `unavailable` in every build today;
+   * it never fabricates a schedule or touches the bus. Resolves undefined for
+   * an unknown name.
+   */
+  schedule(name: string): Promise<ScheduleOutcome | undefined>;
   explain(name: string): RenderedWorkflow | undefined;
   /**
    * design.md section 3, Library: "Drag to reorder." Moves `name` to just
@@ -99,7 +124,15 @@ export interface Library {
 export interface CreateLibraryOptions {
   registry?: MockRegistry;
   now?: () => number;
-  onScheduleRequested?: (name: string, title: string) => void;
+  /**
+   * The scheduler command surface (contracts/ipc.md section 5e). Defaults to
+   * the honest not-yet-wired implementation, which answers every scheduler
+   * command with `not_implemented` because the core has no trigger store yet
+   * (see ../scheduler/commands.ts).
+   */
+  scheduler?: SchedulerCommands;
+  /** Reports the outcome of a Schedule press once the upsert_trigger command resolves. */
+  onScheduleResolved?: (outcome: ScheduleOutcome) => void;
 }
 
 function minutesSavedFor(runtime: WorkflowRuntime | undefined): number {
@@ -124,6 +157,7 @@ function formatWhen(atMs: number, nowMs: number): string {
 export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): Library {
   const registry = opts.registry ?? createMockRegistry();
   const now = opts.now ?? (() => Date.now());
+  const scheduler = opts.scheduler ?? createUnavailableSchedulerCommands();
   const runtimes = new Map<string, WorkflowRuntime>();
   const pendingRuns = new Map<string, PendingRun>();
   const listeners = new Set<(snap: LibrarySnapshot) => void>();
@@ -279,10 +313,31 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
     bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
   }
 
-  function schedule(name: string): void {
+  async function schedule(name: string): Promise<ScheduleOutcome | undefined> {
     const record = registry.get(name);
-    if (!record) return;
-    opts.onScheduleRequested?.(name, record.manifest.description || name);
+    if (!record) return undefined;
+    const title = record.manifest.description || name;
+    // Wire the Schedule press to the real upsert_trigger command
+    // (contracts/ipc.md section 5e). There is no schedule-authoring UI yet to
+    // collect a real cron/file/window/email spec, so the request carries an
+    // empty spec: the core answers `not_implemented` before it ever inspects
+    // args (it has no trigger store, section 5g), so no fabricated spec is
+    // stored anywhere. Building the spec-authoring surface is follow-up work
+    // tracked in docs/roadmap/scheduler-live.md.
+    const res = await scheduler.upsertTrigger({
+      kind: TRIGGER_KIND_CRON,
+      workflow_name: name,
+      spec: "",
+      enabled: true,
+    });
+    const outcome: ScheduleOutcome = {
+      name,
+      title,
+      scheduled: res.ok,
+      unavailable: isNotImplemented(res),
+    };
+    opts.onScheduleResolved?.(outcome);
+    return outcome;
   }
 
   function explain(name: string): RenderedWorkflow | undefined {

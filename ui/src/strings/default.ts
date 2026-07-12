@@ -60,6 +60,12 @@ export const dashboardStrings = {
   sparklineSummary: (values: string) => `Minutes saved by week, oldest to newest: ${values}.`,
   upNextTitle: "Up next",
   upNextEmpty: "Nothing scheduled yet.",
+  // Shown instead of upNextEmpty when scheduling itself is not wired: the
+  // list_triggers command answers not_implemented (contracts/ipc.md section
+  // 5g). Deliberately distinct from upNextEmpty's "nothing scheduled yet,"
+  // which would imply scheduling works and just has no entries. Honest per
+  // design.md section 4: say what is true, do not overclaim a feature.
+  upNextUnavailable: "Scheduling isn't available yet.",
   recentRunsTitle: "Recent runs",
   recentRunsEmpty: "No runs yet.",
   emptyInvite: "Nothing here yet. Teach Operant its first workflow from the command palette, or run one from Library, and it shows up here.",
