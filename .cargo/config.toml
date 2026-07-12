@@ -1,8 +1,12 @@
 # Target-scoped only: does not affect native builds or CI's default
 # workspace build/tests. Required so `getrandom` (pulled in transitively via
 # `ahash`, itself pulled in by dependencies of `operant-action`) picks the
-# browser RNG backend when operant-replay is compiled for wasm32-unknown-unknown
-# with the `wasm` feature. See crates/replay/Cargo.toml and
+# browser RNG backend when operant-replay-wasm is compiled for
+# wasm32-unknown-unknown. See crates/replay-wasm/Cargo.toml and
 # https://docs.rs/getrandom/latest/getrandom/#webassembly-support.
+# Discovered here even though crates/replay-wasm is its own standalone
+# workspace (not a member of the root workspace): Cargo's config-file
+# search walks up from the manifest's directory to the filesystem root, and
+# crates/replay-wasm sits under this directory.
 [target.wasm32-unknown-unknown]
 rustflags = ["--cfg", "getrandom_backend=\"wasm_js\""]

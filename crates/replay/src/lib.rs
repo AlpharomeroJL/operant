@@ -31,9 +31,6 @@
 
 pub mod compose;
 
-#[cfg(feature = "wasm")]
-pub mod wasm;
-
 use std::collections::BTreeMap;
 
 use operant_action::{AdapterRegistry, Executor, MockSynthesizer, NoopSleeper, Synthesizer};

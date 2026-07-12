@@ -4,8 +4,8 @@
 //! `site/playground/fixtures/webapp.html` (a checked-in copy of
 //! `contracts/fixtures/webapp/index.html`) through
 //! [`Replayer::with_adapters`] and a [`FixtureBrowser`], the exact same
-//! call graph `crates/replay/src/wasm.rs`'s `replay_fixture` drives from
-//! JS. Runs natively so a failure here is a fast `cargo test`, not a
+//! call graph `crates/replay-wasm/src/lib.rs`'s `replay_fixture` drives
+//! from JS. Runs natively so a failure here is a fast `cargo test`, not a
 //! headless-browser round trip; `e2e/harness`'s Playwright spec covers the
 //! browser side of the same fixture pair separately.
 
