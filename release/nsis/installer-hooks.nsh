@@ -54,7 +54,11 @@
     IDYES operant_remove_user_data
   Goto operant_keep_user_data
   operant_remove_user_data:
-    RMDir /r "$APPDATA\Operant"
+    ; App data lives under the Tauri identifier (dev.operant.shell), not a
+    ; folder literally named "Operant". Remove both the local and roaming
+    ; identifier-scoped dirs so recordings and workflows are actually cleared.
+    RMDir /r "$LOCALAPPDATA\dev.operant.shell"
+    RMDir /r "$APPDATA\dev.operant.shell"
   operant_keep_user_data:
 !macroend
 
