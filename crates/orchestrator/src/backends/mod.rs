@@ -45,6 +45,12 @@ mod types;
 #[cfg(feature = "real-transport")]
 mod transport_reqwest;
 
+// The P0b proof-harness planner: an operator answers each turn through a
+// directory of request/response JSON files. Opt-in only; never in a default or
+// release build (see the module docs and `Cargo.toml`'s `dev-agent-bridge`).
+#[cfg(feature = "dev-agent-bridge")]
+mod agent_bridge;
+
 // Flagged real-endpoint tests (FR-M1/M2): test-only, and only meaningfully
 // exercised with `--features real-transport` plus `OPERANT_LIVE_BACKEND`
 // set; see the module doc for how it skips cleanly without either.
@@ -75,6 +81,9 @@ pub use types::{
 
 #[cfg(feature = "real-transport")]
 pub use transport_reqwest::ReqwestTransport;
+
+#[cfg(feature = "dev-agent-bridge")]
+pub use agent_bridge::{AgentBridgeBackend, AGENT_BRIDGE_DIR_ENV};
 
 /// The single trait every model provider implements (C6).
 pub trait ModelBackend: Send + Sync {
