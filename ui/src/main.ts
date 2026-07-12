@@ -12,6 +12,8 @@ import { createRunViewer } from "./runViewer/state.ts";
 import { mountRunViewer } from "./runViewer/view.ts";
 import { createUndoScreen } from "./undo/state.ts";
 import { mountUndoScreen } from "./undo/view.ts";
+import { createRealJournalSource } from "./undo/realJournal.ts";
+import { journalForRun as fixtureJournalForRun } from "./undo/mockJournal.ts";
 import {
   commonStrings,
   navStrings,
@@ -182,7 +184,13 @@ explainClose.textContent = libraryStrings.closeExplain;
 
 const bus = createMockBusClient();
 const runViewer = createRunViewer(bus);
-const undoScreen = createUndoScreen(bus);
+// F1b: real per-run journal data (crates/recorder's Recorder::publish_undo_preview,
+// once a transport carries it onto this bus) wins over ./undo/mockJournal.ts's
+// fixture when present for a run; the fixture stays the fallback otherwise.
+const realJournalSource = createRealJournalSource(bus);
+const undoScreen = createUndoScreen(bus, {
+  journalForRun: (runId) => realJournalSource.journalForRun(runId) ?? fixtureJournalForRun(runId),
+});
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
 

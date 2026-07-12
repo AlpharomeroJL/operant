@@ -87,7 +87,7 @@ Subscribers match on exact topic or prefix (`run.*`). Delivery is in-process ord
 |---|---|---|
 | killswitch.engaged | at_ms | tray red; all input synthesis frozen |
 | killswitch.released | run_id? | explicit human resume, per run |
-| undo.previewed | run_id, entries (count), irreversible (count) | |
+| undo.previewed | run_id, entries (count), irreversible (count), items? (array, newest-first) | items added in F1b: each `{seq, op, ...}` mirrors crates/recorder/src/undo.rs's `Inverse`: `delete_created{path}`, `recreate_deleted{path}`, `reverse_move{moved_to,original}`, `restore_overwritten{path}`, `restore_clipboard{had_prior}`, `irreversible{description}`. Never carries a blob hash or actual clipboard contents. Omitted (not an empty array) when the publisher has none to report |
 | undo.applied | run_id, restored (count), narration (array of sentences) | |
 
 ### Doctor, metrics, suggestions

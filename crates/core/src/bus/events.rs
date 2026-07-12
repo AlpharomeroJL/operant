@@ -342,12 +342,48 @@ impl BusEvent for KillswitchReleased {
     const TOPIC: &'static str = "killswitch.released";
 }
 
-/// `undo.previewed`: run_id, entries (count), irreversible (count)
+/// One journal item as carried on the wire (`undo.previewed`'s optional
+/// `items` field, F1b): mirrors `operant_recorder::undo`'s internal
+/// `Inverse` enum closely enough for a subscriber to reproduce that module's
+/// own `preview_line`/`applied_line` wording, while deliberately dropping
+/// what a subscriber must never see: blob hashes (an internal storage
+/// detail) and actual clipboard contents. `RestoreClipboard` carries only
+/// `had_prior`, whether a prior value existed, never what it was.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "op", rename_all = "snake_case")]
+pub enum UndoInverseWire {
+    DeleteCreated { path: String },
+    RecreateDeleted { path: String },
+    ReverseMove { moved_to: String, original: String },
+    RestoreOverwritten { path: String },
+    RestoreClipboard { had_prior: bool },
+    Irreversible { description: String },
+}
+
+/// One `undo_journal` row as carried on the wire: the journal sequence
+/// number plus its inverse. `#[serde(flatten)]` places `op` and the
+/// inverse's own fields alongside `seq` in one JSON object, e.g.
+/// `{"seq": 6, "op": "restore_clipboard", "had_prior": true}`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct UndoJournalItemWire {
+    pub seq: u32,
+    #[serde(flatten)]
+    pub inverse: UndoInverseWire,
+}
+
+/// `undo.previewed`: run_id, entries (count), irreversible (count), items?
+/// (F1b: the real per-item restoration list, newest-first, in the same
+/// dry-run scope as `operant_recorder::Recorder::preview_undo`). `items` is
+/// an optional field added per the contract's append-only rule: omitted
+/// rather than serialized as an empty array when a publisher has none to
+/// report, so a consumer reading only the counts is unaffected.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UndoPreviewed {
     pub run_id: String,
     pub entries: u32,
     pub irreversible: u32,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub items: Vec<UndoJournalItemWire>,
 }
 impl BusEvent for UndoPreviewed {
     const TOPIC: &'static str = "undo.previewed";
@@ -649,6 +685,7 @@ mod tests {
             run_id: "r1".into(),
             entries: 3,
             irreversible: 1,
+            items: Vec::new(),
         };
         assert_eq!(
             serde_json::from_value::<UndoPreviewed>(serde_json::to_value(&previewed).unwrap())
@@ -664,6 +701,78 @@ mod tests {
         assert_eq!(
             serde_json::from_value::<UndoApplied>(serde_json::to_value(&applied).unwrap()).unwrap(),
             applied
+        );
+    }
+
+    /// F1b: `items` is optional and additive. An empty list is omitted
+    /// entirely from the JSON (not serialized as `"items":[]`), a populated
+    /// list round-trips every variant with the exact wire field names the
+    /// contract documents, and JSON from an older publisher with no `items`
+    /// key at all still deserializes (`#[serde(default)]`), so this field
+    /// cannot break an existing consumer.
+    #[test]
+    fn undo_previewed_items_roundtrip_and_omit_when_empty() {
+        let empty = UndoPreviewed {
+            run_id: "r1".into(),
+            entries: 0,
+            irreversible: 0,
+            items: Vec::new(),
+        };
+        let v = serde_json::to_value(&empty).unwrap();
+        assert!(v.get("items").is_none(), "empty items must be omitted, not serialized as []");
+
+        let old_shape = serde_json::json!({ "run_id": "r1", "entries": 0, "irreversible": 0 });
+        assert_eq!(
+            serde_json::from_value::<UndoPreviewed>(old_shape).unwrap(),
+            empty,
+            "JSON from a publisher that predates items must still deserialize"
+        );
+
+        let populated = UndoPreviewed {
+            run_id: "r2".into(),
+            entries: 6,
+            irreversible: 1,
+            items: vec![
+                UndoJournalItemWire { seq: 6, inverse: UndoInverseWire::RestoreClipboard { had_prior: true } },
+                UndoJournalItemWire {
+                    seq: 5,
+                    inverse: UndoInverseWire::Irreversible {
+                        description: "sent the invoice email to boss@example.com".into(),
+                    },
+                },
+                UndoJournalItemWire {
+                    seq: 4,
+                    inverse: UndoInverseWire::DeleteCreated { path: "receipt.txt".into() },
+                },
+                UndoJournalItemWire {
+                    seq: 3,
+                    inverse: UndoInverseWire::RestoreOverwritten { path: "invoice.txt".into() },
+                },
+                UndoJournalItemWire {
+                    seq: 2,
+                    inverse: UndoInverseWire::ReverseMove {
+                        moved_to: "Archive/draft.txt".into(),
+                        original: "draft.txt".into(),
+                    },
+                },
+                UndoJournalItemWire {
+                    seq: 1,
+                    inverse: UndoInverseWire::RecreateDeleted { path: "old_notes.txt".into() },
+                },
+            ],
+        };
+        let v = serde_json::to_value(&populated).unwrap();
+        assert_eq!(v["items"][0]["seq"], serde_json::json!(6));
+        assert_eq!(v["items"][0]["op"], serde_json::json!("restore_clipboard"));
+        assert_eq!(v["items"][0]["had_prior"], serde_json::json!(true));
+        assert_eq!(v["items"][2]["op"], serde_json::json!("delete_created"));
+        assert_eq!(v["items"][2]["path"], serde_json::json!("receipt.txt"));
+        assert_eq!(v["items"][4]["op"], serde_json::json!("reverse_move"));
+        assert_eq!(v["items"][4]["moved_to"], serde_json::json!("Archive/draft.txt"));
+        assert_eq!(
+            serde_json::from_value::<UndoPreviewed>(v).unwrap(),
+            populated,
+            "a populated items list must round-trip exactly"
         );
     }
 }

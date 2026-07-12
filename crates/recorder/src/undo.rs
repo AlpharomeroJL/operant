@@ -37,6 +37,9 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
+use operant_core::bus::events::{UndoInverseWire, UndoJournalItemWire, UndoPreviewed};
+use operant_core::Bus;
+
 use crate::error::{RecorderError, Result};
 use crate::store::Recorder;
 
@@ -155,6 +158,34 @@ impl Inverse {
             }
         }
     }
+
+    /// The wire shape crossing the recorder boundary onto the bus
+    /// (`operant_core::bus::events::UndoInverseWire`, `undo.previewed`'s
+    /// optional `items` field, F1b). Drops the blob hash, an internal
+    /// storage detail no subscriber needs, and, for a clipboard restore,
+    /// drops the actual prior clipboard text, keeping only whether one
+    /// existed: this inverse never leaks clipboard contents onto the bus.
+    fn to_wire(&self) -> UndoInverseWire {
+        match self {
+            Inverse::DeleteCreated { path } => UndoInverseWire::DeleteCreated { path: show(path) },
+            Inverse::RecreateDeleted { path, .. } => {
+                UndoInverseWire::RecreateDeleted { path: show(path) }
+            }
+            Inverse::ReverseMove { moved_to, original } => UndoInverseWire::ReverseMove {
+                moved_to: show(moved_to),
+                original: show(original),
+            },
+            Inverse::RestoreOverwritten { path, .. } => {
+                UndoInverseWire::RestoreOverwritten { path: show(path) }
+            }
+            Inverse::RestoreClipboard { prior } => {
+                UndoInverseWire::RestoreClipboard { had_prior: prior.is_some() }
+            }
+            Inverse::Irreversible { description } => {
+                UndoInverseWire::Irreversible { description: description.clone() }
+            }
+        }
+    }
 }
 
 impl Recorder {
@@ -235,6 +266,48 @@ impl Recorder {
     pub fn preview_undo_last_run(&self) -> Result<Vec<String>> {
         let run_id = self.latest_run_id()?;
         self.preview_undo(&run_id)
+    }
+
+    /// The real `undo.previewed` bus event for `run_id` (F1b): counts plus
+    /// the real per-item restoration content, newest-first, in the same
+    /// dry-run scope as [`Recorder::preview_undo`] (a reversible entry
+    /// already undone in a prior pass is omitted; an irreversible entry is
+    /// always included, and is what `entries`/`irreversible` are counted
+    /// from, so this event and `preview_undo`'s own plain-English lines can
+    /// never disagree about which rows they cover). This is what a
+    /// publisher hands to [`Bus::publish_event`] so a subscriber (once a
+    /// transport carries it there, `ui/src/undo/realJournal.ts`) sees the
+    /// actual restoration list a fixture only stood in for before. Performs
+    /// no filesystem or clipboard change.
+    pub fn preview_undo_event(&self, run_id: &str) -> Result<UndoPreviewed> {
+        let mut items = Vec::new();
+        let mut irreversible = 0u32;
+        for (seq, inverse, applied) in self.inverses_newest_first_seq(run_id)? {
+            if inverse.is_irreversible() {
+                irreversible += 1;
+            } else if applied {
+                continue;
+            }
+            items.push(UndoJournalItemWire { seq, inverse: inverse.to_wire() });
+        }
+        Ok(UndoPreviewed { run_id: run_id.to_string(), entries: items.len() as u32, irreversible, items })
+    }
+
+    /// [`Recorder::preview_undo_event`] for the most recently started run.
+    pub fn preview_undo_event_last_run(&self) -> Result<UndoPreviewed> {
+        let run_id = self.latest_run_id()?;
+        self.preview_undo_event(&run_id)
+    }
+
+    /// Compute [`Recorder::preview_undo_event`] for `run_id` and publish it
+    /// on `bus` under `undo.previewed` (`contracts/bus_events.md`): the
+    /// recorder itself publishing the real restoration list, not a
+    /// stand-in. Deterministic and read-only like `preview_undo`: a
+    /// database read plus struct construction, never a model or network
+    /// call. Returns the bus sequence number assigned to the publish.
+    pub fn publish_undo_preview(&self, bus: &Bus, run_id: &str) -> Result<u64> {
+        let event = self.preview_undo_event(run_id)?;
+        Ok(bus.publish_event(&event)?)
     }
 
     /// Execute the undo of the most recently started run.
@@ -473,5 +546,81 @@ mod tests {
         // b.txt was journaled last, so undo previews it first.
         assert!(preview[0].contains("b.txt"));
         assert!(preview[1].contains("a.txt"));
+    }
+
+    /// F1b: `preview_undo_event`'s `items` mirror `preview_undo`'s own lines
+    /// exactly (same rows, same order), just structured instead of prose,
+    /// and with clipboard contents never present on the wire.
+    #[test]
+    fn preview_undo_event_matches_preview_undo_and_never_leaks_clipboard_contents() {
+        let rec = Recorder::open_in_memory().unwrap();
+        let run_id = rec.start_run("mixed", RunMode::Explore, None).unwrap();
+        rec.journal_ahead(&run_id, &PendingWrite::CreateFile { path: "new.txt".into() }).unwrap();
+        rec.journal_ahead(
+            &run_id,
+            &PendingWrite::ClipboardWrite { prior: Some("super secret clipboard text".into()) },
+        )
+        .unwrap();
+        rec.journal_ahead(
+            &run_id,
+            &PendingWrite::Irreversible { description: "send the invoice email".into() },
+        )
+        .unwrap();
+
+        let event = rec.preview_undo_event(&run_id).unwrap();
+        assert_eq!(event.run_id, run_id);
+        assert_eq!(event.entries, 3);
+        assert_eq!(event.irreversible, 1);
+        assert_eq!(event.items.len(), 3);
+        // Newest-first, same as preview_undo.
+        assert_eq!(event.items[0].seq, 3);
+        assert_eq!(event.items[2].seq, 1);
+
+        let json = serde_json::to_value(&event.items).unwrap();
+        let dumped = json.to_string();
+        assert!(!dumped.contains("super secret clipboard text"), "clipboard contents must never reach the wire");
+        assert!(dumped.contains("\"had_prior\":true"));
+
+        assert_eq!(rec.preview_undo_event_last_run().unwrap(), event);
+    }
+
+    /// F1b: a reversible row already undone in a prior pass is omitted from
+    /// `items` (and its counts), same as `preview_undo`; an irreversible row
+    /// is always present.
+    #[test]
+    fn preview_undo_event_skips_already_applied_reversible_rows() {
+        let rec = Recorder::open_in_memory().unwrap();
+        let run_id = rec.start_run("goal", RunMode::Explore, None).unwrap();
+        rec.journal_ahead(&run_id, &PendingWrite::CreateFile { path: "a.txt".into() }).unwrap();
+        rec.journal_ahead(&run_id, &PendingWrite::CreateFile { path: "b.txt".into() }).unwrap();
+        rec.mark_undo_applied(&run_id, 1).unwrap(); // a.txt's inverse already ran.
+
+        let event = rec.preview_undo_event(&run_id).unwrap();
+        assert_eq!(event.entries, 1);
+        assert_eq!(event.irreversible, 0);
+        assert_eq!(event.items.len(), 1);
+        assert_eq!(event.items[0].seq, 2);
+    }
+
+    /// F1b: `publish_undo_preview` is the recorder itself publishing the
+    /// real restoration list onto a real bus, not an inert struct nobody
+    /// calls.
+    #[test]
+    fn publish_undo_preview_puts_the_real_event_on_the_bus() {
+        let rec = Recorder::open_in_memory().unwrap();
+        let bus = operant_core::Bus::new();
+        let sub = bus.subscribe("undo.previewed");
+
+        let run_id = rec.start_run("goal", RunMode::Explore, None).unwrap();
+        rec.journal_ahead(&run_id, &PendingWrite::CreateFile { path: "created.txt".into() }).unwrap();
+
+        rec.publish_undo_preview(&bus, &run_id).unwrap();
+
+        let env = sub.rx.try_recv().expect("undo.previewed delivered");
+        assert_eq!(env.topic, "undo.previewed");
+        let payload: UndoPreviewed = serde_json::from_value(env.payload).expect("payload deserializes");
+        assert_eq!(payload, rec.preview_undo_event(&run_id).unwrap());
+        assert_eq!(payload.items[0].seq, 1);
+        assert_eq!(payload.items[0].inverse, UndoInverseWire::DeleteCreated { path: "created.txt".into() });
     }
 }

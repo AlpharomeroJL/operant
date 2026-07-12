@@ -237,10 +237,33 @@ export interface KillswitchEngagedPayload {
 export interface KillswitchReleasedPayload {
   run_id?: string;
 }
+// One journal item as carried on undo.previewed's optional `items` field
+// (F1b): mirrors crates/core/src/bus/events.rs's UndoInverseWire, itself a
+// deliberately narrowed mirror of crates/recorder/src/undo.rs's internal
+// Inverse enum: no blob hash (an internal storage detail), and a clipboard
+// restore carries only had_prior (whether a prior value existed), never the
+// actual clipboard contents.
+export type UndoInverseWire =
+  | { op: "delete_created"; path: string }
+  | { op: "recreate_deleted"; path: string }
+  | { op: "reverse_move"; moved_to: string; original: string }
+  | { op: "restore_overwritten"; path: string }
+  | { op: "restore_clipboard"; had_prior: boolean }
+  | { op: "irreversible"; description: string };
+
+// seq sits alongside the tagged union's own fields in the wire JSON (Rust's
+// #[serde(flatten)]), e.g. {"seq":6,"op":"restore_clipboard","had_prior":true}.
+export type UndoJournalItemWire = { seq: number } & UndoInverseWire;
+
 export interface UndoPreviewedPayload {
   run_id: string;
   entries: number;
   irreversible: number;
+  // Per-item restoration entries, newest-first. Added in F1b as an optional
+  // field per contracts/bus_events.md's append-only rule: omitted (not an
+  // empty array) when the publisher has none to report, e.g. an older
+  // publisher or nothing journaled. ui/src/undo/realJournal.ts decodes this.
+  items?: UndoJournalItemWire[];
 }
 export interface UndoAppliedPayload {
   run_id: string;
