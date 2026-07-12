@@ -64,6 +64,11 @@ to action. It is a light on an instrument, never a large fill.
 Replay state uses ink, not color. Replay is the calm default; explore is the
 amber exception. This is the visual thesis: determinism looks quiet.
 
+Status-dot fill only, light theme (H2, a11y-and-contrast): amber `#C17A17`,
+success `#379B6F`, info `#5387EE` — the same hue and saturation as the values
+above, darkened until a small dot clears WCAG 1.4.11's 3:1 against bg1/bg2;
+every other use of amber/success/info, and both dark-theme values, is unchanged.
+
 ### Type
 
 - UI and display face: Instrument Sans (bundled, variable).

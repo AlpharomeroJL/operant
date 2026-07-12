@@ -11,38 +11,35 @@
 //    guards against contrast.ts's ColorRoles projection (see that file)
 //    silently diverging from ui/scripts/build-tokens.mjs's CSS output.
 // 2. Every token pair a screen actually paints (text on a surface, a
-//    button's own text on its own fill, a focus ring or interactive-
-//    component border against the surface it sits on) meets WCAG AA: 4.5:1
-//    for text (SC 1.4.3), 3:1 for a non-text UI component boundary
-//    (SC 1.4.11).
+//    button's own text on its own fill, a status dot or focus ring or
+//    interactive-component border against the surface it sits on) meets
+//    WCAG AA: 4.5:1 for text (SC 1.4.3), 3:1 for a non-text UI component
+//    boundary (SC 1.4.11).
 //
-// Two categories of token are intentionally NOT in the pairwise checks
-// below:
+// One category of token is intentionally NOT in the pairwise checks below:
+// ui/src/styles/border, the plain divider token (`.op-panel`, card, and
+// header borders, never an interactive component's own boundary): those
+// dividers sit between two already visually distinct fills (an elevated
+// panel on the page background), so the divider itself is decorative per
+// WCAG 1.4.11's exemption for graphics "essential" only when no other
+// visual indicator of the boundary exists.
 //
-// - ui/src/styles/border, the plain divider token (`.op-panel`, card, and
-//   header borders, never an interactive component's own boundary): those
-//   dividers sit between two already visually distinct fills (an elevated
-//   panel on the page background), so the divider itself is decorative per
-//   WCAG 1.4.11's exemption for graphics "essential" only when no other
-//   visual indicator of the boundary exists.
-// - statusIdle/Running/Halted/Warning (and statusDone), the status-dot and
-//   tray-glyph fill colors: every single usage in ui/src (ui/src/main.ts's
-//   run-status dot, ui/src/runViewer/view.ts's per-step dots, ui/src/tray/
-//   view.ts's glyph) pairs the dot with an `aria-hidden` graphic plus an
-//   adjacent or visually-hidden text equivalent carrying the same state, so
-//   the dot's exact color, like the divider above, is never the sole way to
-//   perceive the state; the same WCAG 1.4.11 "essential" exemption applies.
-//   This is also why the numbers do not merely happen to pass: this D1
-//   repaint deliberately maps `statusRunning` to design.md's `signal` token
-//   and `statusWarning` to `info` (ui/src/theme/tokens.ts's resolveRoles doc
-//   comment explains why), and `signal`/`success`/`info` as tiny fills read
-//   as low as 1.93:1-2.85:1 against the light theme's bg1/bg2 (measured;
-//   the pre-redesign palette's equivalents were chosen dark/saturated enough
-//   to clear 3:1 specifically so they could double as standalone indicators,
-//   which design.md's fixed signal/success/info values are not). Because
-//   every dot has a redundant text equivalent, that shortfall is not an
-//   accessibility regression, so this suite no longer asserts a number for
-//   them rather than asserting a weaker, misleading one.
+// statusIdle/Running/Halted/Warning/Done, the status-dot and tray-glyph
+// fill colors, used to lean on that same "essential" exemption (every dot
+// in ui/src pairs its fill with an `aria-hidden` graphic plus an adjacent or
+// visually-hidden text equivalent carrying the same state, so the dot color
+// is never the *sole* way to perceive the state) because the D1 repaint's
+// design.md-fixed `signal`/`success`/`info` values, at a small dot size,
+// measured as low as 1.93:1-2.85:1 against the light theme's bg1/bg2 (below
+// the 3:1 non-text minimum). H2 (a11y-and-contrast) fixes that properly
+// instead of continuing to lean on the exemption: ui/src/theme/tokens.ts's
+// LIGHT_PALETTE now darkens signal/success/info specifically for the light
+// theme (same hue/saturation, lower lightness) until every dot clears 3:1
+// on its own, so the exemption is no longer needed and status dots are back
+// in the strict battery below, in both themes, same as every other non-text
+// pair. The redundant text equivalent stays (defense in depth, and still
+// required for screen-reader users regardless of color), but it is no
+// longer the reason this check passes.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -108,6 +105,7 @@ function tokensFromBlock(block: string): ThemeTokens {
     statusRunning: readVar(block, "status-running"),
     statusHalted: readVar(block, "status-halted"),
     statusWarning: readVar(block, "status-warning"),
+    statusDone: readVar(block, "status-done"),
     focusRing: readVar(block, "focus-ring"),
   };
 }
@@ -142,9 +140,10 @@ function textPairs(t: ThemeTokens): Array<[string, string, string]> {
   ];
 }
 
-// Status dots are deliberately not included here: see this file's header
-// comment for why (every dot ships with a redundant text equivalent, so its
-// exact fill color is not an AA-checked boundary).
+// Status dots are back in the strict battery (see this file's header
+// comment): H2 darkened the light-theme signal/success/info tokens
+// specifically so statusRunning/statusDone/statusWarning clear 3:1 as a dot
+// fill in both themes, same as statusIdle/statusHalted always have.
 function nonTextPairs(t: ThemeTokens): Array<[string, string, string]> {
   return [
     ["borderStrong on bg (palette/field input boundary)", t.borderStrong, t.bg],
@@ -152,6 +151,16 @@ function nonTextPairs(t: ThemeTokens): Array<[string, string, string]> {
     ["borderStrong on bgSunken (Advanced code editor boundary)", t.borderStrong, t.bgSunken],
     ["focusRing on bg", t.focusRing, t.bg],
     ["focusRing on bgElevated", t.focusRing, t.bgElevated],
+    ["statusIdle dot on bgElevated", t.statusIdle, t.bgElevated],
+    ["statusIdle dot on bgSunken", t.statusIdle, t.bgSunken],
+    ["statusRunning dot on bgElevated", t.statusRunning, t.bgElevated],
+    ["statusRunning dot on bgSunken", t.statusRunning, t.bgSunken],
+    ["statusHalted dot on bgElevated", t.statusHalted, t.bgElevated],
+    ["statusHalted dot on bgSunken", t.statusHalted, t.bgSunken],
+    ["statusWarning dot on bgElevated", t.statusWarning, t.bgElevated],
+    ["statusWarning dot on bgSunken", t.statusWarning, t.bgSunken],
+    ["statusDone dot on bgElevated", t.statusDone, t.bgElevated],
+    ["statusDone dot on bgSunken", t.statusDone, t.bgSunken],
   ];
 }
 
