@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createDomEnv } from "../styles/testDomEnv.ts";
 import { createMockBusClient } from "../bus/mockClient.ts";
-import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY } from "../bus/types.ts";
+import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY, GROUNDING_UIA } from "../bus/types.ts";
 import { createRunViewer, type RunViewer } from "./state.ts";
 import { mountRunViewer } from "./view.ts";
 
@@ -130,6 +130,42 @@ test("filmstrip thumbnails are redacted placeholders: no image element, only gen
     assert.ok(
       [...frame.querySelectorAll(".op-visually-hidden")].some((n) => n.textContent === "Redacted preview"),
       "a screen-reader note flags the thumbnail as redacted",
+    );
+    viewer.dispose();
+  } finally {
+    env.cleanup();
+  }
+});
+
+test("a step whose evt frame carried a thumbnail renders the redacted screenshot as an image, not the placeholder bars", () => {
+  const env = createDomEnv();
+  try {
+    const bus = createMockBusClient();
+    const viewer = createRunViewer(bus);
+    const { container, render } = mount(env, viewer);
+    viewer.subscribe(render);
+
+    bus.publish("run.started", { run_id: "r1", goal: "g", mode: RUN_MODE_EXPLORE });
+    // A real (already-redacted, already-downscaled) screenshot rides the
+    // executed frame's sidecar, beside the envelope (contracts/ipc.md section 7).
+    bus.publish(
+      "run.step.executed",
+      { run_id: "r1", step_id: "s1", outcome: "ok", ms: 12, grounding: GROUNDING_UIA },
+      { thumb: { run_id: "r1", step_id: "s1", format: "png", w: 320, h: 200, redacted: true, data_b64: "aGVsbG8=" } },
+    );
+    render();
+
+    const frame = container.querySelector('.op-filmstrip__frame[data-step-id="s1"]');
+    assert.ok(frame, "the step must have a filmstrip frame");
+    const img = frame.querySelector<HTMLImageElement>("img.op-filmstrip__image");
+    assert.ok(img, "the redacted screenshot renders as an <img>");
+    assert.equal(img.getAttribute("src"), "data:image/png;base64,aGVsbG8=", "the image is the base64 PNG from the sidecar");
+    assert.equal(img.getAttribute("aria-hidden"), "true", "the image is decorative; the frame's aria-label names the step");
+    assert.equal(frame.querySelector(".op-filmstrip__bar"), null, "the generated placeholder bars give way to the real image");
+    // The redacted note stays: the shown screenshot is itself redacted.
+    assert.ok(
+      [...frame.querySelectorAll(".op-visually-hidden")].some((n) => n.textContent === "Redacted preview"),
+      "the screen-reader note still flags the thumbnail as redacted",
     );
     viewer.dispose();
   } finally {
