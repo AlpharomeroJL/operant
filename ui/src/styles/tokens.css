@@ -1,42 +1,46 @@
 /*
- * Design tokens: color, spacing, and type scale for the Operant shell.
- * Light is the default; dark follows the OS preference automatically, or an
- * explicit data-theme attribute set by a future theme toggle. All values are
- * CSS custom properties so every component reads the same source of truth.
+ * GENERATED FILE. Do not hand-edit.
+ *
+ * Design tokens: color, spacing, type, radius, and motion scale for the
+ * Operant shell (docs/specs/design.md section 2, BINDING). Produced by
+ * ui/scripts/build-tokens.mjs from ui/src/theme/tokens.ts, the single source
+ * of truth; re-run `npm run build:tokens` (or `npm test` / `npm run dev` /
+ * `npm run build`, which do it for you) after editing tokens.ts.
+ *
+ * Dark is the default theme (design.md section 1): the bare :root block
+ * below is dark, with a prefers-color-scheme: light override for a
+ * system-light OS, and both are also reachable directly via an explicit
+ * data-theme attribute (ui/src/theme/store.ts) that wins over the OS
+ * preference in either direction.
  */
 
 :root {
-  /* Color: surfaces */
-  --op-color-bg: #f7f7f8;
-  --op-color-bg-elevated: #ffffff;
-  --op-color-bg-sunken: #ececee;
-  --op-color-border: #d8d8dd;
-  /* WCAG 1.4.11 non-text contrast: this token outlines interactive
-     components (inputs, buttons, the mode toggle, the DSL editor), so it
-     needs 3:1 against the elevated surfaces those components sit on.
-     #86868f clears that against white, --op-color-bg, and --op-color-bg-sunken
-     alike (ui/src/styles/contrast.test.ts checks the exact ratios). */
-  --op-color-border-strong: #86868f;
+  --op-color-bg: #101114;
+  --op-color-bg-elevated: #17181c;
+  --op-color-bg-sunken: #1e2026;
+  --op-color-border: #2a2d34;
+  --op-color-border-strong: #9da2ab;
+  --op-color-text: #ecedef;
+  --op-color-text-muted: #9da2ab;
+  --op-color-text-disabled: rgba(157, 162, 171, 0.45);
+  --op-color-text-inverse: #1b1c1e;
+  --op-color-accent: #e8a13c;
+  --op-color-accent-hover: #f2b355;
+  --op-color-accent-text: #1a1204;
+  --op-color-status-idle: #9da2ab;
+  --op-color-status-running: #e8a13c;
+  --op-color-status-halted: #e5484d;
+  --op-color-status-warning: #5b8def;
+  --op-color-status-done: #3fb27f;
+  --op-color-focus-ring: #5b8def;
+  --op-color-success: #3fb27f;
+  --op-color-danger: #e5484d;
+  --op-color-info: #5b8def;
+  --op-color-scrim: rgba(20, 20, 25, 0.4);
+  --op-shadow-popover: none;
+  --op-shadow-modal: none;
 
-  /* Color: text */
-  --op-color-text: #17171a;
-  --op-color-text-muted: #55555f;
-  --op-color-text-inverse: #ffffff;
-
-  /* Color: accent */
-  --op-color-accent: #2f5fed;
-  --op-color-accent-hover: #2249c4;
-  --op-color-accent-text: #ffffff;
-
-  /* Color: status */
-  --op-color-status-idle: #6b6b76;
-  --op-color-status-running: #1f8f5f;
-  --op-color-status-halted: #d1293d;
-  --op-color-status-warning: #b7791f;
-
-  --op-color-focus-ring: #2f5fed;
-
-  /* Spacing scale, 4px base */
+  /* Spacing scale, 4px base (design.md section 2). */
   --op-space-1: 4px;
   --op-space-2: 8px;
   --op-space-3: 12px;
@@ -46,107 +50,114 @@
   --op-space-7: 48px;
   --op-space-8: 64px;
 
-  /* Type: system stack only, no network font fetch (keeps the app air-gap safe) */
-  --op-font-family: -apple-system, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
-  --op-font-family-mono: ui-monospace, "Cascadia Code", Consolas, monospace;
-
+  /* Type (design.md section 2): see ui/src/theme/tokens.ts's FONT for the bundling note. */
+  --op-font-family: "Instrument Sans", -apple-system, "Segoe UI", system-ui, Roboto, Helvetica, Arial, sans-serif;
+  --op-font-family-mono: "IBM Plex Mono", ui-monospace, "Cascadia Code", Consolas, monospace;
+  --op-font-size-xs: 0.75rem;
   --op-font-size-sm: 0.8125rem;
   --op-font-size-base: 0.9375rem;
   --op-font-size-md: 1.0625rem;
   --op-font-size-lg: 1.375rem;
   --op-font-size-xl: 1.75rem;
-
   --op-line-height-tight: 1.25;
   --op-line-height-base: 1.5;
-
   --op-font-weight-regular: 400;
   --op-font-weight-medium: 500;
   --op-font-weight-semibold: 600;
 
-  /* Shape and elevation */
-  --op-radius-sm: 4px;
-  --op-radius-md: 8px;
-  --op-radius-lg: 14px;
+  /* Shape (design.md section 2). */
+  --op-radius-control: 6px;
+  --op-radius-card: 8px;
   --op-radius-pill: 999px;
+  --op-radius-md: 6px;
+  --op-radius-lg: 8px;
 
-  --op-shadow-popover: 0 4px 16px rgba(20, 20, 25, 0.16);
-  --op-shadow-modal: 0 12px 40px rgba(20, 20, 25, 0.24);
-
-  /* Motion */
+  /* Motion (design.md section 2). prefers-reduced-motion is handled globally in base.css. */
   --op-motion-fast: 100ms;
-  --op-motion-base: 180ms;
+  --op-motion-base: 160ms;
   --op-motion-easing: cubic-bezier(0.2, 0, 0, 1);
 }
 
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --op-color-bg: #17171a;
-    --op-color-bg-elevated: #201f24;
-    --op-color-bg-sunken: #101012;
-    --op-color-border: #33333a;
-    /* #6b6b73: same 3:1 non-text-contrast requirement as the light value
-       above, against dark theme's elevated/base/sunken surfaces. */
-    --op-color-border-strong: #6b6b73;
-
-    --op-color-text: #f1f1f3;
-    --op-color-text-muted: #a7a7b3;
-    --op-color-text-inverse: #17171a;
-
-    --op-color-accent: #7fa1ff;
-    --op-color-accent-hover: #9db6ff;
-    --op-color-accent-text: #0d1330;
-
-    --op-color-status-idle: #9494a1;
-    --op-color-status-running: #3fcf8e;
-    --op-color-status-halted: #ff6b7a;
-    --op-color-status-warning: #e0ac47;
-
-    --op-color-focus-ring: #7fa1ff;
-
-    --op-shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.5);
-    --op-shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --op-color-bg: #f7f7f5;
+  --op-color-bg-elevated: #ffffff;
+  --op-color-bg-sunken: #f1f1ee;
+  --op-color-border: #e3e3de;
+  --op-color-border-strong: #5c5f66;
+  --op-color-text: #1b1c1e;
+  --op-color-text-muted: #5c5f66;
+  --op-color-text-disabled: rgba(92, 95, 102, 0.45);
+  --op-color-text-inverse: #ecedef;
+  --op-color-accent: #e8a13c;
+  --op-color-accent-hover: #f2b355;
+  --op-color-accent-text: #1a1204;
+  --op-color-status-idle: #5c5f66;
+  --op-color-status-running: #e8a13c;
+  --op-color-status-halted: #e5484d;
+  --op-color-status-warning: #5b8def;
+  --op-color-status-done: #3fb27f;
+  --op-color-focus-ring: #5b8def;
+  --op-color-success: #3fb27f;
+  --op-color-danger: #e5484d;
+  --op-color-info: #5b8def;
+  --op-color-scrim: rgba(20, 20, 25, 0.4);
+  --op-shadow-popover: 0 4px 16px rgba(20, 20, 25, 0.16);
+  --op-shadow-modal: 0 12px 40px rgba(20, 20, 25, 0.24);
   }
 }
 
 /* Explicit overrides win over the OS preference in either direction. */
 :root[data-theme="dark"] {
-  --op-color-bg: #17171a;
-  --op-color-bg-elevated: #201f24;
-  --op-color-bg-sunken: #101012;
-  --op-color-border: #33333a;
-  --op-color-border-strong: #6b6b73;
-  --op-color-text: #f1f1f3;
-  --op-color-text-muted: #a7a7b3;
-  --op-color-text-inverse: #17171a;
-  --op-color-accent: #7fa1ff;
-  --op-color-accent-hover: #9db6ff;
-  --op-color-accent-text: #0d1330;
-  --op-color-status-idle: #9494a1;
-  --op-color-status-running: #3fcf8e;
-  --op-color-status-halted: #ff6b7a;
-  --op-color-status-warning: #e0ac47;
-  --op-color-focus-ring: #7fa1ff;
-  --op-shadow-popover: 0 4px 16px rgba(0, 0, 0, 0.5);
-  --op-shadow-modal: 0 12px 40px rgba(0, 0, 0, 0.6);
+  --op-color-bg: #101114;
+  --op-color-bg-elevated: #17181c;
+  --op-color-bg-sunken: #1e2026;
+  --op-color-border: #2a2d34;
+  --op-color-border-strong: #9da2ab;
+  --op-color-text: #ecedef;
+  --op-color-text-muted: #9da2ab;
+  --op-color-text-disabled: rgba(157, 162, 171, 0.45);
+  --op-color-text-inverse: #1b1c1e;
+  --op-color-accent: #e8a13c;
+  --op-color-accent-hover: #f2b355;
+  --op-color-accent-text: #1a1204;
+  --op-color-status-idle: #9da2ab;
+  --op-color-status-running: #e8a13c;
+  --op-color-status-halted: #e5484d;
+  --op-color-status-warning: #5b8def;
+  --op-color-status-done: #3fb27f;
+  --op-color-focus-ring: #5b8def;
+  --op-color-success: #3fb27f;
+  --op-color-danger: #e5484d;
+  --op-color-info: #5b8def;
+  --op-color-scrim: rgba(20, 20, 25, 0.4);
+  --op-shadow-popover: none;
+  --op-shadow-modal: none;
 }
 
 :root[data-theme="light"] {
-  --op-color-bg: #f7f7f8;
+  --op-color-bg: #f7f7f5;
   --op-color-bg-elevated: #ffffff;
-  --op-color-bg-sunken: #ececee;
-  --op-color-border: #d8d8dd;
-  --op-color-border-strong: #86868f;
-  --op-color-text: #17171a;
-  --op-color-text-muted: #55555f;
-  --op-color-text-inverse: #ffffff;
-  --op-color-accent: #2f5fed;
-  --op-color-accent-hover: #2249c4;
-  --op-color-accent-text: #ffffff;
-  --op-color-status-idle: #6b6b76;
-  --op-color-status-running: #1f8f5f;
-  --op-color-status-halted: #d1293d;
-  --op-color-status-warning: #b7791f;
-  --op-color-focus-ring: #2f5fed;
+  --op-color-bg-sunken: #f1f1ee;
+  --op-color-border: #e3e3de;
+  --op-color-border-strong: #5c5f66;
+  --op-color-text: #1b1c1e;
+  --op-color-text-muted: #5c5f66;
+  --op-color-text-disabled: rgba(92, 95, 102, 0.45);
+  --op-color-text-inverse: #ecedef;
+  --op-color-accent: #e8a13c;
+  --op-color-accent-hover: #f2b355;
+  --op-color-accent-text: #1a1204;
+  --op-color-status-idle: #5c5f66;
+  --op-color-status-running: #e8a13c;
+  --op-color-status-halted: #e5484d;
+  --op-color-status-warning: #5b8def;
+  --op-color-status-done: #3fb27f;
+  --op-color-focus-ring: #5b8def;
+  --op-color-success: #3fb27f;
+  --op-color-danger: #e5484d;
+  --op-color-info: #5b8def;
+  --op-color-scrim: rgba(20, 20, 25, 0.4);
   --op-shadow-popover: 0 4px 16px rgba(20, 20, 25, 0.16);
   --op-shadow-modal: 0 12px 40px rgba(20, 20, 25, 0.24);
 }

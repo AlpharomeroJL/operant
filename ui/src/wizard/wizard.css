@@ -12,7 +12,10 @@
   overflow-y: auto;
   padding: var(--op-space-6);
   border-radius: var(--op-radius-lg);
+  border: 1px solid var(--op-color-border);
   background: var(--op-color-bg-elevated);
+  /* design.md section 2: dark theme uses hairlines instead of shadows
+     (--op-shadow-modal is `none` there); the border above carries the edge. */
   box-shadow: var(--op-shadow-modal);
 }
 

@@ -15,15 +15,38 @@ export const commonStrings = {
   errorGeneric: "Something went wrong. Try again, or check your setup.",
 };
 
-// Labels for the shell's top-level screen switcher. docs/specs/ui.md lists
-// its screens as a flat set (tray, command palette, run viewer, workflow
-// library, grant prompt, drift card, settings, doctor) without dictating how
-// a person moves between them; "Run" below covers the palette-plus-run-
-// viewer pair together, since neither is useful without the other.
+// Labels for the shell's top-level screen switcher: docs/specs/design.md
+// section 3's nav map (Dashboard, Library, Runs, Settings). "Runs" covers the
+// palette-plus-run-viewer pair together (the command palette and flight
+// recorder), since neither is useful without the other; a future packet may
+// split the palette into its own floating overlay per design.md, at which
+// point this label stops covering it.
 export const navStrings = {
-  run: "Run",
+  dashboard: "Dashboard",
+  runs: "Runs",
   library: "Library",
   settings: "Settings",
+};
+
+// Home dashboard (docs/specs/design.md section 3): "the new default window
+// view." Its real content (a plain-language hero line, sparkline, Up next,
+// Recent runs) is a later packet's job; this is D1 tokens-and-shell's
+// minimal themed placeholder so the nav has somewhere to route to in the
+// meantime (see ui/src/main.ts).
+export const dashboardStrings = {
+  title: "Dashboard",
+  placeholderBody: "Your weekly summary is coming here soon. Head to Library to run a saved workflow, or Runs to watch one live.",
+};
+
+// The shell header's dark/light/system control (docs/specs/design.md section
+// 3's Settings > Appearance section names this same three-way choice; this
+// packet wires it as a single compact cycling button in the header rather
+// than a settings picker, see ui/src/theme/store.ts).
+export const themeToggleStrings = {
+  dark: "Dark",
+  light: "Light",
+  system: "Match system",
+  hint: "Switch the color theme: dark, light, or match system",
 };
 
 export const trayStrings = {
