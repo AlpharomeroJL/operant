@@ -23,6 +23,17 @@ pub fn run(args: &[String]) -> Result<()> {
     let path = args
         .first()
         .context("usage: operant explain <compiled.json|manifest.json>")?;
+    let rendered = render_workflow_json(path)?;
+    print_rendered(&rendered);
+    Ok(())
+}
+
+/// Read a `compiled.json` or bare `manifest.json` at `path` and render it to
+/// the `{title, summary, grant, inputs, steps}` plain-English JSON via
+/// `@operant/sdk/render`. Shared by the `explain` verb and the
+/// `explain_workflow` IPC command (`contracts/ipc.md` section 5c), which
+/// returns this value verbatim as its result.
+pub(crate) fn render_workflow_json(path: &str) -> Result<Value> {
     let raw = std::fs::read_to_string(path).with_context(|| format!("reading {path}"))?;
     let doc: Value =
         serde_json::from_str(&raw).with_context(|| format!("parsing {path} as JSON"))?;
@@ -35,9 +46,7 @@ pub fn run(args: &[String]) -> Result<()> {
         _ => (doc.clone(), Value::Array(vec![])),
     };
 
-    let rendered = render_via_node(&manifest, &steps)?;
-    print_rendered(&rendered);
-    Ok(())
+    render_via_node(&manifest, &steps)
 }
 
 fn render_via_node(manifest: &Value, steps: &Value) -> Result<Value> {

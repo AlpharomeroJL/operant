@@ -1252,6 +1252,7 @@ name = "operant-cli"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "base64",
  "operant-action",
  "operant-bench",
  "operant-compiler",

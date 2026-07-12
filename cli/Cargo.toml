@@ -46,6 +46,10 @@ operant-perception-uia.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
+# `serve` base64-encodes the portable backup archive (export_backup/import_backup)
+# and decodes an installed workflow's DSL bytes (install_workflow) for the
+# newline-delimited JSON IPC frames (contracts/ipc.md section 5f/5d).
+base64.workspace = true
 # `explore` provides the tokio runtime the async ExploreLoop needs; every other
 # verb stays synchronous. Workspace-pinned (rt-multi-thread + time), already
 # compiled for operant-orchestrator.
