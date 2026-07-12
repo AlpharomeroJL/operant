@@ -23,6 +23,17 @@ test("toggles persist to the mock store and are visible in the next snapshot", (
   assert.equal(snap.state.speakingRate, 1.2);
 });
 
+test("automatic update checks default on and can be toggled off", () => {
+  const settings = createSettings();
+  assert.equal(settings.getSnapshot().state.autoUpdateEnabled, true);
+
+  settings.setAutoUpdateEnabled(false);
+  assert.equal(settings.getSnapshot().state.autoUpdateEnabled, false);
+
+  settings.setAutoUpdateEnabled(true);
+  assert.equal(settings.getSnapshot().state.autoUpdateEnabled, true);
+});
+
 test("subscribers are notified when a toggle changes", () => {
   const settings = createSettings();
   const seen: boolean[] = [];

@@ -36,6 +36,7 @@ export interface SettingsView {
   setSpeakingRate(rate: number): void;
   setWatchAndSuggest(on: boolean): void;
   purgeWatchedData(): void;
+  setAutoUpdateEnabled(on: boolean): void;
   startChordRecording(): void;
   recordChordKey(event: ChordKeyEvent): RecordChordResult;
   cancelChordRecording(): void;
@@ -107,6 +108,9 @@ export function createSettings(bus?: BusClient, opts: CreateSettingsOptions = {}
     },
     purgeWatchedData() {
       store.purgeWatchedData();
+    },
+    setAutoUpdateEnabled(on) {
+      store.set("autoUpdateEnabled", on);
     },
     startChordRecording() {
       recording = true;

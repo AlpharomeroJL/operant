@@ -15,6 +15,7 @@ export interface SettingsMountOptions {
   onCancelChordRecording?: () => void;
   onExportBackup?: () => void;
   onImportBackupFile?: (file: File) => void;
+  onAutoUpdateToggle?: (on: boolean) => void;
 }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
@@ -138,6 +139,14 @@ export function mountSettings(container: HTMLElement, snapshot: SettingsSnapshot
     importBtn.addEventListener("click", () => fileInput.click());
 
     body.append(exportBtn, importBtn, fileInput);
+    root.append(sec);
+  }
+
+  // Updates (docs/KNOWN_ISSUES.md, ui/src-tauri/src/updater.rs).
+  {
+    const { root: sec, body } = section(settingsStrings.updatesSectionTitle);
+    body.append(toggleRow(D.autoUpdateToggle, snapshot.state.autoUpdateEnabled, opts.onAutoUpdateToggle));
+    body.append(el("p", "op-settings__hint", D.autoUpdateHint));
     root.append(sec);
   }
 

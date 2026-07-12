@@ -187,6 +187,7 @@ export const settingsStrings = {
   watchAndSuggestToggle: "Watch for repeated actions and offer to help",
   purgeButton: "Delete what's been watched",
   backupSectionTitle: "Backup and export",
+  updatesSectionTitle: "Updates",
   advancedToggle: "Advanced",
 };
 

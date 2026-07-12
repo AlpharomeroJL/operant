@@ -23,6 +23,13 @@ export interface SettingsState {
   // it only tracks a count the Settings screen's purge button can zero out.
   watchBufferCount: number;
   lastBackupAt: string | null;
+  // Default ON (docs/KNOWN_ISSUES.md: F2 wires the updater plugin in
+  // ui/src-tauri; ui/src-tauri/src/updater.rs defaults its own persisted
+  // toggle to on the same way, and air-gaps regardless of this value). Same
+  // gap as every other toggle in this file: this shell has no settings IPC
+  // bridge to the Rust shell yet, so flipping this here does not yet change
+  // what ui/src-tauri actually does. See docs/KNOWN_ISSUES.md.
+  autoUpdateEnabled: boolean;
 }
 
 export const DEFAULT_SETTINGS: SettingsState = {
@@ -34,6 +41,7 @@ export const DEFAULT_SETTINGS: SettingsState = {
   watchAndSuggestEnabled: false,
   watchBufferCount: 0,
   lastBackupAt: null,
+  autoUpdateEnabled: true,
 };
 
 export interface BackupPayload {

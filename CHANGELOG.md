@@ -16,6 +16,13 @@ screen, and a working auto-updater. See `docs/specs/design.md`.
   moved, with no model calls (previously it always clicked the taught location).
   Wiring this into the installed app's run path and verifying it live are still
   in progress.
+- The updater plugin is now registered and wired in: Operant checks for
+  updates on start and every 24 hours, stages the download, and verifies its
+  Ed25519 signature before trusting it (previously the updater was configured
+  but never registered, so the embedded key did nothing). A Settings toggle
+  and an OPERANT_AIRGAPPED hard override are in place. Verified end to end
+  against a local fixture update server; verifying a real update against this
+  project's own release server is still in progress.
 - A correction made in the middle of a run now folds into the saved workflow the
   same way a correction recorded ahead of time does.
 

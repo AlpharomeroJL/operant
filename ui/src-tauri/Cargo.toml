@@ -22,6 +22,50 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# F2 (updater-wiring): the updater plugin itself (docs/KNOWN_ISSUES.md, checks
+# release/KEYS.md's Ed25519 pubkey against downloaded artifacts) and the
+# notification plugin used only to show the "restart to update" toast. tokio
+# gives the background checker its 24h timer; tauri already runs its own
+# tokio runtime internally (tauri::async_runtime::spawn), this just adds the
+# `time` API surface on top of it.
+tauri-plugin-updater = "2"
+tauri-plugin-notification = "2"
+tokio = { version = "1", features = ["time"] }
+# Only pulled in by `--features fixture-check` (see that feature's doc
+# comment and src/bin/signed_artifact_check.rs's module doc): a fixture HTTP
+# server (tiny_http) and the Url type tauri_plugin_updater's endpoints() take
+# (url is otherwise only a transitive dependency, not nameable directly).
+tiny_http = { version = "0.12", optional = true }
+url = { version = "2", optional = true }
+
+[features]
+# Builds `cargo run --bin signed_artifact_check --features fixture-check`: a
+# real, runnable verification of the full check -> staged download -> Ed25519
+# signature verification round trip against a local fixture HTTP server, plus
+# a tampered-manifest rejection check, using the real tauri_plugin_updater
+# crate end to end (nothing reimplemented or mocked at the network or
+# signature layer).
+#
+# This is a `[[bin]]`, not a `#[test]` under tests/: in this environment,
+# confirmed by direct experiment, any `cargo test`-built binary (an
+# integration test OR an `[[example]]`, i.e. anything landing under
+# target/<profile>/deps/ or target/<profile>/examples/) that calls
+# tauri::Builder::build() crashes at process load with
+# STATUS_ENTRYPOINT_NOT_FOUND. That reproduces with zero updater-specific
+# code (a bare tauri::Builder::default().build(tauri::generate_context!())
+# already triggers it, with no plugins registered at all), while the
+# identical call as a plain `[[bin]]` target (landing directly in
+# target/<profile>/, the same place the real operant-shell.exe lands and
+# runs successfully) does not crash. So this is a pre-existing
+# environment/toolchain characteristic of this sandboxed machine, not a
+# defect in this packet's code; see this lane's return notes for the full
+# isolation trail. Off by default so a normal `cargo build` / `cargo tauri
+# build` never compiles or ships this.
+fixture-check = ["dep:tiny_http", "dep:url", "tokio/rt", "tokio/macros"]
+
+[[bin]]
+name = "signed_artifact_check"
+required-features = ["fixture-check"]
 
 [profile.release]
 lto = "thin"
