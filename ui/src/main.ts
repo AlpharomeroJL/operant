@@ -6,11 +6,15 @@ import type { BusEvent } from "./bus/types.ts";
 import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
 import { createRunViewer } from "./runViewer/state.ts";
 import { mountRunViewer } from "./runViewer/view.ts";
+import { createUndoScreen } from "./undo/state.ts";
+import { mountUndoScreen } from "./undo/view.ts";
 import {
   paletteStrings,
   commonStrings,
   navStrings,
   themeToggleStrings,
+  dashboardStrings,
+  undoEntryStrings,
 } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
 import { advancedSurfaceVisibility } from "./advanced/state.ts";
@@ -77,6 +81,7 @@ root.innerHTML = `
         </p>
       </section>
       <div id="op-run-viewer-mount"></div>
+      <div id="op-undo-entry-mount"></div>
     </main>
     <section class="op-panel op-screen" id="op-screen-library" hidden aria-label="Library">
       <div id="op-library-mount"></div>
@@ -97,6 +102,9 @@ root.innerHTML = `
     <div class="op-modal-backdrop" id="op-wizard-backdrop" hidden>
       <div id="op-wizard-mount"></div>
     </div>
+    <div class="op-modal-backdrop" id="op-undo-backdrop" hidden>
+      <div id="op-undo-mount"></div>
+    </div>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
       <h2 class="op-panel__title" id="op-advanced-heading"></h2>
       <div class="op-advanced-panel__grid">
@@ -106,6 +114,7 @@ root.innerHTML = `
         <div id="op-advanced-tools"></div>
       </div>
     </section>
+    <div id="op-toast-mount"></div>
   </div>
 `;
 
@@ -133,6 +142,7 @@ const runStatusLabel = byId<HTMLSpanElement>("op-run-status-label");
 // (the filmstrip, mode chips, scrub sync, and inline safety-check card all live
 // in that one tested view now instead of being duplicated here).
 const runViewerMount = byId<HTMLElement>("op-run-viewer-mount");
+const undoEntryMount = byId<HTMLElement>("op-undo-entry-mount");
 const advancedPanel = byId<HTMLElement>("op-advanced-panel");
 const advancedHeading = byId<HTMLHeadingElement>("op-advanced-heading");
 const advancedDsl = byId<HTMLElement>("op-advanced-editor");
@@ -160,6 +170,9 @@ const grantBackdrop = byId<HTMLElement>("op-grant-backdrop");
 const grantMount = byId<HTMLElement>("op-grant-mount");
 const wizardBackdrop = byId<HTMLElement>("op-wizard-backdrop");
 const wizardMount = byId<HTMLElement>("op-wizard-mount");
+const undoBackdrop = byId<HTMLElement>("op-undo-backdrop");
+const undoMount = byId<HTMLElement>("op-undo-mount");
+const toastMount = byId<HTMLElement>("op-toast-mount");
 
 appTitle.textContent = commonStrings.appName;
 paletteHeading.textContent = paletteStrings.placeholder;
@@ -176,6 +189,7 @@ explainClose.textContent = libraryStrings.closeExplain;
 
 const bus = createMockBusClient();
 const runViewer = createRunViewer(bus);
+const undoScreen = createUndoScreen(bus);
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
 
@@ -228,6 +242,10 @@ let scheduleNotice: string | null = null;
 // and raw-details panes show, so a developer looking at one is looking at
 // the other, the same workflow, in plain English and in raw form.
 let selectedWorkflowName: string | null = null;
+// The one toast this shell shows at a time (design.md section 3's Toasts:
+// "Bottom-right, one line"): set from run.completed below, cleared on
+// dismiss or once its own Undo action opens ui/src/undo for that run.
+let activeToast: { runId: string; message: string } | null = null;
 
 // docs/specs/design.md section 3's nav map. design.md section 3 calls the
 // Home dashboard "the new default window view"; now that D4 (ui/src/
@@ -324,6 +342,82 @@ function renderRunViewer(): void {
     },
     onSelectStep: (stepId) => runViewer.select(stepId),
   });
+}
+
+/**
+ * The run-detail "Undo this run" entry point (docs/specs/design.md section
+ * 3: "From any completed run, 'Undo this run' opens a preview..."), a small
+ * button beside the flight recorder shown only once its run reaches "done".
+ * ui/src/runViewer/view.ts is not touched for this (that view stays another
+ * lane's, per this packet's owned-paths split): this reads the same public
+ * snapshot renderRunViewer above already does and renders into its own
+ * sibling mount instead.
+ */
+function renderUndoEntry(): void {
+  undoEntryMount.textContent = "";
+  const snap = runViewer.getSnapshot();
+  if (snap.runState !== "done" || !snap.runId) return;
+  const runId = snap.runId;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "op-button op-undo-entry";
+  button.textContent = undoEntryStrings.undoThisRun;
+  button.addEventListener("click", () => {
+    dismissToast();
+    undoScreen.open(runId);
+  });
+  undoEntryMount.append(button);
+}
+
+/** The Undo screen itself (ui/src/undo/), reachable from renderUndoEntry above and from the toast's action below. */
+function renderUndoScreen(): void {
+  const snap = undoScreen.getSnapshot();
+  undoBackdrop.hidden = snap.phase === "closed";
+  mountUndoScreen(undoMount, snap, {
+    onConfirm: () => undoScreen.confirm(),
+    onClose: () => undoScreen.close(),
+  });
+}
+
+function dismissToast(): void {
+  if (!activeToast) return;
+  activeToast = null;
+  renderToast();
+}
+
+/**
+ * The bottom-right toast (design.md section 3's Toasts: "Bottom-right, one
+ * line, verb-first... Amber only when an action is invited"). Its one
+ * action opens the same ui/src/undo screen renderUndoEntry above does, for
+ * whichever run just raised it; the message text reuses dashboardStrings'
+ * existing run-outcome copy (ui/src/dashboard/view.ts's own recent-runs
+ * rows say the same thing) rather than inventing a second wording for it.
+ */
+function renderToast(): void {
+  toastMount.textContent = "";
+  if (!activeToast) return;
+  const { runId, message } = activeToast;
+
+  const toast = document.createElement("div");
+  toast.className = "op-toast";
+  toast.setAttribute("role", "status");
+
+  const text = document.createElement("span");
+  text.className = "op-toast__message";
+  text.textContent = message;
+
+  const action = document.createElement("button");
+  action.type = "button";
+  action.className = "op-toast__action";
+  action.textContent = undoEntryStrings.undoThisRun;
+  action.addEventListener("click", () => {
+    dismissToast();
+    undoScreen.open(runId);
+  });
+
+  toast.append(text, action);
+  toastMount.append(toast);
 }
 
 function closeExplain(): void {
@@ -477,15 +571,31 @@ bus.subscribe("*", (event) => {
   lastEvents.push(event);
   if (modeStore.get() === "advanced") renderAdvancedAudit();
 });
+// The toast's own trigger (design.md section 3's Toasts, "Run complete, 14
+// steps" is that section's own example): a completed run raises it exactly
+// once, independent of however many times runViewer's snapshot re-renders
+// afterward (a scrub selection after done, for instance, must not re-show
+// it).
+bus.subscribe("run.completed", (event) => {
+  if (event.topic !== "run.completed") return;
+  const { run_id, outcome, steps } = event.payload;
+  activeToast = {
+    runId: run_id,
+    message: outcome === "ok" ? dashboardStrings.outcomeOk(steps) : dashboardStrings.outcomeFailed,
+  };
+  renderToast();
+});
 connectedTools.subscribe(() => {
   if (modeStore.get() === "advanced") renderAdvancedTools();
 });
 runViewer.subscribe(renderRunViewer);
+runViewer.subscribe(renderUndoEntry);
 library.subscribe(renderLibraryPanel);
 dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
 wizard.subscribe(renderWizardPanel);
+undoScreen.subscribe(renderUndoScreen);
 
 navDashboard.addEventListener("click", () => showScreen("dashboard"));
 navLibrary.addEventListener("click", () => showScreen("library"));
@@ -520,11 +630,14 @@ renderThemeToggle(themeStore.get());
 renderScreen();
 renderMode(modeStore.get());
 renderRunViewer();
+renderUndoEntry();
 renderLibraryPanel();
 renderDashboardPanel();
 renderSettingsPanel();
 renderTrayPanel();
 renderWizardPanel();
+renderUndoScreen();
+renderToast();
 
 paletteForm.addEventListener("submit", (event) => {
   event.preventDefault();
