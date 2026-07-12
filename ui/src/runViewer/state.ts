@@ -11,7 +11,7 @@
 
 import type { BusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_EXPLORE, type BusEvent } from "../bus/types.ts";
-import { renderStepSentence } from "./sdkRender.ts";
+import { renderStepSentence, type RenderableStep } from "./sdkRender.ts";
 import { runStateStrings, runViewerStrings } from "../strings/default.ts";
 
 /** Human-language run states. No jargon: these are the only words shown for a run's state. */
@@ -118,7 +118,16 @@ export function createRunViewer(bus: BusClient): RunViewer {
         // union: the SDK's own author-shape half of that union has no `id`,
         // so narrowing to it early would lose the field this code needs.
         const irStep = event.payload.step;
-        const sentence = renderStepSentence(irStep, runViewerStrings.stepFallback(state.steps.length + 1));
+        // ActionIR is a fixed wire interface with no string index signature, while
+        // the renderer's RenderableStep escape hatch is Record<string, unknown>.
+        // Cast to bridge them: the renderer is total over every real Action IR kind
+        // (sdk/ts/test/render-totality.test.js), and irStep keeps its ActionIR type
+        // below for `.id`. Cast through unknown since neither type is structurally
+        // assignable to the other.
+        const sentence = renderStepSentence(
+          irStep as unknown as RenderableStep,
+          runViewerStrings.stepFallback(state.steps.length + 1),
+        );
         state = { ...state, steps: upsertStep(state.steps, irStep.id, "pending", sentence) };
         break;
       }

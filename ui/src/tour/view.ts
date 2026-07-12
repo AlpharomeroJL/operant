@@ -3,7 +3,7 @@
 // (callbacks in, elements out).
 
 import type { TourStep, TourSnapshot } from "./state.ts";
-import { tourStrings, hintStrings } from "./strings.ts";
+import { tourStrings } from "./strings.ts";
 
 export interface TourCalloutOptions {
   onDismiss?: () => void;
@@ -73,6 +73,7 @@ export function renderContextualHint(hintId: string, hintText: string, isRetired
   if (isRetired) return null;
 
   const root = el("div", "op-hint");
+  root.dataset.hintId = hintId;
   root.setAttribute("role", "status");
   root.setAttribute("aria-live", "polite");
 
