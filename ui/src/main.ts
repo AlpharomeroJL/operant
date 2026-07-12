@@ -31,7 +31,7 @@ import { mountDashboard } from "./dashboard/view.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
-import { mountSettings } from "./settings/view.ts";
+import { mountSettings, type SettingsSection } from "./settings/view.ts";
 import { settingsDetailStrings } from "./settings/strings.ts";
 import type { BackupPayload } from "./settings/mockStore.ts";
 import { createTray } from "./tray/state.ts";
@@ -97,7 +97,7 @@ root.innerHTML = `
     <div class="op-modal-backdrop" id="op-grant-backdrop" hidden>
       <div id="op-grant-mount"></div>
     </div>
-    <div class="op-modal-backdrop" id="op-wizard-backdrop" hidden>
+    <div class="op-wizard-shell" id="op-wizard-backdrop" hidden>
       <div id="op-wizard-mount"></div>
     </div>
     <div class="op-modal-backdrop" id="op-undo-backdrop" hidden>
@@ -268,6 +268,11 @@ let selectedWorkflowName: string | null = null;
 // Recent runs), this is that one-line flip.
 type Screen = "dashboard" | "runs" | "library" | "settings";
 let activeScreen: Screen = "dashboard";
+// Which of the Settings screen's own sidebar sections is showing
+// (docs/specs/design.md section 3.3). Same "own a local variable, pass it
+// back into the mount function" pattern as activeScreen above, just scoped
+// one level deeper.
+let activeSettingsSection: SettingsSection = "general";
 
 function selectedRecord(): MockWorkflowRecord | undefined {
   return selectedWorkflowName ? registry.get(selectedWorkflowName) : undefined;
@@ -589,6 +594,11 @@ function importBackupFile(file: File): void {
 
 function renderSettingsPanel(): void {
   mountSettings(settingsMount, settings.getSnapshot(), {
+    activeSection: activeSettingsSection,
+    onSelectSection: (section) => {
+      activeSettingsSection = section;
+      renderSettingsPanel();
+    },
     onVoiceToggle: (on) => settings.setVoiceEnabled(on),
     onSpeakingRateChange: (rate) => settings.setSpeakingRate(rate),
     onWatchAndSuggestToggle: (on) => settings.setWatchAndSuggest(on),
@@ -598,6 +608,17 @@ function renderSettingsPanel(): void {
     onExportBackup: () => downloadBackup(settings.exportBackup()),
     onImportBackupFile: importBackupFile,
     onAutoUpdateToggle: (on) => settings.setAutoUpdateEnabled(on),
+    // Appearance section: ui/src/theme/store.ts is another lane's module;
+    // this only reads its current mode and calls its existing setter, the
+    // same public API the header's own theme toggle (below) already uses.
+    themeMode: themeStore.get(),
+    onSetTheme: (mode) => themeStore.set(mode),
+    onAccentSyncToggle: (on) => settings.setAccentSync(on),
+    // Advanced section: ui/src/state/mode.ts is likewise another lane's
+    // module; toggling it here flips the exact same store the header's
+    // Default/Advanced button does, so the two never disagree.
+    advancedModeOn: modeStore.get() === "advanced",
+    onToggleAdvancedMode: () => modeStore.toggle(),
   });
 }
 
@@ -682,6 +703,12 @@ runViewer.subscribe(renderUndoEntry);
 library.subscribe(renderLibraryPanel);
 dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
+// The Settings screen's Appearance and Advanced sections mirror these two
+// stores (see renderSettingsPanel above); re-render Settings whenever either
+// changes, including from the header's own theme/mode toggles, so the two
+// entry points never show stale state relative to each other.
+themeStore.subscribe(() => renderSettingsPanel());
+modeStore.subscribe(renderSettingsPanel);
 tray.subscribe(renderTrayPanel);
 toasts.subscribe(renderToastPanel);
 wizard.subscribe(renderWizardPanel);

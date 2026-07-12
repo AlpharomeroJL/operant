@@ -25,6 +25,25 @@ function approxWords(contextLength: number): string {
   return rounded.toLocaleString("en-US");
 }
 
+/**
+ * D6 (docs/specs/design.md section 3.3's Settings > Thinking engines: "with
+ * probe badges"). The same probe result describeBackendProfile explains in
+ * full sentences, condensed to short at-a-glance labels for the Settings
+ * sidebar's Thinking engines section (ui/src/settings/view.ts renders one
+ * `.op-badge` per entry). Empty, not a placeholder badge, when nothing is
+ * connected yet: describeBackendProfile's "No model connected yet." one-
+ * liner already covers that case in prose immediately below the badges.
+ */
+export function backendProfileBadges(profile: BackendProfile | null | undefined): string[] {
+  if (!profile) return [];
+  const badges: string[] = [];
+  if (profile.vision) badges.push("Sees the screen");
+  if (profile.tool_use) badges.push("Takes actions");
+  badges.push(`About ${approxWords(profile.context_length)} words`);
+  badges.push(profile.streaming ? "Answers as it goes" : "Answers all at once");
+  return badges;
+}
+
 /** Plain-language lines describing what a probed model can do. Never mentions the internal profile field names. */
 export function describeBackendProfile(profile: BackendProfile | null | undefined): string[] {
   if (!profile) {

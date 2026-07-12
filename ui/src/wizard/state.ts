@@ -127,6 +127,8 @@ export interface StaticCardSnapshot {
 export interface LocalCardSnapshot {
   title: string;
   body: string;
+  /** design.md section 3: the local-model download card "shows size". A plain-language rendering of how big the download is, always present (unlike diskLabel/compatLabel, which stay null until their own check has run). */
+  sizeLabel: string;
   phase: LocalPhase;
   diskLabel: string | null;
   compatLabel: string | null;
@@ -279,7 +281,7 @@ export interface Wizard {
   dispose(): void;
 }
 
-function localSnapshot(local: LocalState): LocalCardSnapshot {
+function localSnapshot(local: LocalState, diskNeededBytes: number): LocalCardSnapshot {
   const L = setupPathStrings.cards.local;
   const percent = Math.round(local.percent);
   const checking = local.phase === "checking_disk" || local.phase === "checking_compat";
@@ -331,6 +333,7 @@ function localSnapshot(local: LocalState): LocalCardSnapshot {
   return {
     title: L.title,
     body: L.body,
+    sizeLabel: L.sizeLabel(formatBytes(diskNeededBytes)),
     phase: local.phase,
     diskLabel: local.diskOk === null ? null : local.diskOk ? L.diskCheckOk : L.diskCheckLow(local.diskNeededLabel),
     compatLabel:
@@ -436,7 +439,7 @@ function mediaContentFor(screen: WizardScreenId, data: ScreenData): ScreenConten
   }
 }
 
-function toSnapshot(s: InternalState, runSnap: RunViewerSnapshot): WizardSnapshot {
+function toSnapshot(s: InternalState, runSnap: RunViewerSnapshot, diskNeededBytes: number): WizardSnapshot {
   const data: ScreenData = {
     welcome: { heading: welcomeStrings.heading, body: welcomeStrings.body, continueButton: welcomeStrings.continueButton },
     setupPath: {
@@ -445,7 +448,7 @@ function toSnapshot(s: InternalState, runSnap: RunViewerSnapshot): WizardSnapsho
       demoLink: setupPathStrings.demoLink,
       chatgpt: { ...setupPathStrings.cards.chatgpt },
       claude: { ...setupPathStrings.cards.claude },
-      local: localSnapshot(s.local),
+      local: localSnapshot(s.local, diskNeededBytes),
       accessKey: accessKeySnapshot(s.accessKey),
     },
     micCheck: {
@@ -500,7 +503,7 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
   const unsubscribeRunViewer = runViewerInternal.subscribe(() => emit());
 
   function emit(): void {
-    const snap = toSnapshot(state, runViewerInternal.getSnapshot());
+    const snap = toSnapshot(state, runViewerInternal.getSnapshot(), diskNeededBytes);
     for (const fn of listeners) fn(snap);
   }
 
@@ -712,7 +715,7 @@ export function createWizard(bus: BusClient, opts: CreateWizardOptions = {}): Wi
   }
 
   return {
-    getSnapshot: () => toSnapshot(state, runViewerInternal.getSnapshot()),
+    getSnapshot: () => toSnapshot(state, runViewerInternal.getSnapshot(), diskNeededBytes),
     subscribe(fn) {
       listeners.add(fn);
       return () => listeners.delete(fn);

@@ -25,6 +25,7 @@ export const setupPathStrings = {
     local: {
       title: "Download a free brain",
       body: "Get a model that runs right on this computer. Free and private, and it keeps working without the internet once it is downloaded.",
+      sizeLabel: (size: string) => `This download is about ${size}.`,
       diskCheckLabel: "Checking free space on this computer.",
       diskCheckOk: "You have enough room for this.",
       diskCheckLow: (needed: string) => `This computer is short on space. Free up ${needed} and try again.`,
@@ -128,6 +129,12 @@ export const downloadErrorStrings = {
 export const wizardShellStrings = {
   dialogLabel: "Get started with Operant",
   stepLabel: (n: number, total: number) => `Step ${n} of ${total}`,
+  // D5 (docs/specs/design.md section 3.3): the accessible name for the
+  // three-quiet-dots progress indicator (WCAG 4.1.2 / axe's
+  // aria-progressbar-name: a progressbar needs a name distinct from the
+  // value it reports via aria-valuetext, same reasoning as the local-model
+  // download bar's own aria-labelledby a few lines below in this file).
+  progressLabel: "Setup progress",
 };
 
 export const paletteStrings = {

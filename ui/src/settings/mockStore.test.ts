@@ -14,6 +14,19 @@ test("defaults: automatic update checks are on", () => {
   assert.equal(store.get().autoUpdateEnabled, true);
 });
 
+test("defaults: accent sync is off (D6, docs/specs/design.md section 3.3's Appearance section)", () => {
+  const store = createMockSettingsStore();
+  assert.equal(store.get().accentSyncEnabled, false);
+});
+
+test("accent sync can be turned on and back off", () => {
+  const store = createMockSettingsStore();
+  store.set("accentSyncEnabled", true);
+  assert.equal(store.get().accentSyncEnabled, true);
+  store.set("accentSyncEnabled", false);
+  assert.equal(store.get().accentSyncEnabled, false);
+});
+
 test("automatic update checks can be turned off and back on", () => {
   const store = createMockSettingsStore();
   store.set("autoUpdateEnabled", false);
