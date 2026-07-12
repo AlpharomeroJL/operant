@@ -36,6 +36,7 @@ import { createSettings } from "./settings/state.ts";
 import { mountSettings, type SettingsSection } from "./settings/view.ts";
 import { settingsDetailStrings } from "./settings/strings.ts";
 import type { BackupPayload } from "./settings/mockStore.ts";
+import { createLiveSettingsStore, getTauriInvoke, base64ToBytes, bytesToBase64 } from "./settings/liveStore.ts";
 import { createTray } from "./tray/state.ts";
 import { mountTray } from "./tray/view.ts";
 import { createToasts } from "./toasts/state.ts";
@@ -209,7 +210,14 @@ const library = createLibrary(bus, {
 // so Up next/Recent runs show the exact same plain-language titles Library
 // does for the same workflow name.
 const dashboard = createDashboard(bus, { registry });
-const settings = createSettings(bus);
+// Real config when running inside Tauri: get_settings/set_settings and a
+// config.changed subscription onto the live core (contracts/ipc.md section
+// 5f, via ./settings/liveStore.ts). Outside Tauri (npm run dev / Demo mode)
+// getTauriInvoke() is null and this falls back to the mock store, unchanged.
+const settingsInvoke = getTauriInvoke();
+const settings = settingsInvoke
+  ? createSettings(bus, { store: createLiveSettingsStore(bus, { invoke: settingsInvoke }) })
+  : createSettings(bus);
 // Shares Library's own registry instance too (see the dashboard comment
 // just above), so the tray's Quick Runs menu (docs/specs/design.md section
 // 3, Tray) shows the same plain-language titles Library's cards do for the
@@ -597,26 +605,58 @@ function renderDashboardPanel(): void {
   mountDashboard(dashboardMount, dashboard.getSnapshot(), { onTeach: () => openPalette() });
 }
 
-function downloadBackup(payload: BackupPayload): void {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+function reportBackupProblem(): void {
+  const notice = document.createElement("p");
+  notice.className = "op-settings__hint";
+  notice.textContent = settingsDetailStrings.backupInvalid;
+  settingsMount.append(notice);
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `operant-backup-${payload.exportedAt.slice(0, 10)}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
+function downloadBackup(payload: BackupPayload): void {
+  downloadBlob(
+    new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
+    `operant-backup-${payload.exportedAt.slice(0, 10)}.json`,
+  );
+}
+
+// export_backup returns the archive as base64; decode to the raw JSON bytes
+// (crates/recorder/src/backup.rs exports JSON-encoded bytes) and save them.
+function downloadBackupArchive(bytesB64: string): void {
+  downloadBlob(
+    new Blob([base64ToBytes(bytesB64)], { type: "application/json" }),
+    `operant-backup-${new Date().toISOString().slice(0, 10)}.json`,
+  );
+}
+
+function exportBackup(): void {
+  const archive = settings.exportBackupArchive();
+  if (archive) archive.then(downloadBackupArchive).catch(reportBackupProblem);
+  else downloadBackup(settings.exportBackup());
+}
+
 function importBackupFile(file: File): void {
+  // Live store: hand the raw file bytes to import_backup as base64. Mock store
+  // (dev/Demo): parse the settings-only JSON BackupPayload as before.
+  if (settings.supportsBackupArchive()) {
+    file
+      .arrayBuffer()
+      .then((buf) => settings.importBackupArchive(bytesToBase64(new Uint8Array(buf))) ?? Promise.resolve())
+      .catch(reportBackupProblem);
+    return;
+  }
   file
     .text()
     .then((text) => settings.importBackup(JSON.parse(text) as BackupPayload))
-    .catch(() => {
-      const notice = document.createElement("p");
-      notice.className = "op-settings__hint";
-      notice.textContent = settingsDetailStrings.backupInvalid;
-      settingsMount.append(notice);
-    });
+    .catch(reportBackupProblem);
 }
 
 function renderSettingsPanel(): void {
@@ -632,7 +672,7 @@ function renderSettingsPanel(): void {
     onPurge: () => settings.purgeWatchedData(),
     onStartChordRecording: () => settings.startChordRecording(),
     onCancelChordRecording: () => settings.cancelChordRecording(),
-    onExportBackup: () => downloadBackup(settings.exportBackup()),
+    onExportBackup: exportBackup,
     onImportBackupFile: importBackupFile,
     onAutoUpdateToggle: (on) => settings.setAutoUpdateEnabled(on),
     // Appearance section: ui/src/theme/store.ts is another lane's module;

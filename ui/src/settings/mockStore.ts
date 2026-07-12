@@ -92,6 +92,24 @@ export interface MockSettingsStore {
 }
 
 /**
+ * The real archive backup surface, implemented only by the live IPC-backed
+ * store (./liveStore.ts): export_backup / import_backup in contracts/ipc.md
+ * section 5f deal in a base64 archive, not the mock's settings-only
+ * BackupPayload, so they are a separate, async capability the mock omits.
+ */
+export interface BackupArchiveCapable {
+  exportBackupArchive(): Promise<string>;
+  importBackupArchive(bytesB64: string): Promise<void>;
+}
+
+/**
+ * Any store ./state.ts can drive: the mock (dev/Demo) or the live store. The
+ * archive backup methods and dispose are optional so the mock satisfies this
+ * without implementing them; main.ts prefers the archive path when present.
+ */
+export type SettingsStore = MockSettingsStore & Partial<BackupArchiveCapable> & { dispose?(): void };
+
+/**
  * A fresh mock store per call, isolated from every other instance (tests
  * build independent stores the same way ui/src/state/mode.ts's
  * createModeStore does), optionally backed by localStorage and optionally
