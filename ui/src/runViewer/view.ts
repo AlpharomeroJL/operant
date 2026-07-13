@@ -72,9 +72,11 @@ function modeChip(kind: RunChip | null): HTMLElement | null {
 
 /**
  * One filmstrip frame: a redacted-thumbnail button whose accessible name is
- * the step's own plain-English sentence. The thumbnail is a placeholder built
- * from ./thumbnails.ts (no captured pixels exist to leak, design.md section
- * 3), marked aria-hidden with a visually-hidden "redacted" note beside it.
+ * the step's own plain-English sentence. The thumbnail is the redacted
+ * screenshot that rode the step's `evt` frame (contracts/ipc.md section 7) when
+ * one is present, or the generated placeholder from ./thumbnails.ts when none
+ * is (a headless/mock core has no pixels, so nothing can leak). Either way the
+ * thumbnail is aria-hidden, with a visually-hidden "redacted" note beside it.
  */
 function filmstripFrame(step: StepRow, index: number, active: boolean, onSelectStep?: (id: string) => void): HTMLButtonElement {
   const frame = el("button", "op-filmstrip__frame");
@@ -88,10 +90,28 @@ function filmstripFrame(step: StepRow, index: number, active: boolean, onSelectS
 
   const thumb = el("span", "op-filmstrip__thumb");
   thumb.setAttribute("aria-hidden", "true");
-  for (const width of redactionBars(step.id)) {
-    const bar = el("span", "op-filmstrip__bar");
-    bar.style.width = `${width}%`;
-    thumb.append(bar);
+  if (step.thumb) {
+    // A real redacted screenshot rode this step's evt frame (contracts/ipc.md
+    // section 7). The producer already redacted and downscaled it (fail-closed:
+    // a frame it could not cleanly redact ships no thumbnail at all), so the
+    // shell only sizes the image; it never holds raw pixels to scrub here.
+    thumb.classList.add("op-filmstrip__thumb--image");
+    const img = el("img", "op-filmstrip__image");
+    img.src = `data:image/${step.thumb.format};base64,${step.thumb.data_b64}`;
+    img.width = step.thumb.w;
+    img.height = step.thumb.h;
+    img.alt = "";
+    img.setAttribute("aria-hidden", "true");
+    thumb.append(img);
+  } else {
+    // No captured pixels exist for this frame: draw the deterministic
+    // placeholder, whose bar widths hash only the step id (./thumbnails.ts),
+    // never any step content.
+    for (const width of redactionBars(step.id)) {
+      const bar = el("span", "op-filmstrip__bar");
+      bar.style.width = `${width}%`;
+      thumb.append(bar);
+    }
   }
 
   const redacted = el("span", "op-visually-hidden", runViewerStrings.thumbnailRedacted);

@@ -1,34 +1,38 @@
-// The real per-run undo journal source (F1b), closing the gap
-// ./mockJournal.ts's header used to flag: contracts/bus_events.md's
-// undo.previewed now carries an optional `items` field
-// (ui/src/bus/types.ts's UndoJournalItemWire[]) with the real per-item
-// restoration content, published by crates/recorder's
-// Recorder::publish_undo_preview (crates/recorder/src/undo.rs) onto the
-// real operant_core::Bus.
+// The TypeScript half of the real per-run undo wire (F1b + B10). Two jobs
+// live here now that the undo screen is inverted onto real commands
+// (contracts/ipc.md's preview_undo / undo_run):
 //
-// This file is the other half of that wire on the TypeScript side:
-// decodeJournalItems turns the wire shape back into this screen's own
-// UndoJournalEntry/UndoInverse (./mockJournal.ts, unchanged), and
-// createRealJournalSource remembers any such payload it sees on a
-// BusClient, keyed by run id, so a later journalForRun(run_id) call
-// (ui/src/undo/state.ts's own seam, also unchanged) can return it.
+//   1. decodeJournalItems: turn contracts/bus_events.md's undo.previewed
+//      `items` (ui/src/bus/types.ts's UndoJournalItemWire[], published by
+//      crates/recorder's Recorder::publish_undo_preview,
+//      crates/recorder/src/undo.rs) back into this screen's own
+//      UndoJournalEntry/UndoInverse (./mockJournal.ts). ui/src/undo/state.ts
+//      calls this from its undo.previewed subscription, so the screen renders
+//      the core's real per-item restorations with no translation layer.
 //
-// No process-boundary transport carries a recorder-published bus event into
-// this UI process yet (ui/src/bus/mockClient.ts's own header: a Tauri IPC
-// bridge onto the Rust core's bus is still future work), so
-// createRealJournalSource has nothing to remember in the app as shipped
-// today: every run still falls through to ./mockJournal.ts's fixture via
-// ui/src/main.ts's fallback below. The moment that transport exists and
-// forwards a real undo.previewed envelope onto this same BusClient, a real
-// run's real journal wins automatically, with no further change needed
-// here, in ./state.ts, or in ui/src/main.ts. See ./realJournal.test.ts for
-// both paths (a real payload present, and the fixture fallback) proven end
-// to end today against a plain BusClient, independent of that future
-// transport.
+//   2. createMockUndoCommands: the dev/Demo stand-in for the core's undo
+//      commands. B10 inverted state.ts's open()/confirm() so they no longer
+//      self-fabricate the preview or self-publish the applied event; they now
+//      send the preview_undo / undo_run commands and react to the
+//      undo.previewed / undo.applied the core echoes back. Outside Tauri there
+//      is no core process (ui/src/bus/mockClient.ts's own header: the Tauri
+//      IPC bridge onto the Rust core's bus is still future work), so this
+//      factory plays the core's part on the mock bus, publishing the same two
+//      events crates/recorder would, sourced from a journal lookup
+//      (./mockJournal.ts's fixture in dev/Demo). encodeJournalItems is the
+//      inverse of decodeJournalItems it uses to build the wire `items`.
+//
+// The moment the real transport exists and forwards a real undo.previewed /
+// undo.applied onto this same BusClient, ui/src/main.ts swaps this mock
+// command sender for a real (invoke-backed) UndoCommands with no change to
+// state.ts: the screen already reacts to whatever the bus carries. See
+// ./realJournal.test.ts for the decode, the encode round-trip, and the mock
+// commands driving the inverted screen end to end.
 
 import type { BusClient } from "../bus/mockClient.ts";
-import type { UndoJournalItemWire } from "../bus/types.ts";
-import type { UndoInverse, UndoJournalEntry } from "./mockJournal.ts";
+import type { UndoInverseWire, UndoJournalItemWire } from "../bus/types.ts";
+import { appliedLine, isIrreversible, type UndoInverse, type UndoJournalEntry } from "./mockJournal.ts";
+import type { UndoCommands } from "./state.ts";
 
 /**
  * Decode one wire item (contracts/bus_events.md's undo.previewed `items`)
@@ -54,51 +58,73 @@ function decodeInverse(wire: UndoJournalItemWire): UndoInverse {
 
 /**
  * Decode a full `items` array (any order; callers must not assume the wire
- * already sorted it, the same distrust ./state.ts's own open() has of
- * whatever journalForRun hands it) into this screen's UndoJournalEntry[].
+ * already sorted it, the same distrust ui/src/undo/state.ts's own
+ * undo.previewed handler has of whatever the core sends) into this screen's
+ * UndoJournalEntry[].
  */
 export function decodeJournalItems(items: readonly UndoJournalItemWire[]): UndoJournalEntry[] {
   return items.map((item) => ({ seq: item.seq, inverse: decodeInverse(item) }));
 }
 
-export interface RealJournalSource {
-  /**
-   * Same signature CreateUndoScreenOptions.journalForRun wants, minus the
-   * fixture fallback: undefined means nothing real has arrived yet for this
-   * run id, and the caller (ui/src/main.ts) falls back to
-   * ./mockJournal.ts's journalForRun itself.
-   */
-  journalForRun(runId: string): readonly UndoJournalEntry[] | undefined;
-  /** Stops listening and forgets everything remembered so far. */
-  dispose(): void;
+/** Encode one UndoInverse back to its wire shape: the inverse of decodeInverse, so the mock core below emits exactly what crates/recorder would. */
+function encodeInverse(inverse: UndoInverse): UndoInverseWire {
+  switch (inverse.op) {
+    case "delete_created":
+      return { op: "delete_created", path: inverse.path };
+    case "recreate_deleted":
+      return { op: "recreate_deleted", path: inverse.path };
+    case "reverse_move":
+      return { op: "reverse_move", moved_to: inverse.movedTo, original: inverse.original };
+    case "restore_overwritten":
+      return { op: "restore_overwritten", path: inverse.path };
+    case "restore_clipboard":
+      return { op: "restore_clipboard", had_prior: inverse.hadPrior };
+    case "irreversible":
+      return { op: "irreversible", description: inverse.description };
+  }
+}
+
+/** Encode entries to the undo.previewed `items` wire shape (seq flattened alongside the tagged union, as crates/core/src/bus/events.rs's #[serde(flatten)] emits). */
+export function encodeJournalItems(entries: readonly UndoJournalEntry[]): UndoJournalItemWire[] {
+  return entries.map((entry) => ({ seq: entry.seq, ...encodeInverse(entry.inverse) }));
 }
 
 /**
- * Subscribes to undo.previewed on `bus` and remembers, per run id, any
- * payload that carries a non-empty `items` field: a real per-run journal
- * from crates/recorder's Recorder::publish_undo_preview, once a transport
- * forwards it onto this bus (see this file's header). A payload with no
- * items (today, every undo.previewed this app itself publishes:
- * ./state.ts's own open() never sets items) is not remembered, so the
- * screen's own self-published counts can never be mistaken for real data.
+ * The dev/Demo stand-in for the core's undo commands (contracts/ipc.md's
+ * preview_undo / undo_run). Each command publishes onto `bus` the exact event
+ * crates/recorder would in response, sourced from `journalForRun`:
+ *
+ *   previewUndo(runId) -> undo.previewed with real per-item `items` (what
+ *     Recorder::publish_undo_preview emits), so ui/src/undo/state.ts's
+ *     subscription decodes and renders the real restorations.
+ *   undoRun(runId)     -> undo.applied with the restored count and the
+ *     newest-first narration (what Recorder::undo_run's echo carries), so the
+ *     screen flips to its reverse filmstrip off the echoed event.
+ *
+ * The screen sorts newest-first itself, so this deliberately publishes in the
+ * journal's own order (unsorted), the same latitude a real core has.
+ * ui/src/main.ts injects this in dev/Demo and swaps it for a real invoke-backed
+ * UndoCommands once the Tauri bridge lands, with no screen change.
  */
-export function createRealJournalSource(bus: BusClient): RealJournalSource {
-  const remembered = new Map<string, UndoJournalEntry[]>();
-
-  const unsubscribe = bus.subscribe("undo.previewed", (event) => {
-    if (event.topic !== "undo.previewed") return;
-    const { run_id, items } = event.payload;
-    if (!items || items.length === 0) return;
-    remembered.set(run_id, decodeJournalItems(items));
-  });
-
+export function createMockUndoCommands(
+  bus: BusClient,
+  journalForRun: (runId: string) => readonly UndoJournalEntry[],
+): UndoCommands {
   return {
-    journalForRun(runId) {
-      return remembered.get(runId);
+    previewUndo(runId: string): void {
+      const entries = journalForRun(runId);
+      bus.publish("undo.previewed", {
+        run_id: runId,
+        entries: entries.length,
+        irreversible: entries.filter(isIrreversible).length,
+        items: encodeJournalItems(entries),
+      });
     },
-    dispose() {
-      unsubscribe();
-      remembered.clear();
+    undoRun(runId: string): void {
+      const entries = journalForRun(runId);
+      const restored = entries.filter((entry) => !isIrreversible(entry)).length;
+      const narration = entries.map((entry) => appliedLine(entry.inverse));
+      bus.publish("undo.applied", { run_id: runId, restored, narration });
     },
   };
 }

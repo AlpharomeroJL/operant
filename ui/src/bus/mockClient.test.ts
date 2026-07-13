@@ -1,7 +1,11 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("sidecar", the flight-recorder thumb, ...).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMockBusClient, simulateDemoRun } from "./mockClient.ts";
-import { RUN_MODE_REPLAY, type BusEvent } from "./types.ts";
+import { GROUNDING_UIA, RUN_MODE_REPLAY, type BusEvent, type RunStepThumb } from "./types.ts";
 
 test("publish delivers a versioned, sequenced envelope to matching subscribers", () => {
   const bus = createMockBusClient();
@@ -156,4 +160,58 @@ test("simulateDemoRun cancellation prevents further events", async () => {
   await new Promise((resolve) => setTimeout(resolve, 40));
 
   assert.equal(topics.length, countAfterStop);
+});
+
+// --- evt-frame sidecar (contracts/ipc.md section 2d/7) ---
+
+test("publish delivers the evt sidecar (the flight-recorder thumb) to subscribers, beside the envelope", () => {
+  const bus = createMockBusClient();
+  const seen: Array<{ topic: string; thumb: RunStepThumb | null | undefined }> = [];
+  bus.subscribe("run", (e, sidecar) => seen.push({ topic: e.topic, thumb: sidecar?.thumb }));
+
+  const thumb: RunStepThumb = { run_id: "r1", step_id: "s1", format: "png", w: 320, h: 200, redacted: true, data_b64: "aGk=" };
+  bus.publish("run.step.executed", { run_id: "r1", step_id: "s1", outcome: "ok", ms: 5, grounding: GROUNDING_UIA }, { thumb });
+  bus.publish("run.completed", { run_id: "r1", outcome: "ok", steps: 1, wall_ms: 5 });
+
+  assert.equal(seen.length, 2);
+  assert.deepEqual(seen[0].thumb, thumb, "the step frame's thumbnail rides the subscription's sidecar argument");
+  assert.equal(seen[1].thumb, undefined, "an event published with no sidecar carries none");
+});
+
+// --- run-control command echo (contracts/ipc.md section 5b) --- The mock
+// stands in for the core: a command's observable effect is the run.* event the
+// core would publish back, so the run viewer's round trip works on the mock.
+
+test("command(stop) echoes run.halted with reason human", () => {
+  const bus = createMockBusClient();
+  const halted: unknown[] = [];
+  bus.subscribe("run.halted", (e) => halted.push(e.payload));
+
+  bus.command({ cmd: "stop", run_id: "r1" });
+
+  assert.deepEqual(halted, [{ run_id: "r1", reason: "human" }]);
+});
+
+test("command(pause) and command(resume) echo the paired run events", () => {
+  const bus = createMockBusClient();
+  const topics: string[] = [];
+  bus.subscribe("run", (e) => topics.push(e.topic));
+
+  bus.command({ cmd: "pause", run_id: "r1" });
+  bus.command({ cmd: "resume", run_id: "r1" });
+
+  assert.deepEqual(topics, ["run.paused", "run.resumed"]);
+});
+
+test("command(redirect) echoes run.redirected then run.resumed (the correction is captured, then the run resumes on its own)", () => {
+  const bus = createMockBusClient();
+  const events: Array<{ topic: string; payload: unknown }> = [];
+  bus.subscribe("run", (e) => events.push({ topic: e.topic, payload: e.payload }));
+
+  bus.command({ cmd: "redirect", run_id: "r1", instruction: "use ctrl+s" });
+
+  assert.deepEqual(events, [
+    { topic: "run.redirected", payload: { run_id: "r1", instruction: "use ctrl+s" } },
+    { topic: "run.resumed", payload: { run_id: "r1" } },
+  ]);
 });

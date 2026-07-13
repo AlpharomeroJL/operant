@@ -57,9 +57,23 @@ export const dashboardStrings = {
   title: "Dashboard",
   placeholderBody: "Your weekly summary is coming here soon. Head to Library to run a saved workflow, or Runs to watch one live.",
   heroLine: (hoursPhrase: string) => `Operant saved you ${hoursPhrase} this week`,
+  // Honest empty hero (B6): shown in place of heroLine when real metrics are
+  // unavailable or empty, so the dashboard never fabricates an hours figure.
+  // Mirrors the core's own honest phrasing (crates/recorder/src/metrics.rs
+  // digest_copy(0.0): "No time saved this week yet").
+  heroEmpty: "No time saved to show yet",
   sparklineSummary: (values: string) => `Minutes saved by week, oldest to newest: ${values}.`,
+  // The sparkline's visually-hidden text equivalent when there is no weekly
+  // history yet (B6): the empty companion to sparklineSummary above.
+  sparklineEmpty: "Minutes saved by week: no history yet.",
   upNextTitle: "Up next",
   upNextEmpty: "Nothing scheduled yet.",
+  // Shown instead of upNextEmpty when scheduling itself is not wired: the
+  // list_triggers command answers not_implemented (contracts/ipc.md section
+  // 5g). Deliberately distinct from upNextEmpty's "nothing scheduled yet,"
+  // which would imply scheduling works and just has no entries. Honest per
+  // design.md section 4: say what is true, do not overclaim a feature.
+  upNextUnavailable: "Scheduling isn't available yet.",
   recentRunsTitle: "Recent runs",
   recentRunsEmpty: "No runs yet.",
   emptyInvite: "Nothing here yet. Teach Operant its first workflow from the command palette, or run one from Library, and it shows up here.",
@@ -240,4 +254,18 @@ export const doctorStrings = {
 // this file.
 export const undoEntryStrings = {
   undoThisRun: "Undo this run",
+};
+
+// The shell-level "Save as workflow" entry beside a completed teach run in
+// the flight recorder (docs/specs/ipc-bridge.md's A5 survey: "saveAsWorkflow
+// -> compile"). The wizard's guided task has its own Save as workflow button
+// for onboarding; this is the everyday one, for a teach run started from the
+// running app (the command palette, an empty-state Teach button) once it is
+// done, so "describe it and it does it" can end in a saved workflow every
+// time, not only on the first run. Same one-shared-label pattern as
+// undoEntryStrings above; the verb says exactly what happens
+// (docs/specs/design.md section 4). "workflow" is user-facing vocabulary, not
+// glossary-internal, so this stays out of Advanced mode.
+export const saveWorkflowEntryStrings = {
+  saveAsWorkflow: "Save as workflow",
 };

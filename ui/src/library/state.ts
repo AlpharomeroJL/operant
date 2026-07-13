@@ -5,9 +5,11 @@
 // shows. Pure and DOM-free, same split as ui/src/runViewer/state.ts.
 
 import type { BusClient } from "../bus/mockClient.ts";
+import type { CommandClient } from "../bus/commandClient.ts";
 import { RUN_MODE_REPLAY, type BusEvent } from "../bus/types.ts";
 import { renderWorkflow, type RenderedWorkflow } from "../../../sdk/ts/src/render/index.js";
 import { createMockRegistry, type MockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
+import { createUnavailableSchedulerCommands, isNotImplemented, TRIGGER_KIND_CRON, type SchedulerCommands } from "../scheduler/commands.ts";
 import { commonStrings, workflowLibraryStrings } from "../strings/default.ts";
 import { libraryStrings } from "./strings.ts";
 import { assignGlyph } from "./glyph.ts";
@@ -68,18 +70,61 @@ interface PendingRun {
   startedAt: number;
 }
 
+/**
+ * What happened when a person pressed Schedule on a card. `scheduled` is true
+ * only when the core actually created a recurring trigger; `unavailable` is
+ * true when the core has no trigger store wired yet and answered the
+ * upsert_trigger command with `not_implemented` (contracts/ipc.md section 5g).
+ * In every build today `unavailable` is the outcome: the two are kept as
+ * separate booleans (rather than one "ok") so the shell can tell an honest
+ * "scheduling is not available yet" apart from a real, retryable failure, and
+ * so the success path is ready to render truthfully the day the store lands.
+ */
+export interface ScheduleOutcome {
+  name: string;
+  title: string;
+  scheduled: boolean;
+  unavailable: boolean;
+}
+
 export interface Library {
   getSnapshot(): LibrarySnapshot;
   subscribe(fn: (snap: LibrarySnapshot) => void): () => void;
   /**
+   * Resolves once the initial load has settled: the real list_workflows load
+   * (contracts/ipc.md section 5c) when a CommandClient is present, or
+   * immediately in dev/Demo where the seeded ./mockRegistry.ts is the source.
+   * Lets callers (and tests) await the first real snapshot deterministically
+   * rather than racing the async command.
+   */
+  ready: Promise<void>;
+  /**
    * Starts a saved workflow directly (the palette teach flow is a
    * different path entirely; this always uses the saved-workflow run
-   * mode). No-op for an unknown name.
+   * mode). No-op for an unknown name. With a CommandClient present this issues
+   * the start_replay command (contracts/ipc.md section 5b, "run_saved_workflow")
+   * and lets the core's echoed run.* events update last-run and minutes-saved;
+   * in dev/Demo it synthesizes those same events on the bus with no backend.
    */
   run(name: string): void;
-  /** No bus topic models "create a recurring trigger" yet (contracts/bus_events.md's scheduler topics all assume one already exists); this only reports the intent via onScheduleRequested. */
-  schedule(name: string): void;
-  explain(name: string): RenderedWorkflow | undefined;
+  /**
+   * Asks the core to create a recurring trigger for this workflow via the
+   * upsert_trigger command (contracts/ipc.md section 5e). Resolves with the
+   * honest outcome and also reports it through onScheduleResolved. The core has
+   * no trigger store yet, so this resolves `unavailable` in every build today;
+   * it never fabricates a schedule or touches the bus. Resolves undefined for
+   * an unknown name.
+   */
+  schedule(name: string): Promise<ScheduleOutcome | undefined>;
+  /**
+   * The plain-English Explain view for a saved workflow. With a CommandClient
+   * present this issues explain_workflow (contracts/ipc.md section 5c), the
+   * core running the very same `@operant/sdk/render` used locally below; in
+   * dev/Demo it renders locally from the seeded manifest and steps. Async
+   * because the real path is a command round-trip. Resolves undefined for an
+   * unknown name.
+   */
+  explain(name: string): Promise<RenderedWorkflow | undefined>;
   /**
    * design.md section 3, Library: "Drag to reorder." Moves `name` to just
    * before `beforeName` in display order, or to the end when beforeName is
@@ -99,7 +144,24 @@ export interface Library {
 export interface CreateLibraryOptions {
   registry?: MockRegistry;
   now?: () => number;
-  onScheduleRequested?: (name: string, title: string) => void;
+  /**
+   * The scheduler command surface (contracts/ipc.md section 5e). Defaults to
+   * the honest not-yet-wired implementation, which answers every scheduler
+   * command with `not_implemented` because the core has no trigger store yet
+   * (see ../scheduler/commands.ts).
+   */
+  scheduler?: SchedulerCommands;
+  /** Reports the outcome of a Schedule press once the upsert_trigger command resolves. */
+  onScheduleResolved?: (outcome: ScheduleOutcome) => void;
+  /**
+   * The request/response bridge (contracts/ipc.md). When present, the library
+   * loads its real saved workflows via list_workflows and routes Run/Explain
+   * through start_replay/explain_workflow. Omitted in dev/Demo (and the current
+   * webview until the real transport lands), where the library falls back to the
+   * seeded ./mockRegistry.ts and synthesizes runs on the bus itself. Scheduling
+   * goes through the separate `scheduler` seam above, not this client.
+   */
+  client?: CommandClient;
 }
 
 function minutesSavedFor(runtime: WorkflowRuntime | undefined): number {
@@ -124,6 +186,8 @@ function formatWhen(atMs: number, nowMs: number): string {
 export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): Library {
   const registry = opts.registry ?? createMockRegistry();
   const now = opts.now ?? (() => Date.now());
+  const client = opts.client;
+  const scheduler = opts.scheduler ?? createUnavailableSchedulerCommands();
   const runtimes = new Map<string, WorkflowRuntime>();
   const pendingRuns = new Map<string, PendingRun>();
   const listeners = new Set<(snap: LibrarySnapshot) => void>();
@@ -268,29 +332,71 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
   function run(name: string): void {
     const record = registry.get(name);
     if (!record) return;
+    if (client) {
+      // Real bridge: start_replay (contracts/ipc.md section 5b, the command
+      // docs/specs/ipc-bridge.md section 2 names run_saved_workflow). The core
+      // wraps the deterministic Replayer in synthetic run.started (mode replay,
+      // workflow_name) / run.step.* / run.completed events and echoes them back
+      // on the bus (section 3b); handleBus above already consumes those to move
+      // last-run and minutes-saved. We synthesize nothing here, precisely so
+      // the figures reflect a real replay and not a fabricated one.
+      const path = record.path ?? record.manifest.dsl.path;
+      void client.request("start_replay", { path });
+      return;
+    }
+    // dev/Demo: this shell has no backend to actually replay the saved workflow
+    // (ui/src/bus/mockClient.ts's own canned demo is the palette's, not the
+    // library's); complete right away so the library's lastRun and minutes-saved
+    // figures update the same way a real replay's run.completed would. The run
+    // viewer still shows the start/finish like any other run on the bus.
     const runId = `library-${name}-${now()}`;
     bus.publish("run.started", { run_id: runId, goal: record.manifest.description, mode: RUN_MODE_REPLAY, workflow_name: name });
-    // This shell has no backend to actually replay the saved workflow
-    // (ui/src/bus/mockClient.ts's own canned demo is the palette's, not
-    // the library's); complete right away so the library's lastRun and
-    // minutes-saved figures update the same way a real replay's
-    // run.completed would. The run viewer still shows the start/finish
-    // like any other run on the bus.
     bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
   }
 
-  function schedule(name: string): void {
-    const record = registry.get(name);
-    if (!record) return;
-    opts.onScheduleRequested?.(name, record.manifest.description || name);
-  }
-
-  function explain(name: string): RenderedWorkflow | undefined {
+  async function schedule(name: string): Promise<ScheduleOutcome | undefined> {
     const record = registry.get(name);
     if (!record) return undefined;
-    // renderWorkflow's steps parameter is a mutable array; record.steps is
-    // deliberately readonly (mockRegistry.ts), so pass a shallow copy rather
-    // than loosen the stored type.
+    const title = record.manifest.description || name;
+    // Wire the Schedule press to the real upsert_trigger command
+    // (contracts/ipc.md section 5e). There is no schedule-authoring UI yet to
+    // collect a real cron/file/window/email spec, so the request carries an
+    // empty spec: the core answers `not_implemented` before it ever inspects
+    // args (it has no trigger store, section 5g), so no fabricated spec is
+    // stored anywhere. Building the spec-authoring surface is follow-up work
+    // tracked in docs/roadmap/scheduler-live.md.
+    const res = await scheduler.upsertTrigger({
+      kind: TRIGGER_KIND_CRON,
+      workflow_name: name,
+      spec: "",
+      enabled: true,
+    });
+    const outcome: ScheduleOutcome = {
+      name,
+      title,
+      scheduled: res.ok,
+      unavailable: isNotImplemented(res),
+    };
+    opts.onScheduleResolved?.(outcome);
+    return outcome;
+  }
+
+  async function explain(name: string): Promise<RenderedWorkflow | undefined> {
+    const record = registry.get(name);
+    if (!record) return undefined;
+    if (client) {
+      // Real bridge: explain_workflow (contracts/ipc.md section 5c) runs the
+      // exact same `@operant/sdk/render` renderer this file uses locally, only
+      // in the core. Its result is {title, summary, grant, inputs, steps}; fill
+      // `name` from the record so the resolved shape matches the local render.
+      const path = record.path ?? record.manifest.dsl.path;
+      const res = await client.request<Omit<RenderedWorkflow, "name">>("explain_workflow", { path });
+      if (!res.ok) return undefined;
+      return { name: record.manifest.name, ...res.result };
+    }
+    // dev/Demo: render locally. renderWorkflow's steps parameter is a mutable
+    // array; record.steps is deliberately readonly (mockRegistry.ts), so pass a
+    // shallow copy rather than loosen the stored type.
     return renderWorkflow(record.manifest, [...record.steps]);
   }
 
@@ -315,7 +421,23 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
     emit();
   }
 
+  // At mount, with a client present, load the real saved-workflow list
+  // (contracts/ipc.md section 5c: list_workflows) and replace the seeded demo
+  // records with it, so every card shows a real manifest (name, plain summary,
+  // steps, capabilities). registry.replaceAll notifies the subscription wired
+  // above, which emits the fresh snapshot; reconcileOrder then folds the real
+  // names into the display order. A failed list leaves whatever the registry
+  // already holds rather than clearing to a false "no workflows yet".
+  async function loadWorkflows(c: CommandClient): Promise<void> {
+    const res = await c.request<MockWorkflowRecord[]>("list_workflows");
+    if (!res.ok) return;
+    registry.replaceAll(res.result);
+  }
+
+  const ready: Promise<void> = client ? loadWorkflows(client) : Promise.resolve();
+
   return {
+    ready,
     getSnapshot: snapshot,
     subscribe(fn) {
       listeners.add(fn);

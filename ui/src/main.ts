@@ -6,8 +6,10 @@ import { createMockBusClient, type BusClient } from "./bus/mockClient.ts";
 import { createRealClient } from "./bus/realClient.ts";
 import { handshakeCore, type CoreCapabilities } from "./boot/coreGate.ts";
 import { mountDemoBanner, renderBlockingScreen, renderErrorScreen } from "./boot/coreGateView.ts";
-import type { BusEvent } from "./bus/types.ts";
-import { isGlobalPaletteHotkey, submitGoal } from "./palette/palette.ts";
+import { RUN_MODE_EXPLORE, type BusEvent } from "./bus/types.ts";
+import { createMockTeachClient, workflowNameFromGoal } from "./teach/client.ts";
+import { isGlobalPaletteHotkey } from "./palette/palette.ts";
+import { createMockCoreCommands, readForegroundWindowProcess } from "./bus/commands.ts";
 import { createPaletteController, type PaletteCommit } from "./palette/state.ts";
 import { mountPalette } from "./palette/view.ts";
 import { buildQuickActionEntries, buildSettingsEntries, PALETTE_ACTION_ID } from "./palette/quickActions.ts";
@@ -16,13 +18,15 @@ import { createRunViewer } from "./runViewer/state.ts";
 import { mountRunViewer } from "./runViewer/view.ts";
 import { createUndoScreen } from "./undo/state.ts";
 import { mountUndoScreen } from "./undo/view.ts";
-import { createRealJournalSource } from "./undo/realJournal.ts";
+import { createMockUndoCommands } from "./undo/realJournal.ts";
 import { journalForRun as fixtureJournalForRun } from "./undo/mockJournal.ts";
 import {
   commonStrings,
+  doctorStrings,
   navStrings,
   themeToggleStrings,
   undoEntryStrings,
+  saveWorkflowEntryStrings,
 } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
 import { advancedSurfaceVisibility } from "./advanced/state.ts";
@@ -33,13 +37,26 @@ import { createLibrary } from "./library/state.ts";
 import { mountLibrary } from "./library/view.ts";
 import { libraryStrings } from "./library/strings.ts";
 import { createDashboard } from "./dashboard/state.ts";
+import { createIpcDashboardSource } from "./dashboard/source.ts";
 import { mountDashboard } from "./dashboard/view.ts";
+import { createUnavailableSchedulerCommands } from "./scheduler/commands.ts";
+import {
+  makeCoreCall,
+  createRealCommandClient,
+  createRealCoreCommands,
+  createRealTeachClient,
+  createRealUndoCommands,
+  createRealPanicClient,
+  createRealScheduler,
+} from "./boot/realSeams.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
 import { mountSettings, type SettingsSection } from "./settings/view.ts";
 import { settingsDetailStrings } from "./settings/strings.ts";
+import { chordPartsFromEvent, formatChord } from "./settings/chord.ts";
 import type { BackupPayload } from "./settings/mockStore.ts";
+import { createLiveSettingsStore, base64ToBytes, bytesToBase64 } from "./settings/liveStore.ts";
 import { createTray } from "./tray/state.ts";
 import { mountTray } from "./tray/view.ts";
 import { createToasts } from "./toasts/state.ts";
@@ -47,8 +64,12 @@ import { mountToast } from "./toasts/view.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
 import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
+import { createMockBackendConfigurator } from "./wizard/engine.ts";
 import { tourStore } from "./tour/state.ts";
 import { mountTourCallout } from "./tour/view.ts";
+import { createDoctor } from "./doctor/state.ts";
+import { mountDoctor } from "./doctor/view.ts";
+import { DEMO_DOCTOR_FINDINGS, demoHealthyFinding } from "./doctor/demoFindings.ts";
 
 const root = document.querySelector<HTMLDivElement>("#app");
 if (!root) {
@@ -136,6 +157,7 @@ root.innerHTML = `
       <button type="button" class="op-mode-toggle" id="op-mode-toggle" aria-pressed="false">
         <span id="op-mode-toggle-label"></span>
       </button>
+      <button type="button" class="op-button op-header__doctor" id="op-doctor-open"></button>
     </header>
     <section class="op-panel op-screen" id="op-screen-dashboard" hidden aria-label="Dashboard">
       <div id="op-dashboard-mount"></div>
@@ -148,6 +170,7 @@ root.innerHTML = `
         </p>
       </section>
       <div id="op-run-viewer-mount"></div>
+      <div id="op-save-workflow-entry-mount"></div>
       <div id="op-undo-entry-mount"></div>
     </main>
     <section class="op-panel op-screen" id="op-screen-library" hidden aria-label="Library">
@@ -171,6 +194,9 @@ root.innerHTML = `
     </div>
     <div class="op-modal-backdrop" id="op-undo-backdrop" hidden>
       <div id="op-undo-mount"></div>
+    </div>
+    <div class="op-modal-backdrop" id="op-doctor-backdrop" hidden>
+      <div id="op-doctor-mount"></div>
     </div>
     <div class="op-modal-backdrop op-palette-backdrop" id="op-palette-backdrop" hidden>
       <div id="op-palette-mount"></div>
@@ -212,6 +238,7 @@ const runStatusLabel = byId<HTMLSpanElement>("op-run-status-label");
 // (the filmstrip, mode chips, scrub sync, and inline safety-check card all live
 // in that one tested view now instead of being duplicated here).
 const runViewerMount = byId<HTMLElement>("op-run-viewer-mount");
+const saveWorkflowEntryMount = byId<HTMLElement>("op-save-workflow-entry-mount");
 const undoEntryMount = byId<HTMLElement>("op-undo-entry-mount");
 const advancedPanel = byId<HTMLElement>("op-advanced-panel");
 const advancedHeading = byId<HTMLHeadingElement>("op-advanced-heading");
@@ -255,34 +282,95 @@ navRuns.textContent = navStrings.runs;
 navSettings.textContent = navStrings.settings;
 explainClose.textContent = libraryStrings.closeExplain;
 
+// THE ONE command layer (the Phase 2 integration reconciliation, contracts/ipc.md
+// section 5). opts.demo is false only on B3's real-and-can-automate boot path
+// (bootAgainstCore mounts the real bus client with demo:false ONLY for a core
+// that passed the capability handshake), so !opts.demo is exactly "the core is
+// real": build a single coreCall over B2's core_call Tauri command and back
+// EVERY UI->core seam below with it, injecting the same instances into every
+// screen. In Demo / off-Tauri each seam stays its mock (canned-bus) form. There
+// is one coreCall and one of each seam, never N (see ui/src/boot/realSeams.ts).
+const coreCall = opts.demo ? null : makeCoreCall((cmd, args) => invoke(cmd, args ?? {}));
+
+// The teach seam (start_explore / compile_run) the wizard's guided teach, the
+// palette submit, and the shell-level Save as workflow entry all share. Real
+// over the core, or the canned-bus mock in Demo.
+const teachClient = coreCall ? createRealTeachClient(coreCall) : createMockTeachClient(bus);
 const runViewer = createRunViewer(bus);
-// F1b: real per-run journal data (crates/recorder's Recorder::publish_undo_preview,
-// once a transport carries it onto this bus) wins over ./undo/mockJournal.ts's
-// fixture when present for a run; the fixture stays the fallback otherwise.
-const realJournalSource = createRealJournalSource(bus);
+// B10: the undo screen sends the preview_undo / undo_run commands and renders
+// the core's echoed undo.previewed / undo.applied (contracts/ipc.md 5c). Real
+// over the core; in Demo the mock stands in for the core's echo, sourcing the
+// preview from ./undo/mockJournal.ts's fixture. Either way ui/src/undo/state.ts
+// is unchanged: the screen just reacts to whatever the bus carries.
 const undoScreen = createUndoScreen(bus, {
-  journalForRun: (runId) => realJournalSource.journalForRun(runId) ?? fixtureJournalForRun(runId),
+  commands: coreCall ? createRealUndoCommands(coreCall) : createMockUndoCommands(bus, fixtureJournalForRun),
 });
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
 
+// The shell-to-core command seam (contracts/ipc.md section 5), the shell->core
+// counterpart of the bus's core->shell BusClient. The palette issues real
+// commands through it: start_explore (teach), dry_run (preview), and running a
+// saved workflow (the contract's start_replay, ui/src/boot/realSeams.ts fixes
+// the UI's old run_saved_workflow name), with list_workflows sourcing the
+// palette's saved-workflow rows. Real over the core, or the canned-bus mock in
+// Demo (so the flight recorder still fills). start_explore's foreground-window
+// context comes from readForegroundWindowProcess (dev/Demo uses a stub).
+const coreCommands = coreCall
+  ? createRealCoreCommands(coreCall, { registry, foregroundWindow: readForegroundWindowProcess })
+  : createMockCoreCommands(bus, { registry, foregroundWindow: readForegroundWindowProcess });
+
+// B5's request/response bridge (list_workflows/start_replay/explain_workflow),
+// injected into Library so it loads and runs REAL saved workflows over the core.
+// Omitted (undefined) in Demo, where Library falls back to the seeded registry.
+const commandClient = coreCall ? createRealCommandClient(coreCall) : undefined;
+
+// The scheduler command surface (contracts/ipc.md section 5e). list_triggers and
+// upsert_trigger are reserved-but-unwired (section 5g), so the real core answers
+// not_implemented and the Demo default answers the same by construction; either
+// way the library's Schedule action and the dashboard's Up next surface that
+// honestly rather than fabricating a schedule. See docs/roadmap/scheduler-live.md.
+const scheduler = coreCall ? createRealScheduler(coreCall) : createUnavailableSchedulerCommands();
+
 const library = createLibrary(bus, {
   registry,
-  onScheduleRequested: (_name, title) => {
-    scheduleNotice = libraryStrings.scheduleNotice(title);
+  scheduler,
+  client: commandClient,
+  onScheduleResolved: (outcome) => {
+    // Only the honest not-available message ships: no build can create a real
+    // trigger yet, so there is no success copy to show. A non-not_implemented
+    // failure (not reachable today) falls back to the generic error line.
+    scheduleNotice = outcome.unavailable ? libraryStrings.scheduleUnavailable(outcome.title) : commonStrings.errorGeneric;
     renderLibraryPanel();
   },
 });
 // Shares Library's own registry instance (not a second createMockRegistry())
 // so Up next/Recent runs show the exact same plain-language titles Library
-// does for the same workflow name.
-const dashboard = createDashboard(bus, { registry });
-const settings = createSettings(bus);
+// does for the same workflow name. The source is the real IPC data path
+// (get_metrics/list_runs/get_run over the SAME coreCall) for the hero,
+// sparkline, and Recent runs, undefined in Demo so those fall back to
+// ./dashboard/mockMetrics.ts fixtures. Up next is fed by the shared scheduler
+// surface, so it reflects the same not-available truth the Schedule action does.
+const dashboard = createDashboard(bus, {
+  registry,
+  source: coreCall ? createIpcDashboardSource(coreCall) : undefined,
+  scheduler,
+});
+// Real config over the core: get_settings/set_settings and a config.changed
+// subscription through the live store (contracts/ipc.md section 5f), backed by
+// the SAME coreCall so it rides B2's core_call rather than a raw invoke. In
+// Demo the mock store stands in, unchanged.
+const settings = coreCall
+  ? createSettings(bus, { store: createLiveSettingsStore(bus, { invoke: coreCall }) })
+  : createSettings(bus);
 // Shares Library's own registry instance too (see the dashboard comment
 // just above), so the tray's Quick Runs menu (docs/specs/design.md section
 // 3, Tray) shows the same plain-language titles Library's cards do for the
-// same workflow name.
-const tray = createTray(bus, { registry });
+// same workflow name. The panic row drives the two-path stop over the core
+// (stop + kill, incl. B2's core_kill hard terminate); in Demo the tray's
+// default createBusPanicClient echoes onto the bus instead.
+const panicClient = coreCall ? createRealPanicClient(coreCall, () => invoke("core_kill")) : undefined;
+const tray = createTray(bus, { registry, panicClient });
 const toasts = createToasts(bus);
 
 // The command palette (docs/specs/design.md section 3, Palette): a Raycast-
@@ -298,12 +386,16 @@ const toasts = createToasts(bus);
 const paletteController = createPaletteController();
 
 function refreshPaletteEntries(): void {
-  const workflowEntries: PaletteEntry[] = registry.list().map((record) => ({
-    id: record.manifest.name,
+  // Saved-workflow rows come from list_workflows (contracts/ipc.md section 5c),
+  // not the registry directly: the mock reads the shared registry in dev/Demo,
+  // and a real core answers the same command. registry.subscribe still drives
+  // the refresh so a newly taught/installed workflow shows up next open.
+  const workflowEntries: PaletteEntry[] = coreCommands.listWorkflows().map((workflow) => ({
+    id: workflow.id,
     kind: "workflow",
-    title: record.manifest.description || record.manifest.name,
-    subtitle: record.manifest.description ? record.manifest.name : undefined,
-    keywords: [record.manifest.name],
+    title: workflow.description || workflow.name,
+    subtitle: workflow.description ? workflow.name : undefined,
+    keywords: [workflow.name],
   }));
   paletteController.setEntries([...workflowEntries, ...buildQuickActionEntries(), ...buildSettingsEntries()]);
 }
@@ -330,7 +422,14 @@ function markWizardDone(): void {
     // Storage unavailable: the wizard just shows again next launch.
   }
 }
-const wizard = createWizard(bus);
+// The engine-config seam (ui/src/wizard/engine.ts): a mocked configurator that
+// writes real config.changed onto the same bus a live core would echo on. Swap
+// this for a real invoke-backed configurator when the Tauri command bridge
+// lands, the same drop-in the mock bus client itself will get.
+const backendConfigurator = createMockBackendConfigurator(bus);
+// B8's engine-config seam and B16's teach client are both injected here so the
+// wizard shares the one teach client the rest of the shell uses.
+const wizard = createWizard(bus, { backend: backendConfigurator, teachClient });
 let wizardDismissed = wizardAlreadyDone();
 
 // The currently streaming canned demo, if any: cancels the timers behind a
@@ -341,6 +440,12 @@ let wizardDismissed = wizardAlreadyDone();
 let stopDemo: (() => void) | null = null;
 let lastEvents: BusEvent[] = [];
 let scheduleNotice: string | null = null;
+// Teach bookkeeping for the shell-level Save as workflow entry below. A teach
+// run's goal (captured from its run.started) names the compiled workflow; the
+// set of run ids already compiled (captured from workflow.compiled) hides the
+// entry once a run is saved, so it never offers to save the same run twice.
+const teachGoals = new Map<string, string>();
+const compiledRunIds = new Set<string>();
 // The workflow last opened via Explain: also what the Advanced DSL editor
 // and raw-details panes show, so a developer looking at one is looking at
 // the other, the same workflow, in plain English and in raw form.
@@ -480,6 +585,46 @@ function renderUndoEntry(): void {
   undoEntryMount.append(button);
 }
 
+/**
+ * The shell-level "Save as workflow" entry (docs/specs/ipc-bridge.md's A5
+ * survey: saveAsWorkflow then compile), the everyday compile handoff that
+ * completes the teach flow: goal -> explore -> watch -> compiled workflow in
+ * the library. Shown beside the flight recorder once a teach run started from
+ * within the running app (the command palette, an empty-state Teach button)
+ * reaches "done", so "describe it and it does it" can end in a saved workflow
+ * every time, not only on the wizard's first run.
+ *
+ * Reads the same public runViewer snapshot renderRunViewer/renderUndoEntry do
+ * and mounts into its own sibling (ui/src/runViewer/view.ts stays another
+ * lane's, untouched, exactly as renderUndoEntry does for Undo). Held back
+ * while the wizard is up, since the wizard owns its own Save as workflow
+ * during the guided task; gated to a completed teach run (runChip "rec", the
+ * teach discriminant -- a saved-workflow replay has nothing to compile) that
+ * has not already been compiled.
+ */
+function renderSaveWorkflowEntry(): void {
+  saveWorkflowEntryMount.textContent = "";
+  if (!wizardDismissed) return;
+  const snap = runViewer.getSnapshot();
+  if (snap.runState !== "done" || snap.runChip !== "rec" || !snap.runId) return;
+  if (compiledRunIds.has(snap.runId)) return;
+  const runId = snap.runId;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "op-button op-save-workflow-entry";
+  button.textContent = saveWorkflowEntryStrings.saveAsWorkflow;
+  button.addEventListener("click", () => {
+    // compile_run through the shared client: the watched run becomes a saved
+    // workflow named from its goal. The library upserts on the resulting
+    // workflow.compiled; switch there so the new card is what is on screen
+    // (that same event also hides this button, this run now being compiled).
+    teachClient.compileRun(runId, { name: workflowNameFromGoal(teachGoals.get(runId) ?? "") });
+    showScreen("library");
+  });
+  saveWorkflowEntryMount.append(button);
+}
+
 /** The Undo screen itself (ui/src/undo/), reachable from renderUndoEntry above and from the toast's action below. */
 function renderUndoScreen(): void {
   const snap = undoScreen.getSnapshot();
@@ -511,8 +656,11 @@ function closeExplain(): void {
   explainMount.textContent = "";
 }
 
-function openExplain(name: string): void {
-  const view = library.explain(name);
+async function openExplain(name: string): Promise<void> {
+  // library.explain is async because, with the real bridge wired, it round-trips
+  // the explain_workflow command (contracts/ipc.md section 5c); in dev/Demo it
+  // resolves the same locally rendered view. Callers below fire-and-forget it.
+  const view = await library.explain(name);
   if (!view) return;
   selectedWorkflowName = name;
   explainHeading.textContent = view.title;
@@ -534,13 +682,13 @@ function requestRun(name: string): void {
   const caps = record.manifest.capabilities;
   const needsGrant = Boolean((caps.paths && caps.paths.length) || (caps.apps && caps.apps.length) || caps.network);
   if (!needsGrant) {
-    library.run(name);
+    coreCommands.runSavedWorkflow(name);
     return;
   }
 
   const prompt = createGrantPrompt(caps, {
     onAllow: () => {
-      library.run(name);
+      coreCommands.runSavedWorkflow(name);
       closeGrantPrompt();
     },
     onDeny: () => closeGrantPrompt(),
@@ -563,11 +711,10 @@ function requestRun(name: string): void {
  * does: there is nothing here to approve.
  */
 function previewWorkflow(name: string): void {
-  const record = registry.get(name);
-  if (!record) return;
-  const runId = `palette-preview-${name}-${Date.now()}`;
-  bus.publish("run.started", { run_id: runId, goal: record.manifest.description, mode: "dry", workflow_name: name });
-  bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
+  // dry_run (contracts/ipc.md section 5b): the offline, deterministic preview
+  // path. The mock CoreCommands publishes the same run.*(mode dry) pair this
+  // did inline before; a real core streams it back over the bus instead.
+  coreCommands.dryRunWorkflow(name);
 }
 
 /** Where a chosen palette quick action (ui/src/palette/quickActions.ts) actually lands: every id there must be handled here. */
@@ -623,10 +770,12 @@ function handlePaletteCommit(commit: PaletteCommit): void {
       showScreen("settings");
       return;
     case "teach": {
-      // The same free-text-to-teach-run path the palette always offered
-      // (ui/src/palette/palette.ts's submitGoal), now reached through the
-      // "Teach this" fallback row instead of a plain form submit.
-      const stop = submitGoal(bus, row.subtitle ?? row.title);
+      // The free-text-to-teach-run path, now the real start_explore command
+      // (contracts/ipc.md section 5b): the typed goal plus the foreground
+      // window as context, reached through the "Teach this" fallback row. In
+      // dev/Demo the mock streams the canned run and hands back a canceller;
+      // the real transport returns null and a stop is a separate command.
+      const stop = coreCommands.startExplore(row.subtitle ?? row.title);
       if (stop) {
         stopDemo?.();
         stopDemo = stop;
@@ -665,26 +814,58 @@ function renderDashboardPanel(): void {
   mountDashboard(dashboardMount, dashboard.getSnapshot(), { onTeach: () => openPalette() });
 }
 
-function downloadBackup(payload: BackupPayload): void {
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+function reportBackupProblem(): void {
+  const notice = document.createElement("p");
+  notice.className = "op-settings__hint";
+  notice.textContent = settingsDetailStrings.backupInvalid;
+  settingsMount.append(notice);
+}
+
+function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `operant-backup-${payload.exportedAt.slice(0, 10)}.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
+function downloadBackup(payload: BackupPayload): void {
+  downloadBlob(
+    new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }),
+    `operant-backup-${payload.exportedAt.slice(0, 10)}.json`,
+  );
+}
+
+// export_backup returns the archive as base64; decode to the raw JSON bytes
+// (crates/recorder/src/backup.rs exports JSON-encoded bytes) and save them.
+function downloadBackupArchive(bytesB64: string): void {
+  downloadBlob(
+    new Blob([base64ToBytes(bytesB64)], { type: "application/json" }),
+    `operant-backup-${new Date().toISOString().slice(0, 10)}.json`,
+  );
+}
+
+function exportBackup(): void {
+  const archive = settings.exportBackupArchive();
+  if (archive) archive.then(downloadBackupArchive).catch(reportBackupProblem);
+  else downloadBackup(settings.exportBackup());
+}
+
 function importBackupFile(file: File): void {
+  // Live store: hand the raw file bytes to import_backup as base64. Mock store
+  // (dev/Demo): parse the settings-only JSON BackupPayload as before.
+  if (settings.supportsBackupArchive()) {
+    file
+      .arrayBuffer()
+      .then((buf) => settings.importBackupArchive(bytesToBase64(new Uint8Array(buf))) ?? Promise.resolve())
+      .catch(reportBackupProblem);
+    return;
+  }
   file
     .text()
     .then((text) => settings.importBackup(JSON.parse(text) as BackupPayload))
-    .catch(() => {
-      const notice = document.createElement("p");
-      notice.className = "op-settings__hint";
-      notice.textContent = settingsDetailStrings.backupInvalid;
-      settingsMount.append(notice);
-    });
+    .catch(reportBackupProblem);
 }
 
 function renderSettingsPanel(): void {
@@ -700,7 +881,7 @@ function renderSettingsPanel(): void {
     onPurge: () => settings.purgeWatchedData(),
     onStartChordRecording: () => settings.startChordRecording(),
     onCancelChordRecording: () => settings.cancelChordRecording(),
-    onExportBackup: () => downloadBackup(settings.exportBackup()),
+    onExportBackup: exportBackup,
     onImportBackupFile: importBackupFile,
     onAutoUpdateToggle: (on) => settings.setAutoUpdateEnabled(on),
     // Appearance section: ui/src/theme/store.ts is another lane's module;
@@ -815,6 +996,10 @@ function renderWizardPanel(): void {
   }
   wizardBackdrop.hidden = wizardDismissed;
   renderTour();
+  // The shell-level Save as workflow entry stays hidden behind the wizard and
+  // reveals the moment the wizard is gone (this run may already be done); keep
+  // it in step with wizardDismissed here.
+  renderSaveWorkflowEntry();
   if (wizardDismissed) return;
 
   mountWizard(wizardMount, snap, {
@@ -842,6 +1027,16 @@ function renderWizardPanel(): void {
 
 bus.subscribe("*", (event) => {
   lastEvents.push(event);
+  // Remember each teach run's goal so the shell-level Save as workflow entry
+  // can name the compiled workflow after it; note when any run is compiled so
+  // that entry hides for it. Both feed renderSaveWorkflowEntry above.
+  if (event.topic === "run.started" && event.payload.mode === RUN_MODE_EXPLORE) {
+    teachGoals.set(event.payload.run_id, event.payload.goal);
+  }
+  if (event.topic === "workflow.compiled") {
+    compiledRunIds.add(event.payload.source_run_id);
+    renderSaveWorkflowEntry();
+  }
   if (modeStore.get() === "advanced") renderAdvancedAudit();
 });
 connectedTools.subscribe(() => {
@@ -849,6 +1044,7 @@ connectedTools.subscribe(() => {
 });
 runViewer.subscribe(renderRunViewer);
 runViewer.subscribe(renderUndoEntry);
+runViewer.subscribe(renderSaveWorkflowEntry);
 library.subscribe(renderLibraryPanel);
 dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
@@ -907,8 +1103,14 @@ renderScreen();
 renderMode(modeStore.get());
 renderRunViewer();
 renderUndoEntry();
+renderSaveWorkflowEntry();
 renderLibraryPanel();
 renderDashboardPanel();
+// Load the dashboard's real numbers (metrics, recent runs, upcoming) once the
+// panel and its subscription are wired above. A no-op in dev/Demo (no source);
+// under Tauri it replaces the honest empty baseline with real data via the
+// dashboard.subscribe(renderDashboardPanel) emit.
+void dashboard.refresh();
 renderSettingsPanel();
 renderTrayPanel();
 renderWizardPanel();
@@ -961,9 +1163,100 @@ document.addEventListener("keydown", (event) => {
     });
     return;
   }
+  // The global kill chord (docs/specs/guardian.md's panic chord, default
+  // Ctrl+Alt+Shift+Space, re-recordable in Settings). SAFETY, never-cut: the
+  // second, always-reachable trigger for the same two-path stop the tray's
+  // panic row drives (tray.panic() -> ui/src/safety/panic.ts's stop + kill), so
+  // a wedged or backgrounded window still has a way to halt a live loop.
+  // Matched against the live configured chord so a re-recorded combination
+  // takes effect at once; checked before the palette hotkey because a stop
+  // outranks opening an overlay.
+  if (formatChord(chordPartsFromEvent(event)) === settings.getSnapshot().state.killSwitchChord) {
+    event.preventDefault();
+    tray.panic();
+    return;
+  }
   if (isGlobalPaletteHotkey(event)) {
     event.preventDefault();
     openPalette();
   }
 });
+
+/**
+ * "Check my setup" (the doctor screen, ui/src/doctor/*, C19/FR-U3). Unmounted
+ * before this lane; wired here per docs/specs/ipc-bridge.md section 8b ("Doctor
+ * + Gallery exist but are unmounted; wire if time permits"). Everything doctor
+ * lives in this one appended block so the edit stays additive and merges
+ * cleanly with the other lanes editing this file.
+ *
+ * The header's "Check my setup" button opens the modal and runs the checks; the
+ * findings render from doctor.finding events, the exact events a real core
+ * emits, so nothing here hard-codes a finding list into the view.
+ */
+const doctorOpenButton = byId<HTMLButtonElement>("op-doctor-open");
+const doctorBackdrop = byId<HTMLElement>("op-doctor-backdrop");
+const doctorMount = byId<HTMLElement>("op-doctor-mount");
+doctorOpenButton.textContent = doctorStrings.title;
+
+// The doctor issues run_doctor over the SAME shared coreCall (contracts/ipc.md
+// section 5f) when the core is real; the core runs every check and publishes
+// each result as a doctor.finding event. In Demo there is no core (coreCall is
+// null), so the callers below publish the canned findings on the mock bus. Both
+// land on the subscription below, so the render path is identical.
+const doctor = createDoctor(bus, {
+  // On open: run the real checks. Determinism: the demo path calls no model and
+  // no network (the real probing runs core-side, only in the app, never on the
+  // replay/test path).
+  runChecks: () => {
+    if (coreCall) {
+      void coreCall("run_doctor", {});
+      return;
+    }
+    for (const finding of DEMO_DOCTOR_FINDINGS) bus.publish("doctor.finding", finding);
+  },
+  // One-click fix. In the app this maps to `operant doctor --fix <id>` (the
+  // finding's fix_command), issued as an optional `fix` arg to run_doctor -- an
+  // additive, protocol-compatible extension per contracts/ipc.md section 9.2 --
+  // and the core re-checks and republishes the finding, healthy. In Demo, stand
+  // in for that effect by publishing doctor.fixed plus the canned healthy
+  // finding, so the card turns healthy in place either way.
+  onFixRequested: (findingId) => {
+    if (coreCall) {
+      void coreCall("run_doctor", { fix: findingId });
+      return;
+    }
+    bus.publish("doctor.fixed", { finding_id: findingId });
+    const healthy = demoHealthyFinding(findingId);
+    if (healthy) bus.publish("doctor.finding", healthy);
+  },
+});
+
+function renderDoctor(): void {
+  mountDoctor(doctorMount, doctor.getSnapshot(), {
+    onFix: (findingId) => doctor.fix(findingId),
+    onClose: () => closeDoctor(),
+  });
+}
+
+function openDoctor(): void {
+  doctorBackdrop.hidden = false;
+  doctor.open();
+}
+
+function closeDoctor(): void {
+  doctorBackdrop.hidden = true;
+}
+
+doctor.subscribe(renderDoctor);
+doctorOpenButton.addEventListener("click", openDoctor);
+doctorBackdrop.addEventListener("click", (event) => {
+  // Only a click on the dimmed backdrop itself dismisses the modal, not one
+  // that bubbled up from inside the panel (the same narrowing the palette
+  // backdrop above uses).
+  if (event.target === doctorBackdrop) closeDoctor();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !doctorBackdrop.hidden) closeDoctor();
+});
+renderDoctor();
 }

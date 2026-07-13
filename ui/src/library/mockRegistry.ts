@@ -32,6 +32,15 @@ export interface MockWorkflowRecord {
   publisher?: string;
   signed: boolean;
   dryRunOnly: boolean;
+  /**
+   * The path start_replay and explain_workflow take (contracts/ipc.md sections
+   * 5b/5c). Populated only for records loaded from the real bridge's
+   * list_workflows (the shell's DTO carries a runnable/compiled path per
+   * workflow); undefined for the seeded demo records below, which run
+   * synthetically with no backend. ui/src/library/state.ts falls back to the
+   * manifest's own dsl path when this is absent.
+   */
+  path?: string;
 }
 
 // Seeded demo data so the library renders end to end with no backend process
@@ -129,6 +138,14 @@ export interface MockRegistry {
    * something honest instead of nothing.
    */
   upsert(name: string, patch: Partial<Pick<MockWorkflowRecord, "publisher" | "signed" | "dryRunOnly">>): MockWorkflowRecord;
+  /**
+   * Replaces the entire set with a fresh list, as loaded from the real bridge's
+   * list_workflows (contracts/ipc.md section 5c). Notifies subscribers once.
+   * ui/src/library/state.ts calls this when a CommandClient is present, so the
+   * cards show the real saved workflows instead of the seeded demo data; the
+   * seed stays only for dev/Demo, where no client is wired.
+   */
+  replaceAll(records: readonly MockWorkflowRecord[]): void;
   subscribe(fn: (records: MockWorkflowRecord[]) => void): () => void;
 }
 
@@ -150,6 +167,11 @@ export function createMockRegistry(seed: readonly MockWorkflowRecord[] = SEED_WO
       records.set(name, next);
       notify();
       return next;
+    },
+    replaceAll(next) {
+      records.clear();
+      for (const record of next) records.set(record.manifest.name, record);
+      notify();
     },
     subscribe(fn) {
       listeners.add(fn);

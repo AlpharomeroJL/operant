@@ -41,7 +41,9 @@ test("empty dashboard (the quiet first-run invite): no axe violations", async ()
   const env = createDomEnv();
   try {
     const bus = createMockBusClient();
-    const dashboard = createDashboard(bus, { upNext: [] });
+    // No triggers and no runs: the default surface reports scheduling
+    // unavailable and nothing has run, so the dashboard is empty.
+    const dashboard = createDashboard(bus);
     const container = env.document.createElement("div");
     env.document.body.appendChild(container);
     mountDashboard(container, dashboard.getSnapshot());

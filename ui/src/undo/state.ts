@@ -5,23 +5,46 @@
 // reverse." Pure and DOM-free, same split as ui/src/runViewer/state.ts and
 // ui/src/grants/state.ts, so it runs under plain `node --test`.
 //
-// Reads the undo-journal shape via the journalForRun seam below
-// (CreateUndoScreenOptions), which defaults to ./mockJournal.ts's fixture
-// (see that file's header for the honest reason why); ui/src/main.ts feeds
-// this seam ./undo/realJournal.ts's real per-run source ahead of the
-// fixture (F1b), so a run with a real published journal renders that
-// instead, fixture otherwise. Publishes the two bus topics
-// contracts/bus_events.md already reserves for this feature
-// (undo.previewed, undo.applied, ui/src/bus/types.ts) with real data derived
-// from whatever journal was loaded, so a listener (the Advanced audit
-// browser, ui/src/advanced/view.ts's mountAuditBrowser) sees this screen's
-// actual activity, not a stub.
+// B10 inverted this screen onto the real journal (contracts/ipc.md,
+// docs/specs/ipc-bridge.md section 8b). It no longer self-fabricates:
+//   open(runId)  sends the preview_undo command (UndoCommands.previewUndo);
+//                the core answers by publishing the real undo.previewed with
+//                per-item `items`, which the subscription below decodes
+//                (ui/src/undo/realJournal.ts) into the restoration list.
+//   confirm()    sends the undo_run command (UndoCommands.undoRun); the core
+//                executes and echoes undo.applied, and the screen flips to its
+//                reverse filmstrip off that echoed event, never off its own
+//                publish.
+// The screen only ever reacts to undo.previewed / undo.applied; it publishes
+// neither. In dev/Demo the commands are ui/src/undo/realJournal.ts's
+// createMockUndoCommands (a core stand-in over ./mockJournal.ts's fixture);
+// ui/src/main.ts swaps in a real invoke-backed UndoCommands once the Tauri
+// bridge exists, with no change here. A listener such as the Advanced audit
+// browser (ui/src/advanced/view.ts's mountAuditBrowser) still sees the same
+// two topics, now carrying the core's real data.
 
 import type { BusClient } from "../bus/mockClient.ts";
+import type { BusEvent } from "../bus/types.ts";
 import { journalForRun as defaultJournalForRun, isIrreversible, previewLine, appliedLine, type UndoJournalEntry } from "./mockJournal.ts";
+import { createMockUndoCommands, decodeJournalItems } from "./realJournal.ts";
 import { undoScreenStrings } from "./strings.ts";
 
 export type UndoPhase = "closed" | "preview" | "done";
+
+/**
+ * How the screen sends its two commands to the core (contracts/ipc.md 5c):
+ * open() -> previewUndo (preview_undo), confirm() -> undoRun (undo_run). The
+ * screen never assumes these publish anything itself; it waits for the core to
+ * echo undo.previewed / undo.applied back onto the bus. ui/src/main.ts injects
+ * the implementation: createMockUndoCommands in dev/Demo, a real invoke-backed
+ * sender under Tauri.
+ */
+export interface UndoCommands {
+  /** Ask the core to publish this run's undo.previewed(items[]) (contracts/ipc.md preview_undo). */
+  previewUndo(runId: string): void;
+  /** Ask the core to execute the undo and echo undo.applied (contracts/ipc.md undo_run). */
+  undoRun(runId: string): void;
+}
 
 export interface UndoItemView {
   seq: number;
@@ -51,9 +74,9 @@ export interface UndoScreen {
   getSnapshot(): UndoScreenSnapshot;
   /** Notified with a fresh snapshot after open/confirm/close. */
   subscribe(fn: (snapshot: UndoScreenSnapshot) => void): () => void;
-  /** Opens the preview for a completed run's journal, newest-first (design.md section 3). Replaces whatever this screen was previously showing. */
+  /** Opens the preview for a completed run: sends preview_undo, then renders the real restorations once the core echoes undo.previewed (design.md section 3). Replaces whatever this screen was previously showing. */
   open(runId: string): void;
-  /** Executes the undo: narrates every entry, restoring the reversible ones (an irreversible entry is only ever listed, never touched, mirroring crates/recorder/src/undo.rs's undo_run). No-op unless phase is "preview". Publishes undo.applied. */
+  /** Executes the undo: sends undo_run and, once the core echoes undo.applied, narrates every entry (restoring the reversible ones; an irreversible entry is only ever listed, never touched, mirroring crates/recorder/src/undo.rs's undo_run). No-op unless phase is "preview". */
   confirm(): void;
   /** Dismiss the screen (Cancel from preview, or Close from done). No-op if already closed. */
   close(): void;
@@ -61,7 +84,18 @@ export interface UndoScreen {
 }
 
 export interface CreateUndoScreenOptions {
-  /** Override the journal lookup; tests inject a scenario. Defaults to ./mockJournal.ts's journalForRun. */
+  /**
+   * How open()/confirm() reach the core (contracts/ipc.md 5c). Defaults to
+   * ui/src/undo/realJournal.ts's createMockUndoCommands over `journalForRun`
+   * below, so the screen renders standalone in dev/Demo and under `node
+   * --test`. ui/src/main.ts injects a real invoke-backed sender under Tauri.
+   */
+  commands?: UndoCommands;
+  /**
+   * Only used to build the default mock commands (ignored when `commands` is
+   * given): the journal the dev/Demo core stand-in previews from. Defaults to
+   * ./mockJournal.ts's fixture; tests inject a scenario.
+   */
   journalForRun?: (runId: string) => readonly UndoJournalEntry[];
 }
 
@@ -69,13 +103,20 @@ interface InternalState {
   phase: UndoPhase;
   runId: string | null;
   entries: readonly UndoJournalEntry[];
+  /** The restored count from the echoed undo.applied, or null before it arrives; drives the done summary from the core's own number. */
+  restored: number | null;
 }
 
-const INITIAL_STATE: InternalState = { phase: "closed", runId: null, entries: [] };
+const INITIAL_STATE: InternalState = { phase: "closed", runId: null, entries: [], restored: null };
 
 export function createUndoScreen(bus: BusClient, opts: CreateUndoScreenOptions = {}): UndoScreen {
-  const loadJournal = opts.journalForRun ?? defaultJournalForRun;
+  const commands = opts.commands ?? createMockUndoCommands(bus, opts.journalForRun ?? defaultJournalForRun);
   let state: InternalState = INITIAL_STATE;
+  // True from the moment confirm() sends undo_run until its undo.applied is
+  // echoed back: guards against a double-submit (a second confirm() before the
+  // core answers must not fire undo_run twice) and gates which undo.applied we
+  // accept (only the one we asked for).
+  let awaitingApply = false;
   const listeners = new Set<(snapshot: UndoScreenSnapshot) => void>();
 
   function snapshot(): UndoScreenSnapshot {
@@ -102,7 +143,9 @@ export function createUndoScreen(bus: BusClient, opts: CreateUndoScreenOptions =
       cancelLabel: undoScreenStrings.cancel,
       closeLabel: undoScreenStrings.close,
       emptyLabel: undoScreenStrings.empty,
-      doneSummary: undoScreenStrings.doneSummary(restorableCount),
+      // Prefer the core's own restored count from the echoed undo.applied,
+      // falling back to the reversible-entry count before it arrives.
+      doneSummary: undoScreenStrings.doneSummary(state.restored ?? restorableCount),
     };
   }
 
@@ -111,36 +154,62 @@ export function createUndoScreen(bus: BusClient, opts: CreateUndoScreenOptions =
     for (const fn of listeners) fn(snap);
   }
 
+  function handle(event: BusEvent): void {
+    if (event.topic === "undo.previewed") {
+      // Only the preview for the run this screen is currently opening, and
+      // only while still previewing it. A payload without items (an older
+      // publisher; contracts/bus_events.md keeps `items` optional) carries
+      // nothing to render, so it is ignored rather than emptying the list.
+      if (state.phase !== "preview" || event.payload.run_id !== state.runId) return;
+      const items = event.payload.items;
+      if (!items) return;
+      // Newest-first, defensively re-sorted here rather than trusting the
+      // core's own ordering, the same distrust Recorder::
+      // inverses_newest_first_seq has of raw storage order.
+      const entries = [...decodeJournalItems(items)].sort((a, b) => b.seq - a.seq);
+      state = { ...state, entries };
+      emit();
+      return;
+    }
+    if (event.topic === "undo.applied") {
+      // Only the applied echo for the undo this screen actually asked for.
+      if (!awaitingApply || event.payload.run_id !== state.runId) return;
+      awaitingApply = false;
+      state = { ...state, phase: "done", restored: event.payload.restored };
+      emit();
+      return;
+    }
+  }
+
+  const unsubscribe = bus.subscribe("undo", handle);
+
   function open(runId: string): void {
-    // Newest-first, defensively re-sorted here rather than trusting the
-    // fixture's (or a future real wire's) own ordering, the same distrust
-    // Recorder::inverses_newest_first_seq has of raw storage order.
-    const entries = [...loadJournal(runId)].sort((a, b) => b.seq - a.seq);
-    state = { phase: "preview", runId, entries };
-    bus.publish("undo.previewed", {
-      run_id: runId,
-      entries: entries.length,
-      irreversible: entries.filter(isIrreversible).length,
-    });
-    emit();
+    // Enter the preview for this run and ask the core for its restorations.
+    // No emit here: the list has no content to show until the echoed
+    // undo.previewed arrives (the handler above emits then), so the modal
+    // opens on real data instead of flashing an empty "nothing to undo".
+    awaitingApply = false;
+    state = { phase: "preview", runId, entries: [], restored: null };
+    commands.previewUndo(runId);
   }
 
   function confirm(): void {
-    if (state.phase !== "preview" || !state.runId) return;
-    const narration = state.entries.map((entry) => appliedLine(entry.inverse));
-    const restored = state.entries.filter((entry) => !isIrreversible(entry)).length;
-    bus.publish("undo.applied", { run_id: state.runId, restored, narration });
-    state = { ...state, phase: "done" };
-    emit();
+    if (state.phase !== "preview" || !state.runId || awaitingApply) return;
+    // Send undo_run and wait: the done phase is entered by the echoed
+    // undo.applied (the handler above), never here.
+    awaitingApply = true;
+    commands.undoRun(state.runId);
   }
 
   function close(): void {
     if (state.phase === "closed") return;
+    awaitingApply = false;
     state = INITIAL_STATE;
     emit();
   }
 
   function dispose(): void {
+    unsubscribe();
     listeners.clear();
   }
 

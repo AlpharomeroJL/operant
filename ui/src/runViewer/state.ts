@@ -1,6 +1,6 @@
 // The run viewer's state (C13, FR-O1): turns run.* bus events
 // (contracts/bus_events.md) into what the screen needs to show, and turns
-// Stop/Pause/intervene into the right bus publishes. Pure and DOM-free, so
+// Stop/Pause/intervene into the right run-control commands. Pure and DOM-free, so
 // it can run under plain `node --test`; main.ts binds it to the page, the
 // same split used by every other module in ui/src (ui/src/bus/mockClient.ts,
 // ui/src/state/mode.ts).
@@ -10,7 +10,7 @@
 // right, Stop and Pause buttons, intervene text field when paused)".
 
 import type { BusClient } from "../bus/mockClient.ts";
-import { RUN_MODE_EXPLORE, type BusEvent, type GateKind } from "../bus/types.ts";
+import { RUN_MODE_EXPLORE, type BusEvent, type EvtSidecar, type GateKind, type RunStepThumb } from "../bus/types.ts";
 import { renderStepSentence, type RenderableStep } from "./sdkRender.ts";
 import { runStateStrings, runViewerStrings } from "../strings/default.ts";
 
@@ -40,6 +40,14 @@ export interface StepRow {
   durationMs?: number;
   /** Set only when a safety check failed for this step; drives the inline card. */
   gate?: StepGate;
+  /**
+   * The redacted screenshot thumbnail that rode this step's `evt` frame
+   * (contracts/ipc.md section 7), already redacted and downscaled by the
+   * producer. Absent when the frame carried none (a headless/mock core, or a
+   * frame with `thumb: null`), which is when the filmstrip draws its generated
+   * placeholder instead (ui/src/runViewer/thumbnails.ts).
+   */
+  thumb?: RunStepThumb;
 }
 
 /**
@@ -85,13 +93,14 @@ export interface RunViewer {
   getSnapshot(): RunViewerSnapshot;
   /** Notified with a fresh snapshot after every state-changing bus event. */
   subscribe(fn: (snapshot: RunViewerSnapshot) => void): () => void;
-  /** Ends the current run (publishes run.halted, reason human). No-op with no run under way. */
+  /** Ends the current run (sends the stop command; the core closes it as halted). No-op with no run under way. */
   stop(): void;
-  /** Pauses a running run, or resumes a paused one. No-op with no run under way. */
+  /** Pauses a running run, or resumes a paused one, via the pause/resume commands. No-op with no run under way. */
   togglePause(): void;
   /**
-   * Sends a redirect instruction and resumes the run. Only valid while
-   * paused with non-blank text; returns whether it actually did anything.
+   * Sends a redirect command with the instruction; the core captures the
+   * correction and resumes the run on its own. Only valid while paused with
+   * non-blank text; returns whether it actually did anything.
    */
   intervene(instruction: string): boolean;
   /**
@@ -126,6 +135,7 @@ function upsertStep(steps: StepRow[], id: string, patch: StepPatch): StepRow[] {
     };
     if (patch.durationMs !== undefined) row.durationMs = patch.durationMs;
     if (patch.gate !== undefined) row.gate = patch.gate;
+    if (patch.thumb !== undefined) row.thumb = patch.thumb;
     return [...steps, row];
   }
   const next = steps.slice();
@@ -166,7 +176,7 @@ export function createRunViewer(bus: BusClient): RunViewer {
     for (const fn of listeners) fn(snapshot);
   }
 
-  function handle(event: BusEvent): void {
+  function handle(event: BusEvent, sidecar?: EvtSidecar): void {
     switch (event.topic) {
       case "run.started": {
         state = {
@@ -196,7 +206,11 @@ export function createRunViewer(bus: BusClient): RunViewer {
           irStep as unknown as RenderableStep,
           runViewerStrings.stepFallback(state.steps.length + 1),
         );
-        state = { ...state, steps: upsertStep(state.steps, irStep.id, { status: "pending", sentence }) };
+        // A proposed frame may carry a thumbnail too (contracts/ipc.md section
+        // 7); attach it when present so an early frame can already show one.
+        const patch: StepPatch = { status: "pending", sentence };
+        if (sidecar?.thumb) patch.thumb = sidecar.thumb;
+        state = { ...state, steps: upsertStep(state.steps, irStep.id, patch) };
         break;
       }
       case "run.step.gated": {
@@ -214,13 +228,11 @@ export function createRunViewer(bus: BusClient): RunViewer {
       }
       case "run.step.executed": {
         if (event.payload.run_id !== state.runId) return;
-        state = {
-          ...state,
-          steps: upsertStep(state.steps, event.payload.step_id, {
-            status: event.payload.outcome,
-            durationMs: event.payload.ms,
-          }),
-        };
+        // The executed frame is the one the flight recorder renders, so it is
+        // where the redacted thumbnail rides (contracts/ipc.md section 7).
+        const patch: StepPatch = { status: event.payload.outcome, durationMs: event.payload.ms };
+        if (sidecar?.thumb) patch.thumb = sidecar.thumb;
+        state = { ...state, steps: upsertStep(state.steps, event.payload.step_id, patch) };
         break;
       }
       case "run.step.failed": {
@@ -256,25 +268,33 @@ export function createRunViewer(bus: BusClient): RunViewer {
 
   const unsubscribeBus = bus.subscribe("run", handle);
 
+  // Stop/Pause/intervene SEND run-control commands to the core rather than
+  // publishing core-owned run.* events themselves (contracts/ipc.md section 5b;
+  // docs/specs/ipc-bridge.md section 8b). The core is the sole author of run.*;
+  // it echoes the resulting event back, and the handlers above render it. The
+  // mock bus stands in for that echo (ui/src/bus/mockClient.ts), so the round
+  // trip works identically on the mock and against a live core.
+
   function stop(): void {
     if (!state.runId) return;
-    bus.publish("run.halted", { run_id: state.runId, reason: "human" });
+    bus.command({ cmd: "stop", run_id: state.runId });
   }
 
   function togglePause(): void {
     if (!state.runId) return;
     if (state.runState === "running") {
-      bus.publish("run.paused", { run_id: state.runId, by: "human" });
+      bus.command({ cmd: "pause", run_id: state.runId });
     } else if (state.runState === "paused") {
-      bus.publish("run.resumed", { run_id: state.runId });
+      bus.command({ cmd: "resume", run_id: state.runId });
     }
   }
 
   function intervene(instruction: string): boolean {
     const trimmed = instruction.trim();
     if (!trimmed || !state.runId || state.runState !== "paused") return false;
-    bus.publish("run.redirected", { run_id: state.runId, instruction: trimmed });
-    bus.publish("run.resumed", { run_id: state.runId });
+    // Redirect captures the correction and resumes on its own (the core echoes
+    // run.redirected then run.resumed, control.rs); no separate resume command.
+    bus.command({ cmd: "redirect", run_id: state.runId, instruction: trimmed });
     return true;
   }
 

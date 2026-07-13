@@ -75,16 +75,33 @@ test("open: irreversible items are flagged, grayed-eligible, and never marked ap
   screen.dispose();
 });
 
-test("open publishes undo.previewed with entry and irreversible counts (contracts/bus_events.md)", () => {
+test("open sends preview_undo, whose echoed undo.previewed carries the real per-item items alongside the counts (contracts/ipc.md, bus_events.md)", () => {
   const bus = createMockBusClient();
   const events = collect(bus);
   const screen = createUndoScreen(bus);
 
   screen.open("run-42");
 
-  const previewed = events.find((e) => e.topic === "undo.previewed");
-  assert.ok(previewed, "undo.previewed must be published");
-  assert.deepEqual(previewed!.payload, { run_id: "run-42", entries: 6, irreversible: 1 });
+  // With the default (mock) core stand-in, the preview_undo command is
+  // answered by exactly one undo.previewed, now carrying the fixture's real
+  // per-item restorations, not just a count.
+  const previewedEvents = events.filter((e) => e.topic === "undo.previewed");
+  assert.equal(previewedEvents.length, 1, "exactly one undo.previewed answers the command");
+  const payload = previewedEvents[0].payload as {
+    run_id: string;
+    entries: number;
+    irreversible: number;
+    items?: { seq: number }[];
+  };
+  assert.equal(payload.run_id, "run-42");
+  assert.equal(payload.entries, 6);
+  assert.equal(payload.irreversible, 1);
+  assert.equal(payload.items?.length, 6, "the echoed preview carries every journal item, not just the counts");
+  assert.deepEqual(
+    payload.items?.map((i) => i.seq),
+    [6, 5, 4, 3, 2, 1],
+    "items mirror the fixture's own journal entries",
+  );
   screen.dispose();
 });
 

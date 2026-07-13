@@ -5,15 +5,37 @@ import {
   type BusEvent,
   type BusTopic,
   type BusTopicPayloadMap,
+  type EvtSidecar,
+  type RunControlCommand,
   type RunMode,
 } from "./types.ts";
 
-type Listener = (event: BusEvent) => void;
+/**
+ * A bus subscriber. The optional second argument is the IPC `evt` frame's
+ * non-envelope sidecar (contracts/ipc.md section 2d), today just the
+ * flight-recorder `thumb`. It is optional so every existing subscriber that
+ * takes only the event keeps working unchanged; only consumers that draw the
+ * thumbnail read it.
+ */
+type Listener = (event: BusEvent, sidecar?: EvtSidecar) => void;
 
 export interface BusClient {
   /** Subscribe to an exact topic, a dot-prefix namespace ("run" matches "run.*"), or "*" for everything. */
   subscribe(topicPrefix: string, listener: Listener): () => void;
-  publish<T extends BusTopic>(topic: T, payload: BusTopicPayloadMap[T]): void;
+  /**
+   * Publish a bus event. The sidecar argument carries the non-envelope part of
+   * an IPC evt frame (the flight-recorder thumb); it is delivered to subscribers
+   * beside the envelope and never folded into the bus payload.
+   */
+  publish<T extends BusTopic>(topic: T, payload: BusTopicPayloadMap[T], sidecar?: EvtSidecar): void;
+  /**
+   * Send a run-control command to the core (contracts/ipc.md section 5b:
+   * stop/pause/resume/redirect). The command is NOT a bus event; its observable
+   * outcome is a `run.*` event the core echoes back. The mock plays the core by
+   * echoing that event synchronously, so the run viewer renders the result the
+   * same way it will against a live core.
+   */
+  command(command: RunControlCommand): void;
   close(): void;
 }
 
@@ -38,7 +60,7 @@ export function createMockBusClient(): BusClient {
   let seq = 0;
   const listeners = new Set<{ prefix: string; fn: Listener }>();
 
-  function publish<T extends BusTopic>(topic: T, payload: BusTopicPayloadMap[T]): void {
+  function publish<T extends BusTopic>(topic: T, payload: BusTopicPayloadMap[T], sidecar?: EvtSidecar): void {
     const envelope = {
       v: 1 as const,
       seq: ++seq,
@@ -49,7 +71,7 @@ export function createMockBusClient(): BusClient {
 
     for (const { prefix, fn } of listeners) {
       if (matchesTopic(prefix, topic)) {
-        fn(envelope);
+        fn(envelope, sidecar);
       }
     }
   }
@@ -60,11 +82,37 @@ export function createMockBusClient(): BusClient {
     return () => listeners.delete(entry);
   }
 
+  function command(command: RunControlCommand): void {
+    // Stand in for the core: a run-control command's observable effect is the
+    // run.* event the real core would publish in response (contracts/ipc.md
+    // section 5b). Echo it here so the round trip -- command out, event back,
+    // handlers render -- is exercised end to end on the mock bus, exactly as it
+    // will be against a live core (which echoes over the real transport).
+    switch (command.cmd) {
+      case "stop":
+        // Stop ends the run; a human-driven stop closes it as halted.
+        publish("run.halted", { run_id: command.run_id, reason: "human" });
+        break;
+      case "pause":
+        publish("run.paused", { run_id: command.run_id, by: "human" });
+        break;
+      case "resume":
+        publish("run.resumed", { run_id: command.run_id });
+        break;
+      case "redirect":
+        // Redirect captures the correction and then resumes on its own
+        // (control.rs): the core echoes run.redirected followed by run.resumed.
+        publish("run.redirected", { run_id: command.run_id, instruction: command.instruction });
+        publish("run.resumed", { run_id: command.run_id });
+        break;
+    }
+  }
+
   function close(): void {
     listeners.clear();
   }
 
-  return { subscribe, publish, close };
+  return { subscribe, publish, command, close };
 }
 
 const DEFAULT_DEMO_GOAL = "Copy the invoice total into the spreadsheet";

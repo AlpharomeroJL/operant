@@ -127,7 +127,13 @@ export function mountDashboard(container: HTMLElement, snapshot: DashboardSnapsh
     empty.append(el("p", "op-empty", snapshot.emptyLabel), emptyActionButton(snapshot.emptyActionLabel, opts.onTeach));
     root.append(empty);
   } else {
-    root.append(sectionEl("op-dashboard-upnext-heading", snapshot.upNextTitle, listOrEmpty(snapshot.upNext, upNextRowEl, snapshot.upNextEmptyLabel)));
+    // When scheduling itself is not wired (list_triggers answered
+    // not_implemented), say so honestly rather than showing the weaker
+    // "nothing scheduled yet," which would imply a working-but-empty scheduler.
+    const upNextBody = snapshot.upNextUnavailable
+      ? el("p", "op-empty", snapshot.upNextUnavailableLabel)
+      : listOrEmpty(snapshot.upNext, upNextRowEl, snapshot.upNextEmptyLabel);
+    root.append(sectionEl("op-dashboard-upnext-heading", snapshot.upNextTitle, upNextBody));
     root.append(
       sectionEl("op-dashboard-recent-heading", snapshot.recentRunsTitle, listOrEmpty(snapshot.recentRuns, recentRunRowEl, snapshot.recentRunsEmptyLabel)),
     );

@@ -7,7 +7,7 @@
 // turning a commit into an actual saved-workflow run, grant check, screen
 // switch, or teach run: the bus/registry/screen-routing logic this module
 // deliberately does not know about, the same seam ui/src/grants/state.ts's
-// onAllow/onDeny and ui/src/library/state.ts's onScheduleRequested use.
+// onAllow/onDeny and ui/src/library/state.ts's onScheduleResolved use.
 //
 // Selection tracks a row's own id, not its position in the list (the same
 // choice ui/src/runViewer/state.ts makes with activeStepId rather than an

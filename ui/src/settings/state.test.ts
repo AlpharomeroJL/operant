@@ -133,6 +133,13 @@ test("backup label reflects no-backup-yet, then the export time after one", () =
   assert.match(other.getSnapshot().lastBackupLabel, /^Last backup: /);
 });
 
+test("mock store (dev/Demo): no archive backup, so the view-model reports it and returns null", () => {
+  const settings = createSettings();
+  assert.equal(settings.supportsBackupArchive(), false);
+  assert.equal(settings.exportBackupArchive(), null);
+  assert.equal(settings.importBackupArchive("QUJD"), null);
+});
+
 test("dispose stops notifying subscribers", () => {
   const settings = createSettings();
   let calls = 0;

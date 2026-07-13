@@ -1,3 +1,9 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs's STATIC scan (same reason
+// ui/src/bus/realClient.test.ts is): a test file whose own descriptions name
+// wire-protocol vocabulary ("trajectory", "explore"). This does NOT weaken the
+// glossary bar for this surface: the runtime glossary check BELOW still runs and
+// validates the guided task's actual rendered sentences, which is the point.
 // The wizard's core scripted-run tests (C19 bar): a run through the quiet
 // demo link reaches a working demo in default mode, and a run through a
 // real setup path reaches completion and publishes a workflow the library
@@ -20,8 +26,20 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMockBusClient } from "../bus/mockClient.ts";
-import type { BusEvent } from "../bus/types.ts";
+import { RUN_MODE_EXPLORE, type BusEvent } from "../bus/types.ts";
 import { createWizard } from "./state.ts";
+import { createMockBackendConfigurator } from "./engine.ts";
+import { GUIDED_TASK_GOAL, GUIDED_TASK_STEPS, GUIDED_TASK_WINDOW } from "./guidedTask.ts";
+import type { StartExploreRequest, TeachClient } from "../teach/client.ts";
+
+/** Collects (key, value) pairs from every config.changed the wizard publishes. */
+function collectConfigChanges(bus: ReturnType<typeof createMockBusClient>): { key: string; value: unknown }[] {
+  const changes: { key: string; value: unknown }[] = [];
+  bus.subscribe("config.changed", (e) => {
+    if (e.topic === "config.changed") changes.push({ key: e.payload.key, value: e.payload.value });
+  });
+  return changes;
+}
 
 function waitUntil(subscribe: (fn: () => void) => () => void, predicate: () => boolean): Promise<void> {
   if (predicate()) return Promise.resolve();
@@ -51,6 +69,36 @@ function assertNoInternalJargon(strings: readonly string[]): void {
       assert.ok(!re.test(s), `visible string "${s}" leaks internal term "${term}"`);
     }
   }
+}
+
+/**
+ * A teach client that records how the wizard invokes start_explore and
+ * compile_run, and drives each run straight to completion on the bus so the
+ * wizard's own runViewer reaches "done" and Save as workflow is reachable (the
+ * mock client's real streaming is covered in ui/src/teach/client.test.ts).
+ */
+function recordingTeachClient(bus: ReturnType<typeof createMockBusClient>): {
+  client: TeachClient;
+  startExploreCalls: StartExploreRequest[];
+  compileRunCalls: { runId: string; name?: string }[];
+} {
+  const startExploreCalls: StartExploreRequest[] = [];
+  const compileRunCalls: { runId: string; name?: string }[] = [];
+  let n = 0;
+  const client: TeachClient = {
+    startExplore(req) {
+      startExploreCalls.push(req);
+      const runId = req.runId ?? `fake-run-${++n}`;
+      bus.publish("run.started", { run_id: runId, goal: req.goal, mode: RUN_MODE_EXPLORE });
+      bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: req.script?.length ?? 0, wall_ms: 1 });
+      return { runId, stop() {} };
+    },
+    compileRun(runId, opts) {
+      compileRunCalls.push({ runId, name: opts?.name });
+      return { name: opts?.name ?? runId, version: opts?.version ?? "1.0.0", sourceRunId: runId };
+    },
+  };
+  return { client, startExploreCalls, compileRunCalls };
 }
 
 test("welcome is the first screen, with real visible content, in default mode", () => {
@@ -276,6 +324,34 @@ test("BAR: wizard completion -> guided teach -> Save as workflow -> schedule pro
   wizard.dispose();
 });
 
+test("guided teach invokes start_explore with the practice window and the guided steps; Save as workflow invokes compile_run for that run", () => {
+  const bus = createMockBusClient();
+  const { client, startExploreCalls, compileRunCalls } = recordingTeachClient(bus);
+  const wizard = createWizard(bus, { teachClient: client });
+
+  wizard.continueWelcome();
+  wizard.chooseChatGPT();
+  wizard.continueMicCheck(); // -> guided_task, which begins the guided teach
+
+  assert.equal(startExploreCalls.length, 1, "the guided task must invoke start_explore exactly once");
+  const req = startExploreCalls[0];
+  assert.equal(req.goal, GUIDED_TASK_GOAL);
+  assert.equal(req.windowProcess, GUIDED_TASK_WINDOW, "the guided task teaches against the practice-page window");
+  assert.deepEqual(req.script, GUIDED_TASK_STEPS, "the guided steps are the mock's canned trajectory for this teach run");
+
+  // The fake completed the run, so Save as workflow (the compile handoff) is reachable.
+  assert.equal(wizard.getSnapshot().screen, "guided_task");
+  assert.equal(wizard.getSnapshot().guidedTask.canSave, true);
+  wizard.saveAsWorkflow();
+
+  assert.equal(compileRunCalls.length, 1, "Save as workflow must invoke compile_run exactly once");
+  assert.equal(compileRunCalls[0].runId, req.runId ?? "fake-run-1", "compile_run must target the run just taught");
+  assert.equal(compileRunCalls[0].name, "first-task");
+  assert.equal(wizard.getSnapshot().screen, "schedule", "Save as workflow advances to the schedule step");
+
+  wizard.dispose();
+});
+
 test("local model download: not enough disk space blocks the flow with the shortfall, not the model's full size", () => {
   const bus = createMockBusClient();
   const wizard = createWizard(bus, { diskFreeBytes: 1_000_000_000, diskNeededBytes: 4_000_000_000 });
@@ -452,4 +528,134 @@ test("dispose cleans up without throwing, mid-download and mid-run", () => {
   wizard.continueWelcome();
   wizard.startLocalDownload();
   assert.doesNotThrow(() => wizard.dispose());
+});
+
+// ---- Engine config (lane B8): completing a setup path configures a real backend ----
+
+test("choosing ChatGPT writes real engine config through configure_backend (provider, model, and a real planner)", () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  const wizard = createWizard(bus);
+
+  wizard.continueWelcome();
+  wizard.chooseChatGPT();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+
+  const byKey = new Map(changes.map((c) => [c.key, c.value]));
+  assert.equal(byKey.get("model.provider"), "chatgpt");
+  assert.ok(typeof byKey.get("model.name") === "string" && (byKey.get("model.name") as string).length > 0, "a model is written");
+  // The point of writing config is that start_teach_run can assemble a real
+  // planner afterward: the demo's mock planner is replaced.
+  assert.equal(byKey.get("model.planner"), "real_planner");
+  assert.equal(wizard.getSnapshot().backend.configured, true);
+
+  wizard.dispose();
+});
+
+test("the access key path configures the detected provider and never lets the raw key reach the bus or linger in state", () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  // Watch every topic, not just config.changed: the raw key must appear on none.
+  const allPayloads: string[] = [];
+  bus.subscribe("*", (e) => allPayloads.push(JSON.stringify(e.payload)));
+
+  const configurator = createMockBackendConfigurator(bus);
+  const wizard = createWizard(bus, { backend: configurator });
+  wizard.continueWelcome();
+
+  const SECRET = "sk-ant-super-secret-key-value-do-not-leak";
+  wizard.setAccessKeyText(SECRET);
+  wizard.continueWithAccessKey();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+
+  const byKey = new Map(changes.map((c) => [c.key, c.value]));
+  assert.equal(byKey.get("model.provider"), "claude", "sk-ant- keys are recognized as Claude");
+  assert.equal(byKey.get("model.planner"), "real_planner");
+
+  // Key safety: the raw key rides no bus event of any topic.
+  for (const p of allPayloads) {
+    assert.ok(!p.includes(SECRET), "the raw access key must never be published on the bus");
+  }
+  // The shell/core got the key (out of band); the webview kept only the fact of it.
+  const configured = configurator.getConfigured();
+  assert.ok(configured, "configure_backend was called");
+  assert.equal(configured?.hadApiKey, true, "the key was handed off to the shell/core");
+  // ...and the webview drops the raw key from its own state after handoff.
+  assert.equal(wizard.getSnapshot().setupPath.accessKey.text, "", "the raw key is cleared from state after handoff");
+
+  wizard.dispose();
+});
+
+test("probe_backend is surfaced honestly: an unwired core reports not_implemented, never a faked green result", async () => {
+  const bus = createMockBusClient();
+  const wizard = createWizard(bus);
+
+  wizard.continueWelcome();
+  wizard.chooseChatGPT();
+  // Synchronously the probe is still in flight; it must not pretend to be green.
+  assert.equal(wizard.getSnapshot().backend.probeState, "checking");
+
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().backend.probeState !== "checking");
+
+  const b = wizard.getSnapshot().backend;
+  assert.equal(b.probeState, "not_implemented", "the default (not-yet-implemented) core answers not_implemented");
+  assert.notEqual(b.probeState, "reachable", "a not-yet-implemented probe must never render as reachable");
+  assert.equal(b.probeLabel, "We could not check the connection yet.");
+
+  wizard.dispose();
+});
+
+test("a reachable probe result flows through to the snapshot (the probe is wired, not hardcoded to one state)", async () => {
+  const bus = createMockBusClient();
+  const configurator = createMockBackendConfigurator(bus, { probe: { state: "reachable", detail: "reachable" } });
+  const wizard = createWizard(bus, { backend: configurator });
+
+  wizard.continueWelcome();
+  wizard.chooseClaude();
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().backend.probeState !== "checking");
+
+  assert.equal(wizard.getSnapshot().backend.probeState, "reachable");
+  wizard.dispose();
+});
+
+test("finishing the local-model download configures the on-device model, including its endpoint", async () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  const wizard = createWizard(bus, {
+    diskFreeBytes: 50_000_000_000,
+    diskNeededBytes: 4_000_000_000,
+    vramMb: 8000,
+    download: { totalBytes: 10, ticks: 2, tickMs: 3 },
+  });
+
+  wizard.continueWelcome();
+  wizard.startLocalDownload();
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().setupPath.local.phase === "complete");
+  wizard.continueAfterLocalDownload();
+  assert.equal(wizard.getSnapshot().screen, "mic_check");
+
+  const byKey = new Map(changes.map((c) => [c.key, c.value]));
+  assert.equal(byKey.get("model.provider"), "local");
+  assert.equal(byKey.get("model.planner"), "real_planner");
+  assert.ok(typeof byKey.get("model.endpoint") === "string", "the local path writes an on-device endpoint");
+
+  wizard.dispose();
+});
+
+test("the demo path is Demo mode: it configures no real model and never flips the planner to real", async () => {
+  const bus = createMockBusClient();
+  const changes = collectConfigChanges(bus);
+  const wizard = createWizard(bus, { guidedTaskStepDelayMs: 3 });
+
+  wizard.continueWelcome();
+  wizard.startDemo();
+  await waitUntil(wizard.subscribe, () => wizard.getSnapshot().guidedTask.done);
+
+  assert.equal(wizard.getSnapshot().backend.configured, false, "a zero-grants demo must not configure a real model");
+  assert.ok(
+    !changes.some((c) => c.key === "model.planner"),
+    "the demo must leave the planner on its mock default",
+  );
+
+  wizard.dispose();
 });
