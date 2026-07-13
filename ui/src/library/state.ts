@@ -9,6 +9,7 @@ import type { CommandClient } from "../bus/commandClient.ts";
 import { RUN_MODE_REPLAY, type BusEvent } from "../bus/types.ts";
 import { renderWorkflow, type RenderedWorkflow } from "../../../sdk/ts/src/render/index.js";
 import { createMockRegistry, type MockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
+import { createUnavailableSchedulerCommands, isNotImplemented, TRIGGER_KIND_CRON, type SchedulerCommands } from "../scheduler/commands.ts";
 import { commonStrings, workflowLibraryStrings } from "../strings/default.ts";
 import { libraryStrings } from "./strings.ts";
 import { assignGlyph } from "./glyph.ts";
@@ -69,6 +70,23 @@ interface PendingRun {
   startedAt: number;
 }
 
+/**
+ * What happened when a person pressed Schedule on a card. `scheduled` is true
+ * only when the core actually created a recurring trigger; `unavailable` is
+ * true when the core has no trigger store wired yet and answered the
+ * upsert_trigger command with `not_implemented` (contracts/ipc.md section 5g).
+ * In every build today `unavailable` is the outcome: the two are kept as
+ * separate booleans (rather than one "ok") so the shell can tell an honest
+ * "scheduling is not available yet" apart from a real, retryable failure, and
+ * so the success path is ready to render truthfully the day the store lands.
+ */
+export interface ScheduleOutcome {
+  name: string;
+  title: string;
+  scheduled: boolean;
+  unavailable: boolean;
+}
+
 export interface Library {
   getSnapshot(): LibrarySnapshot;
   subscribe(fn: (snap: LibrarySnapshot) => void): () => void;
@@ -90,14 +108,14 @@ export interface Library {
    */
   run(name: string): void;
   /**
-   * With a CommandClient present this issues upsert_trigger (contracts/ipc.md
-   * section 5e), a command reserved but NOT wired in this build: it answers
-   * `not_implemented`, which this surfaces honestly via onScheduleRequested
-   * ("scheduling not available yet") and never fakes into a success. In
-   * dev/Demo (no client, and no bus topic models "create a recurring trigger"
-   * yet) it reports the same honest intent via onScheduleRequested directly.
+   * Asks the core to create a recurring trigger for this workflow via the
+   * upsert_trigger command (contracts/ipc.md section 5e). Resolves with the
+   * honest outcome and also reports it through onScheduleResolved. The core has
+   * no trigger store yet, so this resolves `unavailable` in every build today;
+   * it never fabricates a schedule or touches the bus. Resolves undefined for
+   * an unknown name.
    */
-  schedule(name: string): void;
+  schedule(name: string): Promise<ScheduleOutcome | undefined>;
   /**
    * The plain-English Explain view for a saved workflow. With a CommandClient
    * present this issues explain_workflow (contracts/ipc.md section 5c), the
@@ -127,20 +145,21 @@ export interface CreateLibraryOptions {
   registry?: MockRegistry;
   now?: () => number;
   /**
-   * Reports a Schedule request the shell surfaces as an honest notice. Fired
-   * both in dev/Demo (no scheduler bridge exists) and, with a client present,
-   * after upsert_trigger comes back `not_implemented` (contracts/ipc.md section
-   * 5e/5g): either way the person is told scheduling is not available yet,
-   * never shown a fabricated success.
+   * The scheduler command surface (contracts/ipc.md section 5e). Defaults to
+   * the honest not-yet-wired implementation, which answers every scheduler
+   * command with `not_implemented` because the core has no trigger store yet
+   * (see ../scheduler/commands.ts).
    */
-  onScheduleRequested?: (name: string, title: string) => void;
+  scheduler?: SchedulerCommands;
+  /** Reports the outcome of a Schedule press once the upsert_trigger command resolves. */
+  onScheduleResolved?: (outcome: ScheduleOutcome) => void;
   /**
    * The request/response bridge (contracts/ipc.md). When present, the library
-   * loads its real saved workflows via list_workflows and routes Run/Explain/
-   * Schedule through start_replay/explain_workflow/upsert_trigger. Omitted in
-   * dev/Demo (and the current webview until the real transport lands), where
-   * the library falls back to the seeded ./mockRegistry.ts and synthesizes runs
-   * on the bus itself.
+   * loads its real saved workflows via list_workflows and routes Run/Explain
+   * through start_replay/explain_workflow. Omitted in dev/Demo (and the current
+   * webview until the real transport lands), where the library falls back to the
+   * seeded ./mockRegistry.ts and synthesizes runs on the bus itself. Scheduling
+   * goes through the separate `scheduler` seam above, not this client.
    */
   client?: CommandClient;
 }
@@ -168,6 +187,7 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
   const registry = opts.registry ?? createMockRegistry();
   const now = opts.now ?? (() => Date.now());
   const client = opts.client;
+  const scheduler = opts.scheduler ?? createUnavailableSchedulerCommands();
   const runtimes = new Map<string, WorkflowRuntime>();
   const pendingRuns = new Map<string, PendingRun>();
   const listeners = new Set<(snap: LibrarySnapshot) => void>();
@@ -334,34 +354,31 @@ export function createLibrary(bus: BusClient, opts: CreateLibraryOptions = {}): 
     bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: record.steps.length, wall_ms: 400 });
   }
 
-  function schedule(name: string): void {
+  async function schedule(name: string): Promise<ScheduleOutcome | undefined> {
     const record = registry.get(name);
-    if (!record) return;
+    if (!record) return undefined;
     const title = record.manifest.description || name;
-    if (client) {
-      // Real bridge: upsert_trigger is reserved in the frozen contract but has
-      // no store to upsert into, so this build answers `not_implemented`
-      // (contracts/ipc.md section 5e/5g). Call it anyway and report the honest
-      // "no" when it comes back; never fabricate a scheduled trigger.
-      void requestSchedule(client, name, title);
-      return;
-    }
-    // dev/Demo: no bus topic models "create a recurring trigger" yet
-    // (contracts/bus_events.md's scheduler topics all assume one already
-    // exists), so report the intent honestly without touching the bus.
-    opts.onScheduleRequested?.(name, title);
-  }
-
-  // Issues upsert_trigger and surfaces its result honestly. A resolved
-  // {ok:false} (the contracted `not_implemented`, or any other refusal) becomes
-  // the same "scheduling not available yet" notice the dev/Demo path shows; a
-  // future build that actually wires the command resolves {ok:true} and this
-  // reports nothing false in the meantime.
-  async function requestSchedule(c: CommandClient, name: string, title: string): Promise<void> {
-    const res = await c.request("upsert_trigger", { kind: "cron", workflow_name: name, spec: "", enabled: true });
-    if (!res.ok) {
-      opts.onScheduleRequested?.(name, title);
-    }
+    // Wire the Schedule press to the real upsert_trigger command
+    // (contracts/ipc.md section 5e). There is no schedule-authoring UI yet to
+    // collect a real cron/file/window/email spec, so the request carries an
+    // empty spec: the core answers `not_implemented` before it ever inspects
+    // args (it has no trigger store, section 5g), so no fabricated spec is
+    // stored anywhere. Building the spec-authoring surface is follow-up work
+    // tracked in docs/roadmap/scheduler-live.md.
+    const res = await scheduler.upsertTrigger({
+      kind: TRIGGER_KIND_CRON,
+      workflow_name: name,
+      spec: "",
+      enabled: true,
+    });
+    const outcome: ScheduleOutcome = {
+      name,
+      title,
+      scheduled: res.ok,
+      unavailable: isNotImplemented(res),
+    };
+    opts.onScheduleResolved?.(outcome);
+    return outcome;
   }
 
   async function explain(name: string): Promise<RenderedWorkflow | undefined> {

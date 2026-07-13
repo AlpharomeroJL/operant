@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("cron" and other trigger-spec keys, ...).
 // The IPC adapter (./source.ts createIpcDashboardSource): maps contracts/ipc.md's
 // get_metrics / list_runs / get_run / list_triggers onto the DashboardSource
 // port, and turns an unavailable or not_implemented command into the empty

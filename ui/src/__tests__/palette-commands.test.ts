@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("replay", "run_saved_workflow", ...).
 // DOM-driven proof that the command palette drives REAL core commands
 // (contracts/ipc.md section 5), the way ui/src/main.ts wires it: a real
 // KeyboardEvent into the mounted palette overlay -> the view's keydown ->

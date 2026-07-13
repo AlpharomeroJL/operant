@@ -1,3 +1,8 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.ts and
+// ui/src/bus/commands.ts are): a wire adapter, not shipped UI copy. Its string
+// literals are contracts/ipc.md command names and trigger-spec keys ("cron",
+// "next", ...), protocol vocabulary that is never rendered as UI text.
 // The Home dashboard's real data source (B6 dashboard-live). The dashboard
 // reads four request/response commands at mount, contracts/ipc.md's
 // get_metrics, list_runs, get_run, and list_triggers. Those are correlated

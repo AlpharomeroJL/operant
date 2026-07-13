@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("replay", "explore", ...).
 // Tests the shell-to-core command seam (./commands.ts): the palette issues the
 // contract commands (contracts/ipc.md section 5) through it, and in dev/Demo
 // the mock drives the same canned bus stream the shell rendered against before.

@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("sidecar", the flight-recorder thumb, ...).
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMockBusClient, simulateDemoRun } from "./mockClient.ts";

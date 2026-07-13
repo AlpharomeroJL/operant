@@ -37,6 +37,7 @@ import { libraryStrings } from "./library/strings.ts";
 import { createDashboard } from "./dashboard/state.ts";
 import { createTauriDashboardSource } from "./dashboard/source.ts";
 import { mountDashboard } from "./dashboard/view.ts";
+import { createUnavailableSchedulerCommands } from "./scheduler/commands.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
@@ -293,19 +294,33 @@ const connectedTools = createConnectedToolsStore();
 // resolve; dev/Demo uses a deterministic stub).
 const coreCommands = createMockCoreCommands(bus, { registry, foregroundWindow: readForegroundWindowProcess });
 
+// The scheduler command surface (contracts/ipc.md section 5e). This build has
+// no core trigger store, so both scheduler commands honestly answer
+// not_implemented (ui/src/scheduler/commands.ts); the library's Schedule action
+// and the dashboard's Up next both surface that truthfully rather than
+// fabricating a schedule. What the core needs to make this real is specified in
+// docs/roadmap/scheduler-live.md.
+const scheduler = createUnavailableSchedulerCommands();
+
 const library = createLibrary(bus, {
   registry,
-  onScheduleRequested: (_name, title) => {
-    scheduleNotice = libraryStrings.scheduleNotice(title);
+  scheduler,
+  onScheduleResolved: (outcome) => {
+    // Only the honest not-available message ships: no build can create a real
+    // trigger yet, so there is no success copy to show. A non-not_implemented
+    // failure (not reachable today) falls back to the generic error line.
+    scheduleNotice = outcome.unavailable ? libraryStrings.scheduleUnavailable(outcome.title) : commonStrings.errorGeneric;
     renderLibraryPanel();
   },
 });
 // Shares Library's own registry instance (not a second createMockRegistry())
 // so Up next/Recent runs show the exact same plain-language titles Library
 // does for the same workflow name. The source is the real IPC data path
-// (get_metrics/list_runs/get_run/list_triggers) under Tauri, and undefined in
-// dev/Demo so the dashboard falls back to ./dashboard/mockMetrics.ts fixtures.
-const dashboard = createDashboard(bus, { registry, source: createTauriDashboardSource() });
+// (get_metrics/list_runs/get_run under Tauri) for the hero, sparkline, and
+// Recent runs, undefined in dev/Demo so those fall back to
+// ./dashboard/mockMetrics.ts fixtures. Up next is fed by the shared scheduler
+// surface, so it reflects the same not-available truth the Schedule action does.
+const dashboard = createDashboard(bus, { registry, source: createTauriDashboardSource(), scheduler });
 // Real config when running inside Tauri: get_settings/set_settings and a
 // config.changed subscription onto the live core (contracts/ipc.md section
 // 5f, via ./settings/liveStore.ts). Outside Tauri (npm run dev / Demo mode)

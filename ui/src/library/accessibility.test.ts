@@ -51,19 +51,13 @@ test("empty library: no axe violations", async () => {
   }
 });
 
-test("focus survives a rebuild: pressing Schedule keeps focus on the equivalent button in the rebuilt grid", () => {
+test("focus survives a rebuild: pressing Schedule keeps focus on the equivalent button in the rebuilt grid", async () => {
   const env = createDomEnv();
   try {
     const bus = createMockBusClient();
     const registry = createMockRegistry();
     const firstName = registry.list()[0].manifest.name;
-    let notice: string | null = null;
-    const library = createLibrary(bus, {
-      registry,
-      onScheduleRequested: (_name, title) => {
-        notice = title;
-      },
-    });
+    const library = createLibrary(bus, { registry });
     const container = env.document.createElement("div");
     env.document.body.appendChild(container);
 
@@ -79,10 +73,14 @@ test("focus survives a rebuild: pressing Schedule keeps focus on the equivalent 
     const scheduleButton = container.querySelector<HTMLButtonElement>(`[data-op-focus-key="library-schedule-${firstName}"]`);
     assert.ok(scheduleButton, "the first card's Schedule button must be on screen");
     scheduleButton.focus();
-    scheduleButton.click();
+    // Drive the same async path the button click triggers, then await it so the
+    // honest outcome has resolved before the rebuild. Focus stays on the button
+    // across the await (nothing else moves it), so the focus-carry guarantee is
+    // still exactly what is under test.
+    const outcome = await library.schedule(firstName);
     render();
 
-    assert.ok(notice, "clicking Schedule must report the request");
+    assert.equal(outcome?.unavailable, true, "with no core trigger store the honest outcome is 'unavailable'");
     const scheduleButtonAfter = container.querySelector<HTMLButtonElement>(`[data-op-focus-key="library-schedule-${firstName}"]`);
     assert.ok(scheduleButtonAfter);
     assert.notEqual(scheduleButtonAfter, scheduleButton, "the rebuild must have replaced the DOM node");

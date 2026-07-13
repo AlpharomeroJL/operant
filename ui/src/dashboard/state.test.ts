@@ -6,8 +6,23 @@ import { createDashboard, SPARKLINE_WIDTH, SPARKLINE_HEIGHT } from "./state.ts";
 import type { DashboardSource } from "./source.ts";
 import { createMockRegistry } from "../library/mockRegistry.ts";
 import { commonStrings, dashboardStrings } from "../strings/default.ts";
-import { dashboardCopyStrings } from "./strings.ts";
 import { WEEKLY_METRICS_FIXTURE } from "./mockMetrics.ts";
+import { TRIGGER_KIND_CRON, type SchedulerCommands, type TriggerRecord } from "../scheduler/commands.ts";
+
+// A scheduler surface whose list_triggers returns a fixed set of triggers, for
+// exercising the (future) available path. upsert_trigger is not used by the
+// dashboard, so it just mirrors the not-implemented default.
+function schedulerWithTriggers(triggers: TriggerRecord[]): SchedulerCommands {
+  return {
+    listTriggers: async () => ({ ok: true, result: triggers }),
+    upsertTrigger: async () => ({ ok: false, error: { code: "not_implemented", message: "x", retryable: false } }),
+  };
+}
+
+/** Lets a fire-and-forget list_triggers probe settle before asserting on the snapshot. */
+function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
 
 /** A fake real data source: empty by default (the honest empty state), overridable per method. */
 function fakeSource(over: Partial<DashboardSource> = {}): DashboardSource {
@@ -95,56 +110,56 @@ test("a single week of metrics renders one point without throwing", () => {
   dashboard.dispose();
 });
 
-test("Up next: the default fixture's humane times, against a fixed clock", () => {
+test("Up next: with no core trigger store, the default surface reports scheduling unavailable and never fabricates a run", () => {
   const bus = createMockBusClient();
-  // A Wednesday: 2026-06-10 08:00 local. Chosen arbitrarily; only day-count
-  // and hour/minute arithmetic are under test, not which weekday "now" is.
-  const now = () => new Date(2026, 5, 10, 8, 0, 0).getTime();
-  const dashboard = createDashboard(bus, { now });
+  // The default scheduler answers list_triggers with not_implemented
+  // (contracts/ipc.md section 5g). The synchronous snapshot is already honest:
+  // unavailable, with zero rows, before the probe even resolves.
+  const dashboard = createDashboard(bus);
   const snap = dashboard.getSnapshot();
 
-  assert.equal(snap.upNext.length, 2);
+  assert.equal(snap.upNextUnavailable, true, "scheduling is not wired, so Up next is unavailable");
+  assert.equal(snap.upNext.length, 0, "no upcoming runs are ever invented");
+  assert.equal(snap.upNextUnavailableLabel, dashboardStrings.upNextUnavailable);
+
+  dashboard.dispose();
+});
+
+test("Up next: once list_triggers is wired, it fills in real rows from the returned triggers (no fabricated times)", async () => {
+  const bus = createMockBusClient();
+  const registry = createMockRegistry();
+  const dashboard = createDashboard(bus, {
+    registry,
+    scheduler: schedulerWithTriggers([
+      { trigger_id: "t1", kind: TRIGGER_KIND_CRON, workflow_name: "weekly-report-email", spec: "0 9 * * 1-5", enabled: true },
+    ]),
+  });
+
+  await flush();
+  const snap = dashboard.getSnapshot();
+
+  assert.equal(snap.upNextUnavailable, false, "list_triggers succeeded, so scheduling is available");
+  assert.equal(snap.upNext.length, 1);
   assert.equal(snap.upNext[0].workflowName, "weekly-report-email");
-  assert.equal(snap.upNext[0].whenLabel, "tomorrow at 9 am");
-
-  const expectedTarget = new Date(2026, 5, 13, 20, 30);
-  const expectedWeekday = dashboardCopyStrings.weekdayNames[expectedTarget.getDay()];
-  assert.equal(snap.upNext[1].whenLabel, `${expectedWeekday} at 8:30 pm`);
+  // The title comes from the shared registry; the when-label is the trigger's
+  // own spec verbatim, not a next-fire time the shell invented.
+  assert.equal(snap.upNext[0].title, "Email the weekly report");
+  assert.equal(snap.upNext[0].whenLabel, "0 9 * * 1-5");
 
   dashboard.dispose();
 });
 
-test("Up next: today, and an on-the-hour time with no minutes shown", () => {
-  const bus = createMockBusClient();
-  const now = () => new Date(2026, 5, 10, 8, 0, 0).getTime();
-  const dashboard = createDashboard(bus, {
-    now,
-    upNext: [{ workflowName: "copy-invoice-total", daysFromNow: 0, hour: 15, minute: 0 }],
-  });
-  assert.equal(dashboard.getSnapshot().upNext[0].whenLabel, "today at 3 pm");
-  dashboard.dispose();
-});
-
-test("Up next: midnight and noon both format as 12, not 0", () => {
-  const bus = createMockBusClient();
-  const now = () => new Date(2026, 5, 10, 8, 0, 0).getTime();
-  const dashboard = createDashboard(bus, {
-    now,
-    upNext: [
-      { workflowName: "copy-invoice-total", daysFromNow: 0, hour: 0, minute: 0 },
-      { workflowName: "backup-photos", daysFromNow: 0, hour: 12, minute: 0 },
-    ],
-  });
-  const [midnight, noon] = dashboard.getSnapshot().upNext;
-  assert.equal(midnight.whenLabel, "today at 12 am");
-  assert.equal(noon.whenLabel, "today at 12 pm");
-  dashboard.dispose();
-});
-
-test("Up next: a scheduled workflow's title comes from the shared registry, falling back to the raw name", () => {
+test("Up next: a returned trigger's title falls back to the raw workflow name when the registry has no match", async () => {
   const bus = createMockBusClient();
   const registry = createMockRegistry([]);
-  const dashboard = createDashboard(bus, { registry, upNext: [{ workflowName: "not-in-registry", daysFromNow: 1, hour: 9, minute: 0 }] });
+  const dashboard = createDashboard(bus, {
+    registry,
+    scheduler: schedulerWithTriggers([
+      { trigger_id: "t1", kind: TRIGGER_KIND_CRON, workflow_name: "not-in-registry", spec: "0 9 * * *", enabled: true },
+    ]),
+  });
+
+  await flush();
   assert.equal(dashboard.getSnapshot().upNext[0].title, "not-in-registry");
   dashboard.dispose();
 });
@@ -225,7 +240,9 @@ test("Recent runs: run.completed for an untracked run id is ignored", () => {
 
 test("empty state: nothing scheduled and nothing has run yet shows the quiet invite instead of both lists", () => {
   const bus = createMockBusClient();
-  const dashboard = createDashboard(bus, { upNext: [] });
+  // With no core trigger store there are no upcoming runs, and no run has
+  // happened, so the default dashboard is genuinely empty and shows the invite.
+  const dashboard = createDashboard(bus);
 
   const snap = dashboard.getSnapshot();
   assert.equal(snap.empty, true);
@@ -241,11 +258,19 @@ test("empty state: nothing scheduled and nothing has run yet shows the quiet inv
   dashboard.dispose();
 });
 
-test("not empty: Up next alone (no recent runs yet) is not the empty state", () => {
+test("not empty: a completed run shows the sections (with Up next honestly unavailable) instead of the invite", () => {
   const bus = createMockBusClient();
-  const dashboard = createDashboard(bus);
-  assert.equal(dashboard.getSnapshot().recentRuns.length, 0);
-  assert.equal(dashboard.getSnapshot().empty, false, "the default fixture always has Up next entries");
+  const dashboard = createDashboard(bus, { now: () => 1_000_000 });
+
+  bus.publish("run.started", { run_id: "r1", goal: "run", mode: RUN_MODE_REPLAY, workflow_name: "copy-invoice-total" });
+  bus.publish("run.completed", { run_id: "r1", outcome: "ok", steps: 1, wall_ms: 10 });
+
+  const snap = dashboard.getSnapshot();
+  assert.equal(snap.empty, false, "a real run lifts the dashboard out of the empty invite");
+  assert.equal(snap.recentRuns.length, 1);
+  // Scheduling is still unavailable: the run does not fabricate an upcoming entry.
+  assert.equal(snap.upNext.length, 0);
+  assert.equal(snap.upNextUnavailable, true);
   dashboard.dispose();
 });
 
@@ -268,7 +293,7 @@ test("subscribe notifies on a new recent run; dispose stops both the bus subscri
 
 // --- B6 real data source (contracts/ipc.md get_metrics / list_runs / get_run / list_triggers) ---
 
-test("real source: hero, sparkline, Up next, and Recent runs all come from the source, not the ./mockMetrics fixtures", async () => {
+test("real source: hero, sparkline, and Recent runs come from the source; Up next is scheduler-sourced, not the source", async () => {
   const bus = createMockBusClient();
   const source = fakeSource({
     getWeeklyMetrics: async () => [
@@ -276,18 +301,20 @@ test("real source: hero, sparkline, Up next, and Recent runs all come from the s
       { week: "b", minutesSaved: 120 },
     ],
     getRecentRuns: async () => [{ runId: "run_1", title: "Copy the invoice total", outcome: "ok", steps: 4, completedAtMs: 1_000_000 }],
+    // Even though this source would return an upcoming run, the reconciled
+    // dashboard reads Up next from the scheduler surface, never the source, so
+    // this value is deliberately ignored.
     getUpcomingRuns: async () => [{ workflowName: "weekly-report-email", whenLabel: "tomorrow at 9 am" }],
   });
-  // An empty registry: Up next falls back to the raw workflow name, proving the source (not a fixture) drove the row.
   const dashboard = createDashboard(bus, { source, now: () => 1_000_000, registry: createMockRegistry([]) });
   await dashboard.refresh();
 
   const snap = dashboard.getSnapshot();
   assert.deepEqual(snap.sparklineValues, [30, 120]);
   assert.equal(snap.heroLine, "Operant saved you 2 hours this week");
-  assert.equal(snap.upNext.length, 1);
-  assert.equal(snap.upNext[0].title, "weekly-report-email");
-  assert.equal(snap.upNext[0].whenLabel, "tomorrow at 9 am");
+  // Up next comes from the (default unavailable) scheduler, not the source.
+  assert.equal(snap.upNext.length, 0);
+  assert.equal(snap.upNextUnavailable, true);
   assert.equal(snap.recentRuns.length, 1);
   assert.equal(snap.recentRuns[0].title, "Copy the invoice total");
   assert.equal(snap.recentRuns[0].outcomeLabel, "Run complete, 4 steps");
@@ -344,17 +371,20 @@ test("real source: a metrics-only dashboard (runs recorded, nothing scheduled or
   dashboard.dispose();
 });
 
-test("dev fallback: with no source the dashboard uses ./mockMetrics fixtures and refresh() is a no-op", async () => {
+test("dev fallback: with no source the dashboard uses the ./mockMetrics weekly fixture and refresh() is a no-op", async () => {
   const bus = createMockBusClient();
   const dashboard = createDashboard(bus);
   const before = dashboard.getSnapshot();
   assert.equal(before.heroLine, "Operant saved you 3.2 hours this week");
 
-  await dashboard.refresh(); // no source: must not change anything
+  await dashboard.refresh(); // no source: must not change the metrics
   const after = dashboard.getSnapshot();
   assert.equal(after.heroLine, before.heroLine);
   assert.deepEqual(after.sparklineValues, WEEKLY_METRICS_FIXTURE.map((m) => m.minutesSaved));
-  assert.equal(after.upNext.length, 2); // the fixture Up next
+  // Up next is scheduler-sourced (no fixture up-next anymore); with no scheduler
+  // wired it defaults to unavailable, so no rows show.
+  assert.equal(after.upNext.length, 0);
+  assert.equal(after.upNextUnavailable, true);
   dashboard.dispose();
 });
 

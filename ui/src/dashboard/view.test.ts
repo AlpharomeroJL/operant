@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose fixtures name wire-protocol
+// vocabulary from contracts/ipc.md ("cron" trigger kind, ...).
 // DOM behavior of the Home dashboard against the real data source (B6): mounts
 // ./view.ts from a source-driven snapshot and asserts the actual rendered
 // markup, the "verify via DOM assertions" bar. Companion to ./accessibility.test.ts
@@ -10,7 +14,9 @@ import { createMockBusClient } from "../bus/mockClient.ts";
 import { createMockRegistry } from "../library/mockRegistry.ts";
 import { createDashboard } from "./state.ts";
 import { mountDashboard } from "./view.ts";
+import { dashboardStrings } from "../strings/default.ts";
 import type { DashboardSource } from "./source.ts";
+import { NOT_IMPLEMENTED, type SchedulerCommands, type TriggerRecord } from "../scheduler/commands.ts";
 
 function fakeSource(over: Partial<DashboardSource> = {}): DashboardSource {
   return {
@@ -21,12 +27,27 @@ function fakeSource(over: Partial<DashboardSource> = {}): DashboardSource {
   };
 }
 
+// Up next is fed by the scheduler surface (list_triggers), not the source, in
+// the reconciled dashboard. This stands in for a core that has a trigger store.
+function schedulerWithTriggers(triggers: TriggerRecord[]): SchedulerCommands {
+  return {
+    listTriggers: async () => ({ ok: true, result: triggers }),
+    upsertTrigger: async () => ({ ok: false, error: { code: NOT_IMPLEMENTED, message: "no trigger store yet", retryable: false } }),
+  };
+}
+
+// A macrotask boundary so the constructor's fire-and-forget list_triggers probe
+// settles before the assertions.
+function flush(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 /** The `.op-dashboard__section` whose heading carries the given id (Up next / Recent runs). */
 function sectionByHeading(root: Element, headingId: string): Element | null {
   return root.querySelector(`#${headingId}`)?.closest(".op-dashboard__section") ?? null;
 }
 
-test("DOM, real source: the hero, Up next, and Recent runs all render real values from the source", async () => {
+test("DOM, real source + scheduler: the hero and Recent runs render from the source, Up next from the scheduler", async () => {
   const env = createDomEnv();
   try {
     const bus = createMockBusClient();
@@ -38,10 +59,15 @@ test("DOM, real source: the hero, Up next, and Recent runs all render real value
       getRecentRuns: async () => [
         { runId: "r1", title: "Copy the invoice total into the spreadsheet", outcome: "ok", steps: 4, completedAtMs: 1_000_000 },
       ],
-      getUpcomingRuns: async () => [{ workflowName: "weekly-report-email", whenLabel: "tomorrow at 9 am" }],
     });
-    const dashboard = createDashboard(bus, { source, now: () => 1_000_000, registry: createMockRegistry([]) });
+    // Up next is scheduler-sourced (list_triggers), never the source: the
+    // whenLabel is the trigger's own spec, shown verbatim.
+    const scheduler = schedulerWithTriggers([
+      { trigger_id: "t1", kind: "cron", workflow_name: "weekly-report-email", spec: "tomorrow at 9 am", enabled: true },
+    ]);
+    const dashboard = createDashboard(bus, { source, scheduler, now: () => 1_000_000, registry: createMockRegistry([]) });
     await dashboard.refresh();
+    await flush();
 
     const container = env.document.createElement("div");
     env.document.body.appendChild(container);
@@ -97,17 +123,19 @@ test("DOM, honest empty: a real source with nothing recorded renders the empty h
   }
 });
 
-test("DOM, not_implemented Up next: the scheduler being unwired shows 'Nothing scheduled yet.', with real Recent runs alongside", async () => {
+test("DOM, not_implemented Up next: the scheduler being unwired shows 'Scheduling isn't available yet.', with real Recent runs alongside", async () => {
   const env = createDomEnv();
   try {
     const bus = createMockBusClient();
+    // No scheduler passed: the dashboard's default createUnavailableSchedulerCommands
+    // answers list_triggers with not_implemented, so Up next reads "unavailable."
     const source = fakeSource({
       getWeeklyMetrics: async () => [{ week: "this week", minutesSaved: 60 }],
       getRecentRuns: async () => [{ runId: "r1", title: "Back up photos", outcome: "failed", steps: 1, completedAtMs: 1_000_000 }],
-      getUpcomingRuns: async () => [], // list_triggers answered not_implemented -> empty, not fake entries
     });
     const dashboard = createDashboard(bus, { source, now: () => 1_000_000 });
     await dashboard.refresh();
+    await flush();
 
     const container = env.document.createElement("div");
     env.document.body.appendChild(container);
@@ -115,7 +143,7 @@ test("DOM, not_implemented Up next: the scheduler being unwired shows 'Nothing s
 
     const upNext = sectionByHeading(root, "op-dashboard-upnext-heading");
     assert.ok(upNext);
-    assert.equal(upNext?.querySelector(".op-empty")?.textContent, "Nothing scheduled yet.");
+    assert.equal(upNext?.querySelector(".op-empty")?.textContent, dashboardStrings.upNextUnavailable);
     assert.equal(upNext?.querySelector(".op-dashboard__row"), null, "no scheduled rows are rendered");
 
     const recent = sectionByHeading(root, "op-dashboard-recent-heading");

@@ -23,8 +23,8 @@ export interface BusClient {
   /** Subscribe to an exact topic, a dot-prefix namespace ("run" matches "run.*"), or "*" for everything. */
   subscribe(topicPrefix: string, listener: Listener): () => void;
   /**
-   * Publish a bus event. `sidecar` carries the non-envelope part of an IPC
-   * `evt` frame (the flight-recorder `thumb`); it is delivered to subscribers
+   * Publish a bus event. The sidecar argument carries the non-envelope part of
+   * an IPC evt frame (the flight-recorder thumb); it is delivered to subscribers
    * beside the envelope and never folded into the bus payload.
    */
   publish<T extends BusTopic>(topic: T, payload: BusTopicPayloadMap[T], sidecar?: EvtSidecar): void;

@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("replay", ...).
 // B5 (library-live): the library shows REAL saved workflows and its actions
 // work through the request/response bridge (contracts/ipc.md), with a graceful
 // fall back to the seeded ./mockRegistry.ts in dev/Demo. These tests drive the
@@ -14,7 +18,8 @@ import assert from "node:assert/strict";
 import { createDomEnv } from "../styles/testDomEnv.ts";
 import { createMockBusClient, type BusClient } from "../bus/mockClient.ts";
 import { RUN_MODE_REPLAY } from "../bus/types.ts";
-import { ERROR_NOT_IMPLEMENTED, type CommandClient, type CommandResult } from "../bus/commandClient.ts";
+import { type CommandClient, type CommandResult } from "../bus/commandClient.ts";
+import { NOT_IMPLEMENTED, type SchedulerCommands, type UpsertTriggerArgs } from "../scheduler/commands.ts";
 import { createLibrary } from "./state.ts";
 import { createMockRegistry, type MockWorkflowRecord } from "./mockRegistry.ts";
 import { libraryStrings } from "./strings.ts";
@@ -237,28 +242,38 @@ test("Explain routes through explain_workflow and returns the core's rendered vi
   }
 });
 
-test("Schedule calls upsert_trigger and surfaces not_implemented honestly, never faking a scheduled trigger", async () => {
+test("Schedule routes through the scheduler seam (not the client) and surfaces not_implemented honestly, never faking a scheduled trigger", async () => {
   const env = createDomEnv();
   try {
     const bus = createMockBusClient();
     const busTopics: string[] = [];
     bus.subscribe("*", (e) => busTopics.push(e.topic));
 
+    // The client loads the real workflow list; scheduling is a SEPARATE seam
+    // (SchedulerCommands) in the reconciled library, so the client never sees an
+    // upsert_trigger. That seam answers not_implemented (contracts/ipc.md 5e/5g).
     const { client, calls } = fakeClient((cmd) => {
       if (cmd === "list_workflows") return { ok: true, result: realRecords() };
-      if (cmd === "upsert_trigger") {
-        // contracts/ipc.md section 5e/5g: reserved, not wired in this build.
-        return { ok: false, error: { code: ERROR_NOT_IMPLEMENTED, message: "cmd is reserved in this contract but not wired in this build", retryable: false } };
-      }
       throw new Error(`unexpected command ${cmd}`);
     });
+
+    const scheduleCalls: UpsertTriggerArgs[] = [];
+    const scheduler: SchedulerCommands = {
+      listTriggers: async () => ({ ok: false, error: { code: NOT_IMPLEMENTED, message: "no trigger store yet", retryable: false } }),
+      upsertTrigger: async (args) => {
+        scheduleCalls.push(args);
+        return { ok: false, error: { code: NOT_IMPLEMENTED, message: "no trigger store yet", retryable: false } };
+      },
+    };
 
     let notice: string | null = null;
     const library = createLibrary(bus, {
       registry: createMockRegistry([]),
       client,
-      onScheduleRequested: (_name, title) => {
-        notice = libraryStrings.scheduleNotice(title);
+      scheduler,
+      onScheduleResolved: (outcome) => {
+        // Only the honest not-available message ships (no build can schedule yet).
+        notice = outcome.unavailable ? libraryStrings.scheduleUnavailable(outcome.title) : null;
         render();
       },
     });
@@ -267,7 +282,7 @@ test("Schedule calls upsert_trigger and surfaces not_implemented honestly, never
     const container = env.document.createElement("div");
     env.document.body.appendChild(container);
     function render(): void {
-      mountLibrary(container, library.getSnapshot(), { onSchedule: (name) => library.schedule(name) });
+      mountLibrary(container, library.getSnapshot(), { onSchedule: (name) => void library.schedule(name) });
       if (notice) {
         const p = env.document.createElement("p");
         p.className = "op-schedule-notice";
@@ -282,11 +297,12 @@ test("Schedule calls upsert_trigger and surfaces not_implemented honestly, never
     scheduleButton.click();
     await flush();
 
-    assert.deepEqual(calls.map((c) => c.cmd), ["list_workflows", "upsert_trigger"], "Schedule issues upsert_trigger");
-    assert.equal(String(calls[1].args?.workflow_name), "notepad-invoice-note", "upsert_trigger names the workflow being scheduled");
+    assert.deepEqual(calls.map((c) => c.cmd), ["list_workflows"], "Schedule does not touch the CommandClient; only the workflow load did");
+    assert.equal(scheduleCalls.length, 1, "Schedule issues one upsert_trigger through the scheduler seam");
+    assert.equal(scheduleCalls[0].workflow_name, "notepad-invoice-note", "upsert_trigger names the workflow being scheduled");
     assert.ok(notice, "the not_implemented result is surfaced as an honest notice");
     const noticeEl = container.querySelector(".op-schedule-notice");
-    assert.ok(noticeEl?.textContent?.includes("not set up yet"), "the DOM shows scheduling is not available yet");
+    assert.ok(noticeEl?.textContent?.includes("available yet"), "the DOM shows scheduling is not available yet");
     // No fake success: nothing on the bus claims a run started or a trigger fired.
     assert.deepEqual(busTopics.filter((t) => t.startsWith("run.") || t.startsWith("trigger.") || t.startsWith("schedule.")), [], "scheduling must not fabricate a run, trigger, or schedule event");
 

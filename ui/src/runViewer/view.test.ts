@@ -1,3 +1,7 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs (same reason ui/src/bus/realClient.test.ts
+// is): a test file, not shipped UI copy, whose assertions name wire-protocol
+// vocabulary from contracts/ipc.md ("sidecar", the flight-recorder thumb, ...).
 // Flight recorder view tests (docs/specs/design.md section 3): the DOM
 // behavior mountRunViewer adds on top of the streaming step list -- the mode
 // chips, the auto-following filmstrip of redacted thumbnails, two-way scrub

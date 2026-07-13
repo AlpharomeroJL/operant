@@ -37,8 +37,8 @@ export interface MockWorkflowRecord {
    * 5b/5c). Populated only for records loaded from the real bridge's
    * list_workflows (the shell's DTO carries a runnable/compiled path per
    * workflow); undefined for the seeded demo records below, which run
-   * synthetically with no backend. ui/src/library/state.ts falls back to
-   * `manifest.dsl.path` when this is absent.
+   * synthetically with no backend. ui/src/library/state.ts falls back to the
+   * manifest's own dsl path when this is absent.
    */
   path?: string;
 }
