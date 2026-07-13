@@ -37,9 +37,18 @@ import { createLibrary } from "./library/state.ts";
 import { mountLibrary } from "./library/view.ts";
 import { libraryStrings } from "./library/strings.ts";
 import { createDashboard } from "./dashboard/state.ts";
-import { createTauriDashboardSource } from "./dashboard/source.ts";
+import { createIpcDashboardSource } from "./dashboard/source.ts";
 import { mountDashboard } from "./dashboard/view.ts";
 import { createUnavailableSchedulerCommands } from "./scheduler/commands.ts";
+import {
+  makeCoreCall,
+  createRealCommandClient,
+  createRealCoreCommands,
+  createRealTeachClient,
+  createRealUndoCommands,
+  createRealPanicClient,
+  createRealScheduler,
+} from "./boot/realSeams.ts";
 import { createGrantPrompt } from "./grants/state.ts";
 import { mountGrantPrompt } from "./grants/view.ts";
 import { createSettings } from "./settings/state.ts";
@@ -47,7 +56,7 @@ import { mountSettings, type SettingsSection } from "./settings/view.ts";
 import { settingsDetailStrings } from "./settings/strings.ts";
 import { chordPartsFromEvent, formatChord } from "./settings/chord.ts";
 import type { BackupPayload } from "./settings/mockStore.ts";
-import { createLiveSettingsStore, getTauriInvoke, base64ToBytes, bytesToBase64 } from "./settings/liveStore.ts";
+import { createLiveSettingsStore, base64ToBytes, bytesToBase64 } from "./settings/liveStore.ts";
 import { createTray } from "./tray/state.ts";
 import { mountTray } from "./tray/view.ts";
 import { createToasts } from "./toasts/state.ts";
@@ -273,50 +282,60 @@ navRuns.textContent = navStrings.runs;
 navSettings.textContent = navStrings.settings;
 explainClose.textContent = libraryStrings.closeExplain;
 
-// The one teach client the whole shell shares (ui/src/teach/client.ts): the
-// seam for start_explore and compile_run, the two commands the present-tense
-// teach flow rides on. The wizard's guided teach and the shell-level Save as
-// workflow entry below both go through this instance; lane B7 wires the
-// command palette's submit through the same client's startExplore. Swapping in
-// a real Tauri transport later is a change here, not at every teach call site.
-// Uses the shared bus mountApp received (mock in Demo, real over the core).
-const teachClient = createMockTeachClient(bus);
+// THE ONE command layer (the Phase 2 integration reconciliation, contracts/ipc.md
+// section 5). opts.demo is false only on B3's real-and-can-automate boot path
+// (bootAgainstCore mounts the real bus client with demo:false ONLY for a core
+// that passed the capability handshake), so !opts.demo is exactly "the core is
+// real": build a single coreCall over B2's core_call Tauri command and back
+// EVERY UI->core seam below with it, injecting the same instances into every
+// screen. In Demo / off-Tauri each seam stays its mock (canned-bus) form. There
+// is one coreCall and one of each seam, never N (see ui/src/boot/realSeams.ts).
+const coreCall = opts.demo ? null : makeCoreCall((cmd, args) => invoke(cmd, args ?? {}));
+
+// The teach seam (start_explore / compile_run) the wizard's guided teach, the
+// palette submit, and the shell-level Save as workflow entry all share. Real
+// over the core, or the canned-bus mock in Demo.
+const teachClient = coreCall ? createRealTeachClient(coreCall) : createMockTeachClient(bus);
 const runViewer = createRunViewer(bus);
 // B10: the undo screen sends the preview_undo / undo_run commands and renders
-// the core's echoed undo.previewed / undo.applied (contracts/ipc.md 5c). With
-// no Tauri bridge yet (the whole shell still runs on the mock bus above), the
-// dev/Demo core stand-in previews from ./undo/mockJournal.ts's fixture; this is
-// the one line that swaps for a real invoke-backed UndoCommands once the bridge
-// lands, with no change to ui/src/undo/state.ts.
+// the core's echoed undo.previewed / undo.applied (contracts/ipc.md 5c). Real
+// over the core; in Demo the mock stands in for the core's echo, sourcing the
+// preview from ./undo/mockJournal.ts's fixture. Either way ui/src/undo/state.ts
+// is unchanged: the screen just reacts to whatever the bus carries.
 const undoScreen = createUndoScreen(bus, {
-  commands: createMockUndoCommands(bus, fixtureJournalForRun),
+  commands: coreCall ? createRealUndoCommands(coreCall) : createMockUndoCommands(bus, fixtureJournalForRun),
 });
 const registry = createMockRegistry();
 const connectedTools = createConnectedToolsStore();
 
 // The shell-to-core command seam (contracts/ipc.md section 5), the shell->core
 // counterpart of the bus's core->shell BusClient. The palette issues real
-// commands through it: start_explore (teach), dry_run (preview), and
-// run_saved_workflow (run), with list_workflows sourcing the palette's saved-
-// workflow rows. In dev/Demo this mock drives the same canned bus stream as
-// before so the flight recorder still fills; the real shell swaps in a Tauri-
-// backed CoreCommands (ui/src/bus/commands.ts), the same drop-in seam
-// createMockBusClient is. start_explore's foreground-window context comes from
-// readForegroundWindowProcess (the OS foreground window is ui/src-tauri's to
-// resolve; dev/Demo uses a deterministic stub).
-const coreCommands = createMockCoreCommands(bus, { registry, foregroundWindow: readForegroundWindowProcess });
+// commands through it: start_explore (teach), dry_run (preview), and running a
+// saved workflow (the contract's start_replay, ui/src/boot/realSeams.ts fixes
+// the UI's old run_saved_workflow name), with list_workflows sourcing the
+// palette's saved-workflow rows. Real over the core, or the canned-bus mock in
+// Demo (so the flight recorder still fills). start_explore's foreground-window
+// context comes from readForegroundWindowProcess (dev/Demo uses a stub).
+const coreCommands = coreCall
+  ? createRealCoreCommands(coreCall, { registry, foregroundWindow: readForegroundWindowProcess })
+  : createMockCoreCommands(bus, { registry, foregroundWindow: readForegroundWindowProcess });
 
-// The scheduler command surface (contracts/ipc.md section 5e). This build has
-// no core trigger store, so both scheduler commands honestly answer
-// not_implemented (ui/src/scheduler/commands.ts); the library's Schedule action
-// and the dashboard's Up next both surface that truthfully rather than
-// fabricating a schedule. What the core needs to make this real is specified in
-// docs/roadmap/scheduler-live.md.
-const scheduler = createUnavailableSchedulerCommands();
+// B5's request/response bridge (list_workflows/start_replay/explain_workflow),
+// injected into Library so it loads and runs REAL saved workflows over the core.
+// Omitted (undefined) in Demo, where Library falls back to the seeded registry.
+const commandClient = coreCall ? createRealCommandClient(coreCall) : undefined;
+
+// The scheduler command surface (contracts/ipc.md section 5e). list_triggers and
+// upsert_trigger are reserved-but-unwired (section 5g), so the real core answers
+// not_implemented and the Demo default answers the same by construction; either
+// way the library's Schedule action and the dashboard's Up next surface that
+// honestly rather than fabricating a schedule. See docs/roadmap/scheduler-live.md.
+const scheduler = coreCall ? createRealScheduler(coreCall) : createUnavailableSchedulerCommands();
 
 const library = createLibrary(bus, {
   registry,
   scheduler,
+  client: commandClient,
   onScheduleResolved: (outcome) => {
     // Only the honest not-available message ships: no build can create a real
     // trigger yet, so there is no success copy to show. A non-not_implemented
@@ -328,24 +347,30 @@ const library = createLibrary(bus, {
 // Shares Library's own registry instance (not a second createMockRegistry())
 // so Up next/Recent runs show the exact same plain-language titles Library
 // does for the same workflow name. The source is the real IPC data path
-// (get_metrics/list_runs/get_run under Tauri) for the hero, sparkline, and
-// Recent runs, undefined in dev/Demo so those fall back to
+// (get_metrics/list_runs/get_run over the SAME coreCall) for the hero,
+// sparkline, and Recent runs, undefined in Demo so those fall back to
 // ./dashboard/mockMetrics.ts fixtures. Up next is fed by the shared scheduler
 // surface, so it reflects the same not-available truth the Schedule action does.
-const dashboard = createDashboard(bus, { registry, source: createTauriDashboardSource(), scheduler });
-// Real config when running inside Tauri: get_settings/set_settings and a
-// config.changed subscription onto the live core (contracts/ipc.md section
-// 5f, via ./settings/liveStore.ts). Outside Tauri (npm run dev / Demo mode)
-// getTauriInvoke() is null and this falls back to the mock store, unchanged.
-const settingsInvoke = getTauriInvoke();
-const settings = settingsInvoke
-  ? createSettings(bus, { store: createLiveSettingsStore(bus, { invoke: settingsInvoke }) })
+const dashboard = createDashboard(bus, {
+  registry,
+  source: coreCall ? createIpcDashboardSource(coreCall) : undefined,
+  scheduler,
+});
+// Real config over the core: get_settings/set_settings and a config.changed
+// subscription through the live store (contracts/ipc.md section 5f), backed by
+// the SAME coreCall so it rides B2's core_call rather than a raw invoke. In
+// Demo the mock store stands in, unchanged.
+const settings = coreCall
+  ? createSettings(bus, { store: createLiveSettingsStore(bus, { invoke: coreCall }) })
   : createSettings(bus);
 // Shares Library's own registry instance too (see the dashboard comment
 // just above), so the tray's Quick Runs menu (docs/specs/design.md section
 // 3, Tray) shows the same plain-language titles Library's cards do for the
-// same workflow name.
-const tray = createTray(bus, { registry });
+// same workflow name. The panic row drives the two-path stop over the core
+// (stop + kill, incl. B2's core_kill hard terminate); in Demo the tray's
+// default createBusPanicClient echoes onto the bus instead.
+const panicClient = coreCall ? createRealPanicClient(coreCall, () => invoke("core_kill")) : undefined;
+const tray = createTray(bus, { registry, panicClient });
 const toasts = createToasts(bus);
 
 // The command palette (docs/specs/design.md section 3, Palette): a Raycast-
@@ -1173,31 +1198,18 @@ const doctorBackdrop = byId<HTMLElement>("op-doctor-backdrop");
 const doctorMount = byId<HTMLElement>("op-doctor-mount");
 doctorOpenButton.textContent = doctorStrings.title;
 
-// The desktop app's command bridge, when the shell runs inside Tauri.
-// contracts/ipc.md's run_doctor command is issued through it; a plain browser
-// (dev/Demo, the mock bus) has no bridge, so the callers below fall back to
-// canned findings. A later lane (the real BusClient) formalizes this seam; the
-// doctor screen only needs "issue the command if we can, else show the demo."
-type TauriInvoke = (cmd: string, args?: Record<string, unknown>) => Promise<unknown>;
-function tauriInvoke(): TauriInvoke | null {
-  const g = globalThis as unknown as {
-    __TAURI__?: { core?: { invoke?: TauriInvoke }; invoke?: TauriInvoke };
-  };
-  return g.__TAURI__?.core?.invoke ?? g.__TAURI__?.invoke ?? null;
-}
-
+// The doctor issues run_doctor over the SAME shared coreCall (contracts/ipc.md
+// section 5f) when the core is real; the core runs every check and publishes
+// each result as a doctor.finding event. In Demo there is no core (coreCall is
+// null), so the callers below publish the canned findings on the mock bus. Both
+// land on the subscription below, so the render path is identical.
 const doctor = createDoctor(bus, {
-  // On open: run the real checks (contracts/ipc.md section 5f, run_doctor). In
-  // the app the core runs every check and publishes each result as a
-  // doctor.finding event; in dev/Demo there is no core, so publish the canned
-  // findings on the mock bus. Both land on the subscription below, so the
-  // render path is identical. Determinism: the demo path calls no model and no
-  // network (the real probing runs core-side, only in the app, never on the
+  // On open: run the real checks. Determinism: the demo path calls no model and
+  // no network (the real probing runs core-side, only in the app, never on the
   // replay/test path).
   runChecks: () => {
-    const invoke = tauriInvoke();
-    if (invoke) {
-      void invoke("run_doctor", {});
+    if (coreCall) {
+      void coreCall("run_doctor", {});
       return;
     }
     for (const finding of DEMO_DOCTOR_FINDINGS) bus.publish("doctor.finding", finding);
@@ -1205,13 +1217,12 @@ const doctor = createDoctor(bus, {
   // One-click fix. In the app this maps to `operant doctor --fix <id>` (the
   // finding's fix_command), issued as an optional `fix` arg to run_doctor -- an
   // additive, protocol-compatible extension per contracts/ipc.md section 9.2 --
-  // and the core re-checks and republishes the finding, healthy. In dev/Demo,
-  // stand in for that effect by publishing doctor.fixed plus the canned healthy
+  // and the core re-checks and republishes the finding, healthy. In Demo, stand
+  // in for that effect by publishing doctor.fixed plus the canned healthy
   // finding, so the card turns healthy in place either way.
   onFixRequested: (findingId) => {
-    const invoke = tauriInvoke();
-    if (invoke) {
-      void invoke("run_doctor", { fix: findingId });
+    if (coreCall) {
+      void coreCall("run_doctor", { fix: findingId });
       return;
     }
     bus.publish("doctor.fixed", { finding_id: findingId });

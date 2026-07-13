@@ -20,11 +20,11 @@ import { fileURLToPath } from "node:url";
 import {
   createRealClient,
   BUS_EVENT_CHANNEL,
+  THUMB_EVENT_CHANNEL,
   CORE_CALL_COMMAND,
-  type BusEventFrame,
   type TauriBridge,
 } from "./realClient.ts";
-import type { BusEnvelope, BusEvent } from "./types.ts";
+import type { BusEnvelope, BusEvent, EvtSidecar } from "./types.ts";
 
 // The recorded explore -> compile -> replay -> undo session, framed exactly per
 // contracts/ipc.md. This file lives at ui/src/bus/; the repo root is three up.
@@ -51,16 +51,19 @@ function fixtureEnvelopes(): BusEnvelope[] {
 interface FakeBridge {
   bridge: TauriBridge;
   invocations: { cmd: string; args: Record<string, unknown> }[];
-  emit: (env: BusEnvelope, thumb?: unknown) => void;
-  channel: string | null;
-  attached: () => boolean;
+  /** operant://bus: B2 emits the RAW envelope as the event payload (no { env } wrapper). */
+  emit: (env: BusEnvelope) => void;
+  /** operant://thumb: the flight-recorder thumbnail, a separate channel from the bus event. */
+  emitThumb: (thumb: unknown) => void;
+  channels: string[];
+  busAttached: () => boolean;
   unlistenCount: () => number;
 }
 
 function makeFakeBridge(): FakeBridge {
   const invocations: { cmd: string; args: Record<string, unknown> }[] = [];
-  let handler: ((event: { payload: BusEventFrame }) => void) | null = null;
-  let channel: string | null = null;
+  const handlers = new Map<string, (event: { payload: unknown }) => void>();
+  const channels: string[] = [];
   let unlistened = 0;
 
   const bridge: TauriBridge = {
@@ -69,11 +72,11 @@ function makeFakeBridge(): FakeBridge {
       return undefined;
     },
     listen: (ch, h) => {
-      channel = ch;
-      handler = h;
+      channels.push(ch);
+      handlers.set(ch, h);
       return Promise.resolve(() => {
         unlistened++;
-        handler = null;
+        handlers.delete(ch);
       });
     },
   };
@@ -81,20 +84,21 @@ function makeFakeBridge(): FakeBridge {
   return {
     bridge,
     invocations,
-    emit: (env, thumb = null) => handler?.({ payload: { env, thumb } }),
-    get channel() {
-      return channel;
-    },
-    attached: () => handler !== null,
+    // B2 emits the raw envelope as the payload; feed it exactly that way.
+    emit: (env) => handlers.get(BUS_EVENT_CHANNEL)?.({ payload: env }),
+    emitThumb: (thumb) => handlers.get(THUMB_EVENT_CHANNEL)?.({ payload: thumb }),
+    channels,
+    busAttached: () => handlers.has(BUS_EVENT_CHANNEL),
     unlistenCount: () => unlistened,
   };
 }
 
-test("subscribes to the operant://bus channel on creation", () => {
+test("subscribes to both the operant://bus and operant://thumb channels on creation", () => {
   const fake = makeFakeBridge();
   const client = createRealClient(fake.bridge);
-  assert.equal(fake.channel, BUS_EVENT_CHANNEL);
-  assert.ok(fake.attached(), "a listener must be attached to the forwarded event channel");
+  assert.ok(fake.channels.includes(BUS_EVENT_CHANNEL), "a listener must be attached to the forwarded bus channel");
+  assert.ok(fake.channels.includes(THUMB_EVENT_CHANNEL), "a listener must be attached to the thumbnail channel");
+  assert.ok(fake.busAttached(), "the bus listener must be attached");
   client.close();
 });
 
@@ -237,8 +241,48 @@ test("close detaches the forwarded-event listener and stops dispatch", async () 
   assert.equal(received.length, 1);
 
   client.close();
-  assert.equal(fake.unlistenCount(), 1, "close must call the unlisten handle exactly once");
+  assert.equal(fake.unlistenCount(), 2, "close must detach both the bus and thumbnail listeners");
 
   fake.emit(env);
   assert.equal(received.length, 1, "no dispatch after close");
+});
+
+test("correlates an operant://thumb by (run_id, step_id) onto its run-step event's sidecar", () => {
+  const fake = makeFakeBridge();
+  const client = createRealClient(fake.bridge);
+
+  // A run-step subscriber captures the optional evt sidecar B4's filmstrip reads.
+  const sidecars: (EvtSidecar | undefined)[] = [];
+  client.subscribe("run.step.executed", (_e, sidecar) => sidecars.push(sidecar));
+
+  // The thumbnail arrives first, on its own channel (contracts/ipc.md section 7).
+  const thumb = { run_id: "run_0", step_id: "s2", format: "png", w: 320, h: 200, redacted: true, data_b64: "AAAA" };
+  fake.emitThumb(thumb);
+
+  // Then the run-step event on the bus, raw envelope, matching run_id/step_id.
+  const executed: BusEnvelope = {
+    v: 1,
+    seq: 7,
+    ts: "2026-07-12T12:00:00.000Z",
+    topic: "run.step.executed",
+    payload: { run_id: "run_0", step_id: "s2", outcome: "ok", ms: 12, grounding: "uia" },
+  };
+  fake.emit(executed);
+
+  assert.equal(sidecars.length, 1);
+  assert.deepEqual(sidecars[0], { thumb }, "the run-step subscriber receives the correlated thumbnail as its sidecar");
+
+  // A run-step with no matching thumbnail delivers no sidecar (filmstrip draws its placeholder).
+  const noThumb: BusEnvelope = {
+    v: 1,
+    seq: 8,
+    ts: "2026-07-12T12:00:01.000Z",
+    topic: "run.step.executed",
+    payload: { run_id: "run_0", step_id: "s3", outcome: "ok", ms: 12, grounding: "uia" },
+  };
+  fake.emit(noThumb);
+  assert.equal(sidecars.length, 2);
+  assert.equal(sidecars[1], undefined, "a step with no thumbnail carries no sidecar");
+
+  client.close();
 });
