@@ -243,8 +243,8 @@ Two execution modes over one runtime:
   them off.
 - **Safety and audit**: capability grants per workflow, a dry-run mode with zero side
   effects, and a hash-chained append-only audit log with JSON and PDF export.
-- **Orchestrator and models**: bring your own backend, 17 named options across local
-  runners, API keys, and sign-in-with-subscription, or run fully offline.
+- **Orchestrator and models**: bring your own backend across local runners, API keys,
+  and sign-in-with-subscription, or run fully offline.
 - **Voice**: local speech in and out, lazy-loaded so it does not sit in memory until
   used.
 - **Shell UI**: tray, global-hotkey command palette, run viewer with a model on/off

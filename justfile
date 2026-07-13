@@ -122,6 +122,14 @@ build-release-core:
 check-release-artifact: build-release-core
     node release/scripts/check-release-artifact.mjs
 
+# Claims gate ("marketing is a test suite"): parse CLAIMS.md and FAIL if any
+# backed claim cites a file/test that does not exist, or if the Unbacked section
+# still lists a claim. Grep-based and dependency-free, no build required.
+# Intentionally standalone: NOT in `just ci`/`just verify`, so a legitimately
+# unbacked claim signals "cut the copy" without turning the whole repo red.
+claims:
+    node release/scripts/check-claims.mjs
+
 # Regenerate site/tokens.css from ui/src/theme/tokens.ts (docs/specs/design.md
 # section 2), then stage site/ (minus playground/, a separate sub-project with
 # its own build) into dist/site/, the deployable docs site.
