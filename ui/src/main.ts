@@ -6,7 +6,8 @@ import { createMockBusClient, type BusClient } from "./bus/mockClient.ts";
 import { createRealClient } from "./bus/realClient.ts";
 import { handshakeCore, type CoreCapabilities } from "./boot/coreGate.ts";
 import { mountDemoBanner, renderBlockingScreen, renderErrorScreen } from "./boot/coreGateView.ts";
-import type { BusEvent } from "./bus/types.ts";
+import { RUN_MODE_EXPLORE, type BusEvent } from "./bus/types.ts";
+import { createMockTeachClient, workflowNameFromGoal } from "./teach/client.ts";
 import { isGlobalPaletteHotkey } from "./palette/palette.ts";
 import { createMockCoreCommands, readForegroundWindowProcess } from "./bus/commands.ts";
 import { createPaletteController, type PaletteCommit } from "./palette/state.ts";
@@ -25,6 +26,7 @@ import {
   navStrings,
   themeToggleStrings,
   undoEntryStrings,
+  saveWorkflowEntryStrings,
 } from "./strings/default.ts";
 import { advancedStrings } from "./advanced/strings.ts";
 import { advancedSurfaceVisibility } from "./advanced/state.ts";
@@ -159,6 +161,7 @@ root.innerHTML = `
         </p>
       </section>
       <div id="op-run-viewer-mount"></div>
+      <div id="op-save-workflow-entry-mount"></div>
       <div id="op-undo-entry-mount"></div>
     </main>
     <section class="op-panel op-screen" id="op-screen-library" hidden aria-label="Library">
@@ -226,6 +229,7 @@ const runStatusLabel = byId<HTMLSpanElement>("op-run-status-label");
 // (the filmstrip, mode chips, scrub sync, and inline safety-check card all live
 // in that one tested view now instead of being duplicated here).
 const runViewerMount = byId<HTMLElement>("op-run-viewer-mount");
+const saveWorkflowEntryMount = byId<HTMLElement>("op-save-workflow-entry-mount");
 const undoEntryMount = byId<HTMLElement>("op-undo-entry-mount");
 const advancedPanel = byId<HTMLElement>("op-advanced-panel");
 const advancedHeading = byId<HTMLHeadingElement>("op-advanced-heading");
@@ -269,6 +273,14 @@ navRuns.textContent = navStrings.runs;
 navSettings.textContent = navStrings.settings;
 explainClose.textContent = libraryStrings.closeExplain;
 
+// The one teach client the whole shell shares (ui/src/teach/client.ts): the
+// seam for start_explore and compile_run, the two commands the present-tense
+// teach flow rides on. The wizard's guided teach and the shell-level Save as
+// workflow entry below both go through this instance; lane B7 wires the
+// command palette's submit through the same client's startExplore. Swapping in
+// a real Tauri transport later is a change here, not at every teach call site.
+// Uses the shared bus mountApp received (mock in Demo, real over the core).
+const teachClient = createMockTeachClient(bus);
 const runViewer = createRunViewer(bus);
 // B10: the undo screen sends the preview_undo / undo_run commands and renders
 // the core's echoed undo.previewed / undo.applied (contracts/ipc.md 5c). With
@@ -390,7 +402,9 @@ function markWizardDone(): void {
 // this for a real invoke-backed configurator when the Tauri command bridge
 // lands, the same drop-in the mock bus client itself will get.
 const backendConfigurator = createMockBackendConfigurator(bus);
-const wizard = createWizard(bus, { backend: backendConfigurator });
+// B8's engine-config seam and B16's teach client are both injected here so the
+// wizard shares the one teach client the rest of the shell uses.
+const wizard = createWizard(bus, { backend: backendConfigurator, teachClient });
 let wizardDismissed = wizardAlreadyDone();
 
 // The currently streaming canned demo, if any: cancels the timers behind a
@@ -401,6 +415,12 @@ let wizardDismissed = wizardAlreadyDone();
 let stopDemo: (() => void) | null = null;
 let lastEvents: BusEvent[] = [];
 let scheduleNotice: string | null = null;
+// Teach bookkeeping for the shell-level Save as workflow entry below. A teach
+// run's goal (captured from its run.started) names the compiled workflow; the
+// set of run ids already compiled (captured from workflow.compiled) hides the
+// entry once a run is saved, so it never offers to save the same run twice.
+const teachGoals = new Map<string, string>();
+const compiledRunIds = new Set<string>();
 // The workflow last opened via Explain: also what the Advanced DSL editor
 // and raw-details panes show, so a developer looking at one is looking at
 // the other, the same workflow, in plain English and in raw form.
@@ -538,6 +558,46 @@ function renderUndoEntry(): void {
     undoScreen.open(runId);
   });
   undoEntryMount.append(button);
+}
+
+/**
+ * The shell-level "Save as workflow" entry (docs/specs/ipc-bridge.md's A5
+ * survey: saveAsWorkflow then compile), the everyday compile handoff that
+ * completes the teach flow: goal -> explore -> watch -> compiled workflow in
+ * the library. Shown beside the flight recorder once a teach run started from
+ * within the running app (the command palette, an empty-state Teach button)
+ * reaches "done", so "describe it and it does it" can end in a saved workflow
+ * every time, not only on the wizard's first run.
+ *
+ * Reads the same public runViewer snapshot renderRunViewer/renderUndoEntry do
+ * and mounts into its own sibling (ui/src/runViewer/view.ts stays another
+ * lane's, untouched, exactly as renderUndoEntry does for Undo). Held back
+ * while the wizard is up, since the wizard owns its own Save as workflow
+ * during the guided task; gated to a completed teach run (runChip "rec", the
+ * teach discriminant -- a saved-workflow replay has nothing to compile) that
+ * has not already been compiled.
+ */
+function renderSaveWorkflowEntry(): void {
+  saveWorkflowEntryMount.textContent = "";
+  if (!wizardDismissed) return;
+  const snap = runViewer.getSnapshot();
+  if (snap.runState !== "done" || snap.runChip !== "rec" || !snap.runId) return;
+  if (compiledRunIds.has(snap.runId)) return;
+  const runId = snap.runId;
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "op-button op-save-workflow-entry";
+  button.textContent = saveWorkflowEntryStrings.saveAsWorkflow;
+  button.addEventListener("click", () => {
+    // compile_run through the shared client: the watched run becomes a saved
+    // workflow named from its goal. The library upserts on the resulting
+    // workflow.compiled; switch there so the new card is what is on screen
+    // (that same event also hides this button, this run now being compiled).
+    teachClient.compileRun(runId, { name: workflowNameFromGoal(teachGoals.get(runId) ?? "") });
+    showScreen("library");
+  });
+  saveWorkflowEntryMount.append(button);
 }
 
 /** The Undo screen itself (ui/src/undo/), reachable from renderUndoEntry above and from the toast's action below. */
@@ -911,6 +971,10 @@ function renderWizardPanel(): void {
   }
   wizardBackdrop.hidden = wizardDismissed;
   renderTour();
+  // The shell-level Save as workflow entry stays hidden behind the wizard and
+  // reveals the moment the wizard is gone (this run may already be done); keep
+  // it in step with wizardDismissed here.
+  renderSaveWorkflowEntry();
   if (wizardDismissed) return;
 
   mountWizard(wizardMount, snap, {
@@ -938,6 +1002,16 @@ function renderWizardPanel(): void {
 
 bus.subscribe("*", (event) => {
   lastEvents.push(event);
+  // Remember each teach run's goal so the shell-level Save as workflow entry
+  // can name the compiled workflow after it; note when any run is compiled so
+  // that entry hides for it. Both feed renderSaveWorkflowEntry above.
+  if (event.topic === "run.started" && event.payload.mode === RUN_MODE_EXPLORE) {
+    teachGoals.set(event.payload.run_id, event.payload.goal);
+  }
+  if (event.topic === "workflow.compiled") {
+    compiledRunIds.add(event.payload.source_run_id);
+    renderSaveWorkflowEntry();
+  }
   if (modeStore.get() === "advanced") renderAdvancedAudit();
 });
 connectedTools.subscribe(() => {
@@ -945,6 +1019,7 @@ connectedTools.subscribe(() => {
 });
 runViewer.subscribe(renderRunViewer);
 runViewer.subscribe(renderUndoEntry);
+runViewer.subscribe(renderSaveWorkflowEntry);
 library.subscribe(renderLibraryPanel);
 dashboard.subscribe(renderDashboardPanel);
 settings.subscribe(renderSettingsPanel);
@@ -1003,6 +1078,7 @@ renderScreen();
 renderMode(modeStore.get());
 renderRunViewer();
 renderUndoEntry();
+renderSaveWorkflowEntry();
 renderLibraryPanel();
 renderDashboardPanel();
 // Load the dashboard's real numbers (metrics, recent runs, upcoming) once the

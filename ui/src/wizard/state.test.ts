@@ -1,3 +1,9 @@
+// @advanced
+// Exempt from scripts/microcopy_lint.mjs's STATIC scan (same reason
+// ui/src/bus/realClient.test.ts is): a test file whose own descriptions name
+// wire-protocol vocabulary ("trajectory", "explore"). This does NOT weaken the
+// glossary bar for this surface: the runtime glossary check BELOW still runs and
+// validates the guided task's actual rendered sentences, which is the point.
 // The wizard's core scripted-run tests (C19 bar): a run through the quiet
 // demo link reaches a working demo in default mode, and a run through a
 // real setup path reaches completion and publishes a workflow the library
@@ -20,9 +26,11 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createMockBusClient } from "../bus/mockClient.ts";
-import type { BusEvent } from "../bus/types.ts";
+import { RUN_MODE_EXPLORE, type BusEvent } from "../bus/types.ts";
 import { createWizard } from "./state.ts";
 import { createMockBackendConfigurator } from "./engine.ts";
+import { GUIDED_TASK_GOAL, GUIDED_TASK_STEPS, GUIDED_TASK_WINDOW } from "./guidedTask.ts";
+import type { StartExploreRequest, TeachClient } from "../teach/client.ts";
 
 /** Collects (key, value) pairs from every config.changed the wizard publishes. */
 function collectConfigChanges(bus: ReturnType<typeof createMockBusClient>): { key: string; value: unknown }[] {
@@ -61,6 +69,36 @@ function assertNoInternalJargon(strings: readonly string[]): void {
       assert.ok(!re.test(s), `visible string "${s}" leaks internal term "${term}"`);
     }
   }
+}
+
+/**
+ * A teach client that records how the wizard invokes start_explore and
+ * compile_run, and drives each run straight to completion on the bus so the
+ * wizard's own runViewer reaches "done" and Save as workflow is reachable (the
+ * mock client's real streaming is covered in ui/src/teach/client.test.ts).
+ */
+function recordingTeachClient(bus: ReturnType<typeof createMockBusClient>): {
+  client: TeachClient;
+  startExploreCalls: StartExploreRequest[];
+  compileRunCalls: { runId: string; name?: string }[];
+} {
+  const startExploreCalls: StartExploreRequest[] = [];
+  const compileRunCalls: { runId: string; name?: string }[] = [];
+  let n = 0;
+  const client: TeachClient = {
+    startExplore(req) {
+      startExploreCalls.push(req);
+      const runId = req.runId ?? `fake-run-${++n}`;
+      bus.publish("run.started", { run_id: runId, goal: req.goal, mode: RUN_MODE_EXPLORE });
+      bus.publish("run.completed", { run_id: runId, outcome: "ok", steps: req.script?.length ?? 0, wall_ms: 1 });
+      return { runId, stop() {} };
+    },
+    compileRun(runId, opts) {
+      compileRunCalls.push({ runId, name: opts?.name });
+      return { name: opts?.name ?? runId, version: opts?.version ?? "1.0.0", sourceRunId: runId };
+    },
+  };
+  return { client, startExploreCalls, compileRunCalls };
 }
 
 test("welcome is the first screen, with real visible content, in default mode", () => {
@@ -282,6 +320,34 @@ test("BAR: wizard completion -> guided teach -> Save as workflow -> schedule pro
   // Entirely default mode: every visible or audible string this run actually
   // showed uses only user-facing vocabulary.
   assertNoInternalJargon(seen);
+
+  wizard.dispose();
+});
+
+test("guided teach invokes start_explore with the practice window and the guided steps; Save as workflow invokes compile_run for that run", () => {
+  const bus = createMockBusClient();
+  const { client, startExploreCalls, compileRunCalls } = recordingTeachClient(bus);
+  const wizard = createWizard(bus, { teachClient: client });
+
+  wizard.continueWelcome();
+  wizard.chooseChatGPT();
+  wizard.continueMicCheck(); // -> guided_task, which begins the guided teach
+
+  assert.equal(startExploreCalls.length, 1, "the guided task must invoke start_explore exactly once");
+  const req = startExploreCalls[0];
+  assert.equal(req.goal, GUIDED_TASK_GOAL);
+  assert.equal(req.windowProcess, GUIDED_TASK_WINDOW, "the guided task teaches against the practice-page window");
+  assert.deepEqual(req.script, GUIDED_TASK_STEPS, "the guided steps are the mock's canned trajectory for this teach run");
+
+  // The fake completed the run, so Save as workflow (the compile handoff) is reachable.
+  assert.equal(wizard.getSnapshot().screen, "guided_task");
+  assert.equal(wizard.getSnapshot().guidedTask.canSave, true);
+  wizard.saveAsWorkflow();
+
+  assert.equal(compileRunCalls.length, 1, "Save as workflow must invoke compile_run exactly once");
+  assert.equal(compileRunCalls[0].runId, req.runId ?? "fake-run-1", "compile_run must target the run just taught");
+  assert.equal(compileRunCalls[0].name, "first-task");
+  assert.equal(wizard.getSnapshot().screen, "schedule", "Save as workflow advances to the schedule step");
 
   wizard.dispose();
 });
