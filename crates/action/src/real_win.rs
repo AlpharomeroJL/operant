@@ -47,7 +47,7 @@ use windows::Win32::UI::Input::KeyboardAndMouse::{
 use windows::Win32::UI::WindowsAndMessaging::{
     BringWindowToTop, EnumWindows, GetForegroundWindow, GetGUIThreadInfo, GetWindowTextLengthW,
     GetWindowTextW, GetWindowThreadProcessId, IsIconic, IsWindowVisible, SetForegroundWindow,
-    ShowWindow, SystemParametersInfoW, GUITHREADINFO, SPIF_SENDCHANGE,
+    ShowWindow, SwitchToThisWindow, SystemParametersInfoW, GUITHREADINFO, SPIF_SENDCHANGE,
     SPI_SETFOREGROUNDLOCKTIMEOUT, SW_RESTORE,
 };
 
@@ -476,8 +476,10 @@ fn window_process_basename(hwnd: HWND) -> Option<String> {
 ///    menu bar and the next key combo would be lost to menu mode.
 /// 4. Bracket the foreground calls with `AttachThreadInput` to the current
 ///    foreground thread.
-/// 5. Retry `SetForegroundWindow` + `BringWindowToTop` + `SetFocus` a few
-///    times, breaking as soon as the target is actually the foreground window.
+/// 5. Retry `SetForegroundWindow` + `BringWindowToTop` + `SetFocus`, then
+///    `SwitchToThisWindow` (the alt-tab path, which foregrounds even when
+///    `SetForegroundWindow` is refused) as a last resort, breaking as soon as
+///    the target is actually the foreground window.
 fn focus_with_attach_workaround(hwnd: HWND) -> Result<(), SynthesizerError> {
     unsafe {
         // 1. A minimized window cannot take the foreground; restore it first.
@@ -526,6 +528,16 @@ fn focus_with_attach_workaround(hwnd: HWND) -> Result<(), SynthesizerError> {
             let _ = SetForegroundWindow(hwnd);
             let _ = BringWindowToTop(hwnd);
             let _ = SetFocus(hwnd);
+            if GetForegroundWindow().0 == hwnd.0 {
+                break;
+            }
+            // SetForegroundWindow is refused for a background process that has
+            // not earned foreground rights (the sidecar's exact situation when
+            // the user's app, not Operant, is in front). SwitchToThisWindow is
+            // the alt-tab code path the shell itself uses; it foregrounds the
+            // target even when SetForegroundWindow is refused. Undocumented but
+            // long-stable, so it is the last resort after the documented trio.
+            SwitchToThisWindow(hwnd, true);
             if GetForegroundWindow().0 == hwnd.0 {
                 break;
             }
