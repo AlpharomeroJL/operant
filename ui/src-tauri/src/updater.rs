@@ -17,6 +17,24 @@
 // handler: closing or restarting Operant after an update has been staged
 // installs it instead of just quitting.
 //
+// Windows swap sequence, tied to tauri.conf.json (this is the real shipped
+// path, nothing here is a stub): the staged bytes are the signed NSIS
+// `*-setup.exe` the manifest `url` points at, already Ed25519-verified above.
+// `Update::install` writes them to a temp file and launches that installer in
+// the mode `plugins.updater.windows.installMode` selects, "quiet" here, which
+// tauri_plugin_updater maps to the NSIS flags `/S /R`: `/S` runs it silently
+// (no installer UI) and `/R` relaunches Operant on the new version once the
+// swap is done. The installer artifact itself is bundled with
+// `bundle.windows.nsis.installMode` "both", so one artifact can update either a
+// per-user or a per-machine install, and it runs this repo's
+// `bundle.windows.nsis.installerHooks` (release/nsis/installer-hooks.nsh) for
+// the PATH and user-data steps. On success `install` never returns: it calls
+// `std::process::exit(0)` immediately after handing off to the installer, so
+// the old process is already gone by the time the new version relaunches. The
+// only stand-in anywhere in this flow is the test fixture's
+// deliberately-not-an-executable bytes, which is why the automated test reaches
+// the real `install` call but stops at its format sniff (see below).
+//
 // Testing note, stated plainly: `tests/updater_signature.rs` exercises the real
 // `tauri_plugin_updater` crate (nothing reimplemented or mocked at the
 // signature-verification layer) against a local fixture HTTP server for the

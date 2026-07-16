@@ -26,13 +26,17 @@ As items are fixed they are struck from this list and noted in the changelog.
   A Settings > Updates toggle exists in the app's UI, but it is not yet
   connected to this: today it only changes what the Settings screen itself
   remembers, the same gap every other Settings toggle in this build has until
-  the app's own backend is wired in. The check, download, and
+  the app's own backend is wired in. The check, download, and Ed25519
   signature verification are tested end to end against a local fixture update
-  server, including a tampered manifest that is correctly rejected. What is
-  not yet proven: a real update against this project's actual release server,
-  and a real install swapping files on a live desktop, both of which need a
-  published release to test against. To update in the meantime, downloading
-  the latest installer from the releases page still works.
+  server: a correctly-signed manifest is accepted, and three separate refusals
+  are proven against the real signing path, a manifest signed with the wrong
+  key (checked against the exact pubkey shipped in tauri.conf.json), a manifest
+  whose signature field was tampered with, and an artifact whose bytes were
+  swapped after signing. What is not yet proven: a real update against this
+  project's actual release server, and a real install swapping files on a live
+  desktop and relaunching on the new version, both of which need a published
+  release to test against. To update in the meantime, downloading the latest
+  installer from the releases page still works.
 
 - **Reinstalling shows one Windows permission prompt.** Reinstalling over an
   existing copy triggers a single Windows permission (UAC) prompt that a person

@@ -45,6 +45,19 @@ const MANIFEST_TEMPLATE: &str = include_str!("fixtures/updater/latest.json");
 const TAMPERED_SIGNATURE: &str = include_str!("fixtures/updater/tampered-signature.txt");
 const PUBKEY: &str = include_str!("fixtures/updater/pubkey.tauri-config-value.txt");
 
+// The real, committed release updater public key: the exact base64 value that
+// ships in ui/src-tauri/tauri.conf.json's plugins.updater.pubkey, read straight
+// from the committed release key material so the wrong-key test below cannot
+// drift from what the app actually verifies against. This is PUBLIC key material
+// (release/KEYS.md); the matching private key never lives in the repo. A
+// manifest signed by anything other than this key's private half must be
+// refused.
+const RELEASE_PUBKEY: &str = include_str!("../../../release/keys/updater_pubkey.tauri-config-value.txt");
+
+// The shipped shell config, included so a test can prove the pubkey the app is
+// actually built to trust is the committed release key, not merely some key.
+const TAURI_CONF: &str = include_str!("../tauri.conf.json");
+
 struct FixtureServer {
     addr: std::net::SocketAddr,
 }
@@ -60,7 +73,12 @@ impl FixtureServer {
     /// to be reclaimed when the process exits, sidesteps that class of bug
     /// entirely instead of just picking a request count and hoping nothing ever
     /// needs a retry.
-    fn start(manifest_body: String) -> Self {
+    ///
+    /// Serves `artifact_bytes` for `/artifact.bin`, so a test can serve payload
+    /// bytes that differ from the ones the manifest signature was computed over
+    /// (the tampered-artifact case). Most tests want the committed fixture
+    /// artifact and call [`FixtureServer::start`], which forwards `ARTIFACT`.
+    fn start_serving(manifest_body: String, artifact_bytes: Vec<u8>) -> Self {
         let server = tiny_http::Server::http("127.0.0.1:0").expect("failed to bind the fixture server");
         let addr = server
             .server_addr()
@@ -77,7 +95,7 @@ impl FixtureServer {
                 } else if url == "/artifact.bin" {
                     let header =
                         tiny_http::Header::from_bytes(&b"Content-Type"[..], &b"application/octet-stream"[..]).unwrap();
-                    request.respond(tiny_http::Response::from_data(ARTIFACT.to_vec()).with_header(header))
+                    request.respond(tiny_http::Response::from_data(artifact_bytes.clone()).with_header(header))
                 } else {
                     request.respond(tiny_http::Response::from_string("not found").with_status_code(404))
                 };
@@ -86,6 +104,13 @@ impl FixtureServer {
         });
 
         Self { addr }
+    }
+
+    /// Serves the committed fixture artifact for `/artifact.bin`. The happy-path
+    /// and tampered-signature tests use this; only the tampered-artifact test
+    /// needs [`FixtureServer::start_serving`] with different bytes.
+    fn start(manifest_body: String) -> Self {
+        Self::start_serving(manifest_body, ARTIFACT.to_vec())
     }
 
     fn manifest_url(&self) -> url::Url {
@@ -210,4 +235,117 @@ async fn tampered_manifest_signature_is_rejected() {
         Ok(_) => panic!("a manifest with a tampered signature field must be rejected at download/verify time, not accepted"),
         Err(other) => panic!("expected a signature-verification error (Minisign or Base64), got: {other:?}"),
     }
+}
+
+#[tokio::test]
+async fn manifest_signed_with_wrong_key_is_rejected() {
+    // Same well-formed, correctly-signed fixture manifest as the happy path, but
+    // this updater is configured with the REAL committed release pubkey
+    // (RELEASE_PUBKEY) instead of the fixture's own key. The fixture artifact was
+    // signed by a throwaway key whose key id differs from the release key's, so
+    // this is exactly the "signed with the wrong key" case: a manifest that is
+    // internally consistent and validly signed, just not by the key this build
+    // trusts. It must be refused at verify time, not accepted. Concretely,
+    // minisign-verify rejects it at its key-id check (self.key_id !=
+    // signature.key_id) before it would even look at the signature bytes, and
+    // tauri_plugin_updater surfaces that as Error::Minisign.
+    let server = FixtureServer::start(MANIFEST_TEMPLATE.to_string());
+    let app = build_app();
+
+    let updater = app
+        .handle()
+        .updater_builder()
+        .endpoints(vec![server.manifest_url()])
+        .expect("fixture endpoint should be a valid URL")
+        .pubkey(RELEASE_PUBKEY.trim())
+        .build()
+        .expect("failed to build the updater against the real release pubkey");
+
+    // check() does not verify signatures (see the tampered-manifest test), so a
+    // wrong-key manifest still passes the structural version check; the rejection
+    // has to happen at download/verify.
+    let update = updater
+        .check()
+        .await
+        .expect("check() does not verify signatures, so a wrong-key manifest still checks out structurally")
+        .expect("the fixture manifest's version is newer, so an update should still be reported");
+
+    let result = update.download(|_chunk_len, _total_len| {}, || {}).await;
+    match &result {
+        Err(tauri_plugin_updater::Error::Minisign(_)) => {}
+        Ok(_) => panic!(
+            "a manifest signed by any key other than the configured release key must be rejected at verify time, not accepted"
+        ),
+        Err(other) => panic!("expected a Minisign key-mismatch verification error, got: {other:?}"),
+    }
+}
+
+#[tokio::test]
+async fn tampered_artifact_bytes_are_rejected() {
+    // The manifest and its signature are the genuine, correctly-keyed fixture
+    // pair (verified here against the fixture's own pubkey), but the bytes served
+    // for the artifact are not the ones that were signed: one byte is flipped.
+    // This is the payload-swap attack, distinct from the tampered-signature test:
+    // there the signature was altered and the artifact left intact; here the
+    // signature is intact and correctly keyed, and the artifact is altered. The
+    // key-id check therefore passes and the Ed25519 signature check over the
+    // swapped bytes fails, so neither the signature nor the signed bytes can be
+    // changed independently and still be trusted.
+    let mut tampered_artifact = ARTIFACT.to_vec();
+    tampered_artifact[0] ^= 0x01;
+    assert_ne!(
+        tampered_artifact.as_slice(),
+        ARTIFACT,
+        "sanity check: the flipped-byte artifact must actually differ from the signed one"
+    );
+
+    let server = FixtureServer::start_serving(MANIFEST_TEMPLATE.to_string(), tampered_artifact);
+    let app = build_app();
+
+    let updater = app
+        .handle()
+        .updater_builder()
+        .endpoints(vec![server.manifest_url()])
+        .expect("fixture endpoint should be a valid URL")
+        .pubkey(PUBKEY.trim())
+        .build()
+        .expect("failed to build the updater against the fixture config");
+
+    // check() only reads the manifest, which is untouched, so it still succeeds;
+    // download() fetches the swapped artifact bytes and verifies the signature
+    // over them, which must fail.
+    let update = updater
+        .check()
+        .await
+        .expect("check() only reads the manifest, which is untouched here, so it must still succeed")
+        .expect("the fixture manifest's version is newer, so an update should still be reported");
+
+    let result = update.download(|_chunk_len, _total_len| {}, || {}).await;
+    match &result {
+        Err(tauri_plugin_updater::Error::Minisign(_)) => {}
+        Ok(_) => panic!(
+            "an artifact whose bytes differ from the signed ones must be rejected at verify time, not accepted"
+        ),
+        Err(other) => panic!("expected a Minisign signature-verification error over the swapped bytes, got: {other:?}"),
+    }
+}
+
+#[test]
+fn shipped_config_pubkey_matches_committed_release_key() {
+    // Ties the wrong-key test to reality: the pubkey that test trusts
+    // (RELEASE_PUBKEY, read from release/keys/) is byte-for-byte the pubkey the
+    // app actually ships in tauri.conf.json's plugins.updater.pubkey. Without
+    // this, "rejected because signed with the wrong key" would only hold against
+    // some key; with it, it holds against the exact key this build verifies
+    // against. No network: this is a pure config invariant.
+    let config: serde_json::Value =
+        serde_json::from_str(TAURI_CONF).expect("tauri.conf.json must be valid JSON");
+    let config_pubkey = config["plugins"]["updater"]["pubkey"]
+        .as_str()
+        .expect("tauri.conf.json must set plugins.updater.pubkey as a string");
+    assert_eq!(
+        config_pubkey,
+        RELEASE_PUBKEY.trim(),
+        "the pubkey shipped in tauri.conf.json must be the committed release key in release/keys/updater_pubkey.tauri-config-value.txt"
+    );
 }
