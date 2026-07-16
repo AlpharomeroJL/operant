@@ -228,7 +228,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                     break 'rounds;
                 }
 
-                let action: Action = match serde_json::from_value(arguments) {
+                let mut action: Action = match serde_json::from_value(arguments) {
                     Ok(a) => a,
                     Err(e) => {
                         return self.halt(
@@ -246,6 +246,14 @@ impl<S: Synthesizer> ExploreLoop<S> {
                 };
 
                 seq += 1;
+
+                // Fill a deterministic per-run step id when the planner omitted
+                // it (the id is internal bookkeeping; a real model leaves it
+                // blank rather than inventing one). Unique within the run via
+                // the seq counter, so the compiled workflow still has stable ids.
+                if action.id.trim().is_empty() {
+                    action.id = format!("planner-step-{seq}");
+                }
 
                 let control_outcome = handle_control(bus, &run_id, seq, control).await;
                 let pending_correction = match control_outcome {
@@ -708,11 +716,20 @@ fn build_request(goal: &str, digest: &ElementDigest, history: &[String]) -> Comp
 }
 
 fn planner_tools() -> Vec<ToolSchema> {
+    // Hand the planner the REAL Action IR JSON Schema (the contract every
+    // component speaks), not a bare {"type":"object"}. Without it a real model
+    // has to guess the shape and emits actions missing required fields (kind,
+    // target, params), which halts the run before a single step. Parsed from the
+    // committed contract fixture so the tool schema and the executor can never
+    // drift.
+    let action_ir_schema: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../contracts/action_ir.schema.json"))
+            .expect("action_ir.schema.json is a valid committed JSON Schema");
     vec![
         ToolSchema {
             name: PROPOSE_ACTION_TOOL.to_string(),
-            description: "Propose the next Action IR step towards the goal.".to_string(),
-            input_schema: json!({ "type": "object" }),
+            description: "Propose the next Action IR step toward the goal. The arguments object IS one Action IR action and must follow the schema: kind is required (one of click, type, key, scroll, drag, wait, assert, adapter_call); a type action needs params.text, a key action needs params.combo (e.g. ctrl+a); target.window selects the app to act on. Set risk_class (read, write, or destructive) and grounding (uia).".to_string(),
+            input_schema: action_ir_schema,
         },
         ToolSchema {
             name: DONE_TOOL.to_string(),

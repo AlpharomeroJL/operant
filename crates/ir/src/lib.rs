@@ -16,10 +16,16 @@ pub use gate::*;
 pub use manifest::*;
 
 /// Risk class of an action. Ordered: read < write < destructive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Default, serde::Serialize, serde::Deserialize,
+)]
 #[serde(rename_all = "lowercase")]
 pub enum RiskClass {
     Read,
+    // Default when a planner omits it: write is gated normally, and the runtime
+    // safety invariants (payment/delete approval, password-field halt) fire
+    // regardless of this class, so a missing class never bypasses them.
+    #[default]
     Write,
     Destructive,
 }
@@ -32,9 +38,10 @@ impl RiskClass {
 }
 
 /// Grounding strategy actually used for a step.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Grounding {
+    #[default]
     Uia,
     Vision,
     Adapter,

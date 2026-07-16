@@ -14,6 +14,12 @@ fn default_v() -> u32 {
 pub struct Action {
     #[serde(default = "default_v")]
     pub v: u32,
+    // The step id is internal bookkeeping, not a planner decision. A real model
+    // routinely omits it, so tolerate a missing id (defaults to empty) rather
+    // than failing to parse; the explore loop fills a deterministic per-run id
+    // when it is blank. Fixtures and compiled workflows always carry an explicit
+    // id, so the default never fires for them.
+    #[serde(default)]
     pub id: String,
     pub kind: ActionKind,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -24,9 +30,15 @@ pub struct Action {
     pub params: serde_json::Map<String, serde_json::Value>,
     #[serde(default)]
     pub pace: Pace,
+    // risk_class and grounding are metadata a planner should set (the tool schema
+    // asks for them) but a real model may still omit. Tolerate that with the
+    // enum's own Default (RiskClass::Write, Grounding::Uia) rather than halting;
+    // the safety gates still evaluate the resulting action normally.
+    #[serde(default)]
     pub risk_class: RiskClass,
     #[serde(default)]
     pub irreversible: bool,
+    #[serde(default)]
     pub grounding: Grounding,
     #[serde(default = "default_timeout")]
     pub timeout_ms: u64,
