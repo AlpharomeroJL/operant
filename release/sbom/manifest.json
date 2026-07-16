@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-11T23:16:11.735Z",
+  "generatedAt": "2026-07-16T06:53:57.077Z",
   "tool": "release/scripts/generate-sbom.mjs",
   "versions": {
     "node": "v24.14.0",

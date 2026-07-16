@@ -1,7 +1,44 @@
 {
-  "version": "0.1.0",
+  "version": "1.1.0",
   "name": "operant-ui",
   "dependencies": {
+    "@tauri-apps/api": {
+      "version": "2.11.1",
+      "resolved": "https://registry.npmjs.org/@tauri-apps/api/-/api-2.11.1.tgz",
+      "overridden": false
+    },
+    "@types/jsdom": {
+      "version": "28.0.3",
+      "resolved": "https://registry.npmjs.org/@types/jsdom/-/jsdom-28.0.3.tgz",
+      "overridden": false,
+      "dependencies": {
+        "@types/node": {
+          "version": "26.1.1"
+        },
+        "@types/tough-cookie": {
+          "version": "4.0.5",
+          "resolved": "https://registry.npmjs.org/@types/tough-cookie/-/tough-cookie-4.0.5.tgz",
+          "overridden": false
+        },
+        "parse5": {
+          "version": "8.0.1",
+          "resolved": "https://registry.npmjs.org/parse5/-/parse5-8.0.1.tgz",
+          "overridden": false,
+          "dependencies": {
+            "entities": {
+              "version": "8.0.0",
+              "resolved": "https://registry.npmjs.org/entities/-/entities-8.0.0.tgz",
+              "overridden": false
+            }
+          }
+        },
+        "undici-types": {
+          "version": "7.28.0",
+          "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-7.28.0.tgz",
+          "overridden": false
+        }
+      }
+    },
     "@types/node": {
       "version": "26.1.1",
       "resolved": "https://registry.npmjs.org/@types/node/-/node-26.1.1.tgz",
@@ -10,6 +47,290 @@
         "undici-types": {
           "version": "8.3.0",
           "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-8.3.0.tgz",
+          "overridden": false
+        }
+      }
+    },
+    "axe-core": {
+      "version": "4.12.1",
+      "resolved": "https://registry.npmjs.org/axe-core/-/axe-core-4.12.1.tgz",
+      "overridden": false
+    },
+    "jsdom": {
+      "version": "29.1.1",
+      "resolved": "https://registry.npmjs.org/jsdom/-/jsdom-29.1.1.tgz",
+      "overridden": false,
+      "dependencies": {
+        "@asamuzakjp/css-color": {
+          "version": "5.1.11",
+          "resolved": "https://registry.npmjs.org/@asamuzakjp/css-color/-/css-color-5.1.11.tgz",
+          "overridden": false,
+          "dependencies": {
+            "@asamuzakjp/generational-cache": {
+              "version": "1.0.1",
+              "resolved": "https://registry.npmjs.org/@asamuzakjp/generational-cache/-/generational-cache-1.0.1.tgz",
+              "overridden": false
+            },
+            "@csstools/css-calc": {
+              "version": "3.2.1",
+              "resolved": "https://registry.npmjs.org/@csstools/css-calc/-/css-calc-3.2.1.tgz",
+              "overridden": false,
+              "dependencies": {
+                "@csstools/css-parser-algorithms": {
+                  "version": "4.0.0"
+                },
+                "@csstools/css-tokenizer": {
+                  "version": "4.0.0"
+                }
+              }
+            },
+            "@csstools/css-color-parser": {
+              "version": "4.1.9",
+              "resolved": "https://registry.npmjs.org/@csstools/css-color-parser/-/css-color-parser-4.1.9.tgz",
+              "overridden": false,
+              "dependencies": {
+                "@csstools/color-helpers": {
+                  "version": "6.1.0",
+                  "resolved": "https://registry.npmjs.org/@csstools/color-helpers/-/color-helpers-6.1.0.tgz",
+                  "overridden": false
+                },
+                "@csstools/css-calc": {
+                  "version": "3.2.1"
+                },
+                "@csstools/css-parser-algorithms": {
+                  "version": "4.0.0"
+                },
+                "@csstools/css-tokenizer": {
+                  "version": "4.0.0"
+                }
+              }
+            },
+            "@csstools/css-parser-algorithms": {
+              "version": "4.0.0",
+              "resolved": "https://registry.npmjs.org/@csstools/css-parser-algorithms/-/css-parser-algorithms-4.0.0.tgz",
+              "overridden": false,
+              "dependencies": {
+                "@csstools/css-tokenizer": {
+                  "version": "4.0.0"
+                }
+              }
+            },
+            "@csstools/css-tokenizer": {
+              "version": "4.0.0",
+              "resolved": "https://registry.npmjs.org/@csstools/css-tokenizer/-/css-tokenizer-4.0.0.tgz",
+              "overridden": false
+            }
+          }
+        },
+        "@asamuzakjp/dom-selector": {
+          "version": "7.1.1",
+          "resolved": "https://registry.npmjs.org/@asamuzakjp/dom-selector/-/dom-selector-7.1.1.tgz",
+          "overridden": false,
+          "dependencies": {
+            "@asamuzakjp/generational-cache": {
+              "version": "1.0.1"
+            },
+            "@asamuzakjp/nwsapi": {
+              "version": "2.3.9",
+              "resolved": "https://registry.npmjs.org/@asamuzakjp/nwsapi/-/nwsapi-2.3.9.tgz",
+              "overridden": false
+            },
+            "bidi-js": {
+              "version": "1.0.3",
+              "resolved": "https://registry.npmjs.org/bidi-js/-/bidi-js-1.0.3.tgz",
+              "overridden": false,
+              "dependencies": {
+                "require-from-string": {
+                  "version": "2.0.2",
+                  "resolved": "https://registry.npmjs.org/require-from-string/-/require-from-string-2.0.2.tgz",
+                  "overridden": false
+                }
+              }
+            },
+            "css-tree": {
+              "version": "3.2.1"
+            },
+            "is-potential-custom-element-name": {
+              "version": "1.0.1"
+            }
+          }
+        },
+        "@bramus/specificity": {
+          "version": "2.4.2",
+          "resolved": "https://registry.npmjs.org/@bramus/specificity/-/specificity-2.4.2.tgz",
+          "overridden": false,
+          "dependencies": {
+            "css-tree": {
+              "version": "3.2.1"
+            }
+          }
+        },
+        "@csstools/css-syntax-patches-for-csstree": {
+          "version": "1.1.6",
+          "resolved": "https://registry.npmjs.org/@csstools/css-syntax-patches-for-csstree/-/css-syntax-patches-for-csstree-1.1.6.tgz",
+          "overridden": false,
+          "dependencies": {
+            "css-tree": {
+              "version": "3.2.1"
+            }
+          }
+        },
+        "@exodus/bytes": {
+          "version": "1.15.1",
+          "resolved": "https://registry.npmjs.org/@exodus/bytes/-/bytes-1.15.1.tgz",
+          "overridden": false,
+          "dependencies": {
+            "@noble/hashes": {}
+          }
+        },
+        "canvas": {},
+        "css-tree": {
+          "version": "3.2.1",
+          "resolved": "https://registry.npmjs.org/css-tree/-/css-tree-3.2.1.tgz",
+          "overridden": false,
+          "dependencies": {
+            "mdn-data": {
+              "version": "2.27.1",
+              "resolved": "https://registry.npmjs.org/mdn-data/-/mdn-data-2.27.1.tgz",
+              "overridden": false
+            },
+            "source-map-js": {
+              "version": "1.2.1",
+              "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
+              "overridden": false
+            }
+          }
+        },
+        "data-urls": {
+          "version": "7.0.0",
+          "resolved": "https://registry.npmjs.org/data-urls/-/data-urls-7.0.0.tgz",
+          "overridden": false,
+          "dependencies": {
+            "whatwg-mimetype": {
+              "version": "5.0.0"
+            },
+            "whatwg-url": {
+              "version": "16.0.1"
+            }
+          }
+        },
+        "decimal.js": {
+          "version": "10.6.0",
+          "resolved": "https://registry.npmjs.org/decimal.js/-/decimal.js-10.6.0.tgz",
+          "overridden": false
+        },
+        "html-encoding-sniffer": {
+          "version": "6.0.0",
+          "resolved": "https://registry.npmjs.org/html-encoding-sniffer/-/html-encoding-sniffer-6.0.0.tgz",
+          "overridden": false,
+          "dependencies": {
+            "@exodus/bytes": {
+              "version": "1.15.1"
+            }
+          }
+        },
+        "is-potential-custom-element-name": {
+          "version": "1.0.1",
+          "resolved": "https://registry.npmjs.org/is-potential-custom-element-name/-/is-potential-custom-element-name-1.0.1.tgz",
+          "overridden": false
+        },
+        "lru-cache": {
+          "version": "11.5.2",
+          "resolved": "https://registry.npmjs.org/lru-cache/-/lru-cache-11.5.2.tgz",
+          "overridden": false
+        },
+        "parse5": {
+          "version": "8.0.1"
+        },
+        "saxes": {
+          "version": "6.0.0",
+          "resolved": "https://registry.npmjs.org/saxes/-/saxes-6.0.0.tgz",
+          "overridden": false,
+          "dependencies": {
+            "xmlchars": {
+              "version": "2.2.0",
+              "resolved": "https://registry.npmjs.org/xmlchars/-/xmlchars-2.2.0.tgz",
+              "overridden": false
+            }
+          }
+        },
+        "symbol-tree": {
+          "version": "3.2.4",
+          "resolved": "https://registry.npmjs.org/symbol-tree/-/symbol-tree-3.2.4.tgz",
+          "overridden": false
+        },
+        "tough-cookie": {
+          "version": "6.0.2",
+          "resolved": "https://registry.npmjs.org/tough-cookie/-/tough-cookie-6.0.2.tgz",
+          "overridden": false,
+          "dependencies": {
+            "tldts": {
+              "version": "7.4.8",
+              "resolved": "https://registry.npmjs.org/tldts/-/tldts-7.4.8.tgz",
+              "overridden": false,
+              "dependencies": {
+                "tldts-core": {
+                  "version": "7.4.8",
+                  "resolved": "https://registry.npmjs.org/tldts-core/-/tldts-core-7.4.8.tgz",
+                  "overridden": false
+                }
+              }
+            }
+          }
+        },
+        "undici": {
+          "version": "7.28.0",
+          "resolved": "https://registry.npmjs.org/undici/-/undici-7.28.0.tgz",
+          "overridden": false
+        },
+        "w3c-xmlserializer": {
+          "version": "5.0.0",
+          "resolved": "https://registry.npmjs.org/w3c-xmlserializer/-/w3c-xmlserializer-5.0.0.tgz",
+          "overridden": false,
+          "dependencies": {
+            "xml-name-validator": {
+              "version": "5.0.0"
+            }
+          }
+        },
+        "webidl-conversions": {
+          "version": "8.0.1",
+          "resolved": "https://registry.npmjs.org/webidl-conversions/-/webidl-conversions-8.0.1.tgz",
+          "overridden": false
+        },
+        "whatwg-mimetype": {
+          "version": "5.0.0",
+          "resolved": "https://registry.npmjs.org/whatwg-mimetype/-/whatwg-mimetype-5.0.0.tgz",
+          "overridden": false
+        },
+        "whatwg-url": {
+          "version": "16.0.1",
+          "resolved": "https://registry.npmjs.org/whatwg-url/-/whatwg-url-16.0.1.tgz",
+          "overridden": false,
+          "dependencies": {
+            "@exodus/bytes": {
+              "version": "1.15.1"
+            },
+            "tr46": {
+              "version": "6.0.0",
+              "resolved": "https://registry.npmjs.org/tr46/-/tr46-6.0.0.tgz",
+              "overridden": false,
+              "dependencies": {
+                "punycode": {
+                  "version": "2.3.1",
+                  "resolved": "https://registry.npmjs.org/punycode/-/punycode-2.3.1.tgz",
+                  "overridden": false
+                }
+              }
+            },
+            "webidl-conversions": {
+              "version": "8.0.1"
+            }
+          }
+        },
+        "xml-name-validator": {
+          "version": "5.0.0",
+          "resolved": "https://registry.npmjs.org/xml-name-validator/-/xml-name-validator-5.0.0.tgz",
           "overridden": false
         }
       }
@@ -226,9 +547,7 @@
               "overridden": false
             },
             "source-map-js": {
-              "version": "1.2.1",
-              "resolved": "https://registry.npmjs.org/source-map-js/-/source-map-js-1.2.1.tgz",
-              "overridden": false
+              "version": "1.2.1"
             }
           }
         },
