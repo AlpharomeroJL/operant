@@ -177,13 +177,25 @@ pub enum RunOutcome {
     Failed,
 }
 
-/// `run.completed`: run_id, outcome, steps, wall_ms
+/// `run.completed`: run_id, outcome, steps, wall_ms, model_calls
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RunCompleted {
     pub run_id: String,
     pub outcome: RunOutcome,
     pub steps: u32,
     pub wall_ms: u64,
+    /// Real count of model (planner) calls the run made: one per EXPLORE loop
+    /// round that consulted the planner. An EXPLORE run is therefore nonzero;
+    /// a REPLAY or dry run builds no planner at all (`operant_replay::Replayer`
+    /// has no path to a model backend), so this is structurally zero -- the
+    /// visible form of the "replay makes zero model calls" claim. An OPTIONAL,
+    /// append-only field per the contract's versioning rules: `#[serde(default)]`
+    /// means a payload from a publisher that predates it still deserializes (as
+    /// 0), while a current publisher always serializes it (like `steps` and
+    /// `wall_ms`), so a replay's honest zero rides the wire rather than being
+    /// merely absent.
+    #[serde(default)]
+    pub model_calls: u64,
 }
 impl BusEvent for RunCompleted {
     const TOPIC: &'static str = "run.completed";
@@ -511,6 +523,7 @@ mod tests {
                 outcome: RunOutcome::Ok,
                 steps: 6,
                 wall_ms: 1234,
+                model_calls: 4,
             })
             .unwrap(),
         ];
@@ -532,6 +545,52 @@ mod tests {
             serde_json::to_value(HaltReason::Killswitch).unwrap(),
             serde_json::json!("killswitch")
         );
+    }
+
+    /// `model_calls` is OPTIONAL and additive (D5). A current publisher always
+    /// serializes it, so a replay's honest zero is visible on the wire (not
+    /// merely absent); a payload from a publisher that predates the field still
+    /// deserializes, defaulting the count to 0. This is the honesty-contract
+    /// guard: "replay makes zero model calls" is a value on the event, not a
+    /// gap in it.
+    #[test]
+    fn run_completed_model_calls_is_visible_and_additive() {
+        // Always serialized, even when zero: a replay's zero must be an explicit
+        // value on the wire, exactly like `steps`/`wall_ms`.
+        let replay = RunCompleted {
+            run_id: "r1".into(),
+            outcome: RunOutcome::Ok,
+            steps: 3,
+            wall_ms: 0,
+            model_calls: 0,
+        };
+        let v = serde_json::to_value(&replay).unwrap();
+        assert_eq!(
+            v["model_calls"],
+            serde_json::json!(0),
+            "a zero model-call count is present on the wire, not omitted"
+        );
+
+        // An explore run carries a real nonzero count.
+        let explore = RunCompleted {
+            run_id: "r1".into(),
+            outcome: RunOutcome::Ok,
+            steps: 3,
+            wall_ms: 0,
+            model_calls: 2,
+        };
+        assert_eq!(
+            serde_json::to_value(&explore).unwrap()["model_calls"],
+            serde_json::json!(2)
+        );
+
+        // JSON from a publisher that predates the field still deserializes, and
+        // the missing count defaults to 0.
+        let old_shape =
+            serde_json::json!({ "run_id": "r1", "outcome": "ok", "steps": 3, "wall_ms": 0 });
+        let back: RunCompleted = serde_json::from_value(old_shape).unwrap();
+        assert_eq!(back.model_calls, 0, "a missing model_calls defaults to 0");
+        assert_eq!(back, replay);
     }
 
     #[test]

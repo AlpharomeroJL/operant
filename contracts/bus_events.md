@@ -38,7 +38,7 @@ Subscribers match on exact topic or prefix (`run.*`). Delivery is in-process ord
 | run.redirected | run_id, instruction | HITL natural-language redirect |
 | run.resumed | run_id | |
 | run.halted | run_id, reason (gate/killswitch/human/error), error_id? | |
-| run.completed | run_id, outcome (ok/failed), steps, wall_ms | |
+| run.completed | run_id, outcome (ok/failed), steps, wall_ms, model_calls | model_calls (D5): real count of model/planner calls, one per explore loop round. Zero for replay/dry (the `Replayer` builds no planner). Optional, append-only; a payload predating it deserializes as 0. Always serialized so a replay's zero is a visible value, not an absence |
 
 ### Gates, approvals, escalations
 | Topic | Payload | Notes |

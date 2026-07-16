@@ -177,6 +177,48 @@ async fn explore_loop_completes_a_scripted_notepad_task_recording_and_gating_eve
         .any(|c| matches!(c, SynthCall::Key(k) if k == "ctrl+s")));
 }
 
+/// D5: an explore run's model-call count is a REAL measured value, not a
+/// hardcoded zero. The scripted planner returns its whole plan in ONE
+/// `complete()` call, so the loop consults the planner exactly once: one round,
+/// one model call. The count equals the number of rounds and surfaces on both
+/// the [`RunSummary`] and the published `run.completed` event.
+#[tokio::test]
+async fn explore_run_reports_a_real_nonzero_model_call_count_equal_to_rounds() {
+    let bus = Bus::new();
+    let recorder = Recorder::open_in_memory().expect("open in-memory recorder");
+    let completed = bus.subscribe("run.completed");
+
+    let loop_ = new_loop();
+    let summary = loop_
+        .run(&bus, &recorder, GOAL, &mut NoControl)
+        .await
+        .expect("run completes without an infrastructure error");
+
+    // The whole scripted plan arrives in a single planner response, so the loop
+    // runs exactly one round: one model call.
+    assert_eq!(
+        summary.model_calls, 1,
+        "one planner round consulted means one model call"
+    );
+    assert!(
+        summary.model_calls > 0,
+        "an explore run consults the planner, so its model-call count is nonzero"
+    );
+
+    let env = completed
+        .rx
+        .try_iter()
+        .last()
+        .expect("run.completed published");
+    let completed_ev: RunCompleted =
+        serde_json::from_value(env.payload.clone()).expect("run.completed payload parses");
+    assert_eq!(
+        completed_ev.model_calls, summary.model_calls,
+        "the run.completed event carries the same real count as the summary"
+    );
+    assert!(completed_ev.model_calls > 0);
+}
+
 #[tokio::test]
 async fn explore_loop_captures_a_mid_run_redirect_as_a_human_correction_and_finishes() {
     let bus = Bus::new();

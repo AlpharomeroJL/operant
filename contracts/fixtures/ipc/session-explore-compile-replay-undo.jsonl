@@ -13,7 +13,7 @@
 {"env":{"payload":{"run_id":"run_0","step":{"grounding":"uia","id":"s3","intent":"Save the file","irreversible":false,"kind":"key","pace":"instant","params":{"combo":"ctrl+s"},"retry":{"attempts":2,"backoff_ms":250},"risk_class":"write","target":{"window":{"process":"notepad.exe"}},"timeout_ms":5000,"v":1}},"seq":7,"topic":"run.step.proposed","ts":"seq:7","v":1},"pv":1,"t":"evt","thumb":null}
 {"env":{"payload":{"gate_kind":"safety","result":"pass","run_id":"run_0","step_id":"s3"},"seq":8,"topic":"run.step.gated","ts":"seq:8","v":1},"pv":1,"t":"evt","thumb":null}
 {"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_0","step_id":"s3"},"seq":9,"topic":"run.step.executed","ts":"seq:9","v":1},"pv":1,"t":"evt","thumb":null}
-{"env":{"payload":{"outcome":"ok","run_id":"run_0","steps":3,"wall_ms":0},"seq":10,"topic":"run.completed","ts":"seq:10","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"model_calls":1,"outcome":"ok","run_id":"run_0","steps":3,"wall_ms":0},"seq":10,"topic":"run.completed","ts":"seq:10","v":1},"pv":1,"t":"evt","thumb":null}
 {"args":{"run_id":"run_0"},"cmd":"compile_run","id":"cmd-3","pv":1,"t":"req"}
 {"id":"cmd-3","ok":true,"pv":1,"result":{"name":"notepad-invoice-note","steps":3,"version":"1.0.0"},"t":"res"}
 {"env":{"payload":{"dsl_path":"compiled/workflow.ts","manifest_path":"compiled/manifest.json","name":"notepad-invoice-note","source_run_id":"run_0","version":"1.0.0"},"seq":11,"topic":"workflow.compiled","ts":"seq:11","v":1},"pv":1,"t":"evt","thumb":null}
@@ -26,7 +26,7 @@
 {"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_1","step_id":"s2"},"seq":16,"topic":"run.step.executed","ts":"seq:16","v":1},"pv":1,"t":"evt","thumb":null}
 {"env":{"payload":{"gate_kind":"pre","result":"pass","run_id":"run_1","step_id":"s3"},"seq":17,"topic":"run.step.gated","ts":"seq:17","v":1},"pv":1,"t":"evt","thumb":null}
 {"env":{"payload":{"grounding":"uia","ms":0,"outcome":"ok","run_id":"run_1","step_id":"s3"},"seq":18,"topic":"run.step.executed","ts":"seq:18","v":1},"pv":1,"t":"evt","thumb":null}
-{"env":{"payload":{"outcome":"ok","run_id":"run_1","steps":3,"wall_ms":0},"seq":19,"topic":"run.completed","ts":"seq:19","v":1},"pv":1,"t":"evt","thumb":null}
+{"env":{"payload":{"model_calls":0,"outcome":"ok","run_id":"run_1","steps":3,"wall_ms":0},"seq":19,"topic":"run.completed","ts":"seq:19","v":1},"pv":1,"t":"evt","thumb":null}
 {"args":{"run_id":"run_0"},"cmd":"preview_undo","id":"cmd-5","pv":1,"t":"req"}
 {"id":"cmd-5","ok":true,"pv":1,"result":{"ok":true},"t":"res"}
 {"env":{"payload":{"entries":2,"irreversible":1,"items":[{"description":"sent the invoice email to boss@example.com","op":"irreversible","seq":2},{"op":"delete_created","path":"undo_demo.txt","seq":1}],"run_id":"run_0"},"seq":20,"topic":"undo.previewed","ts":"seq:20","v":1},"pv":1,"t":"evt","thumb":null}

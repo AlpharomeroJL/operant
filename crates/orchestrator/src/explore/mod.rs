@@ -94,6 +94,11 @@ pub struct RunSummary {
     /// Count of actions attempted (executed or gate-blocked), matching
     /// `steps` on the published `run.completed` event.
     pub steps: u32,
+    /// Real count of model (planner) calls this run made -- one per loop round
+    /// that consulted the planner -- matching `model_calls` on the published
+    /// `run.completed` event. An EXPLORE run is nonzero; the replay path (which
+    /// never enters this loop) is structurally zero.
+    pub model_calls: u64,
     /// Set when the run ended via [`RunHalted`] rather than reaching the
     /// planner's own `done` signal.
     pub halted: Option<HaltReason>,
@@ -158,6 +163,12 @@ impl<S: Synthesizer> ExploreLoop<S> {
 
         let started_at = Instant::now();
         let mut seq: u32 = 0;
+        // Real per-run model-call counter (D5): incremented once for every loop
+        // round that consults the planner, i.e. once per `planner.complete(..)`.
+        // This is what makes an explore run's `MODEL CALLS <n>` a measured value;
+        // the replay path never enters this loop, so its count stays a structural
+        // zero (set at the replay wrapper, `cli/src/commands/serve.rs`).
+        let mut model_calls: u64 = 0;
         let mut history: Vec<String> = Vec::new();
 
         'rounds: loop {
@@ -170,6 +181,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                         run_id,
                         seq,
                         started_at,
+                        model_calls,
                         HaltCause::error(format!("perceive failed: {e}")),
                     );
                 }
@@ -177,6 +189,10 @@ impl<S: Synthesizer> ExploreLoop<S> {
 
             let request = build_request(goal, &ElementDigest::build(&snapshot), &history);
             let events: Vec<BackendEvent> = self.planner.complete(request).collect().await;
+            // One round consulted the planner: one real model call. Counted here,
+            // before inspecting the response, so a round that errors or returns an
+            // implicit `done` still counts the call that was actually made.
+            model_calls += 1;
 
             if let Some((error_id, message)) = events.iter().find_map(|e| match e {
                 BackendEvent::Error { error_id, message, .. } => {
@@ -190,6 +206,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                     run_id,
                     seq,
                     started_at,
+                    model_calls,
                     HaltCause::error(format!("{error_id}: {message}")),
                 );
             }
@@ -220,6 +237,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                             run_id,
                             seq,
                             started_at,
+                            model_calls,
                             HaltCause::error(format!(
                                 "planner proposed an unparseable action: {e}"
                             )),
@@ -239,6 +257,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                             run_id,
                             seq,
                             started_at,
+                            model_calls,
                             HaltCause::human(),
                         );
                     }
@@ -253,6 +272,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                             run_id,
                             seq,
                             started_at,
+                            model_calls,
                             HaltCause::error(format!("perceive failed: {e}")),
                         );
                     }
@@ -300,7 +320,15 @@ impl<S: Synthesizer> ExploreLoop<S> {
                         blocked_step = blocked_step.with_human_correction(c);
                     }
                     recorder.record_step(&run_id, blocked_step)?;
-                    return self.halt(bus, recorder, run_id, seq, started_at, HaltCause::gate());
+                    return self.halt(
+                        bus,
+                        recorder,
+                        run_id,
+                        seq,
+                        started_at,
+                        model_calls,
+                        HaltCause::gate(),
+                    );
                 }
 
                 // ---- resolve + execute ----
@@ -313,6 +341,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                             run_id,
                             seq,
                             started_at,
+                            model_calls,
                             HaltCause::error(format!("target resolution failed: {e}")),
                         );
                     }
@@ -383,6 +412,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
                             run_id,
                             seq,
                             started_at,
+                            model_calls,
                             HaltCause::error(e.to_string()),
                         );
                     }
@@ -396,12 +426,14 @@ impl<S: Synthesizer> ExploreLoop<S> {
             outcome: BusRunOutcome::Ok,
             steps: seq,
             wall_ms,
+            model_calls,
         });
         recorder.end_run(&run_id, RunStatus::Completed)?;
         Ok(RunSummary {
             run_id,
             outcome: BusRunOutcome::Ok,
             steps: seq,
+            model_calls,
             halted: None,
         })
     }
@@ -449,6 +481,7 @@ impl<S: Synthesizer> ExploreLoop<S> {
         run_id: String,
         steps: u32,
         started_at: Instant,
+        model_calls: u64,
         cause: HaltCause,
     ) -> Result<RunSummary, ExploreError> {
         let HaltCause { reason, error_id } = cause;
@@ -463,12 +496,14 @@ impl<S: Synthesizer> ExploreLoop<S> {
             outcome: BusRunOutcome::Failed,
             steps,
             wall_ms,
+            model_calls,
         });
         recorder.end_run(&run_id, RunStatus::Failed)?;
         Ok(RunSummary {
             run_id,
             outcome: BusRunOutcome::Failed,
             steps,
+            model_calls,
             halted: Some(reason),
         })
     }

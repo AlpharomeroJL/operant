@@ -172,6 +172,7 @@ mod tests {
             outcome: events::RunOutcome::Ok,
             steps: 3,
             wall_ms: 500,
+            model_calls: 1,
         })
         .unwrap();
 

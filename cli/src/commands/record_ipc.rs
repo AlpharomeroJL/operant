@@ -231,6 +231,10 @@ pub fn run(args: &[String]) -> Result<()> {
         outcome: BusRunOutcome::Ok,
         steps: replay_steps,
         wall_ms: 0,
+        // Structural zero: replay never constructs a planner (the wrapped
+        // `Replayer` has no model backend), so this is the honest zero the
+        // explore run's nonzero count above contrasts with.
+        model_calls: 0,
     })?;
     recorder
         .end_run(&replay_run_id, RunStatus::Completed)
