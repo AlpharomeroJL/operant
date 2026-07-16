@@ -686,12 +686,23 @@ impl Core {
         // A REAL replay (both `real-uia` and `real-input`) drives real input and
         // re-resolves selectors against live perception; every other build keeps
         // the deterministic, model-free mock path (`cli/src/commands/run.rs`).
+        //
+        // E3: it also evaluates the pre/post gates against LIVE perception of the
+        // target window (captured before the first step and after the last), NOT
+        // the bundled canned `ctx` below, exactly as `operant run` does
+        // (run.rs:81). Without this the app replay checks a workflow's
+        // live-derived precondition against a fixed bundled snapshot and halts at
+        // "precondition gate #0", which is precisely the failure the target-app
+        // fix (ADR 0003) would otherwise still hit. `ctx` stays as the inert
+        // fallback the non-real path uses. A Perceiver is a perception backend,
+        // never a model backend, so replay stays model- and network-free.
         #[cfg(all(feature = "real-uia", feature = "real-input"))]
         let report = {
             use operant_action::WindowsSynthesizer;
             use operant_perception_uia::UiaPerceiver;
             let replayer = Replayer::new(WindowsSynthesizer::new())
-                .with_perceiver(Box::new(UiaPerceiver::new()));
+                .with_perceiver(Box::new(UiaPerceiver::new()))
+                .with_live_gate_snapshots();
             replayer
                 .replay_compiled(&workflow, &inputs, &ctx, &ctx)
                 .map_err(|e| IpcError::internal(format!("{e}")))?
