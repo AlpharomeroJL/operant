@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "operant-shell-default",
+  "description": "Permissions the Operant shell webview needs. The core sidecar streams every run over the event plugin (operant://bus run/step events, operant://thumb flight-recorder thumbnails, operant://core-status supervision). Without core:event the webview cannot subscribe, so the flight recorder shows nothing while a run streams even though the run records. App-defined commands (core_call and friends) are not ACL gated and work without a listed permission.",
+  "windows": ["main", "*"],
+  "permissions": ["core:default", "core:event:default"]
+}
