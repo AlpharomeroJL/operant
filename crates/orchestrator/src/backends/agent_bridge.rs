@@ -15,7 +15,10 @@
 //!
 //! 1. The backend writes `<dir>/req-<N>.json` atomically (temp file + rename):
 //!    `{"seq": N, "prompt": "<the request's concat_text()>"}`.
-//! 2. The backend prints one line to STDOUT and flushes it: `AGENT_BRIDGE_AWAIT <N>`.
+//! 2. The backend prints one line to STDERR and flushes it: `AGENT_BRIDGE_AWAIT <N>`.
+//!    (Never stdout: when this backend runs in-process inside `operant serve`,
+//!    stdout is the NDJSON IPC channel and a diagnostic there would corrupt a
+//!    protocol frame.)
 //! 3. The operator reads `req-<N>.json`, decides the next planner move, and
 //!    writes `<dir>/resp-<N>.json`: a JSON ARRAY of [`BackendEvent`] objects
 //!    (the same wire shape the explore loop already consumes). The operator
@@ -95,6 +98,15 @@ fn request_json(seq: u64, prompt: &str) -> String {
     serde_json::json!({ "seq": seq, "prompt": prompt }).to_string()
 }
 
+/// Emit the `AGENT_BRIDGE_AWAIT <seq>` operator cue. Split out and generic over
+/// the sink so a test can capture the exact bytes; `run_round` passes stderr,
+/// never stdout (which is the IPC channel). The line is newline-terminated so a
+/// line-oriented watcher sees a complete record.
+fn emit_await_signal<W: std::io::Write>(mut w: W, seq: u64) {
+    let _ = writeln!(w, "AGENT_BRIDGE_AWAIT {seq}");
+    let _ = w.flush();
+}
+
 /// Atomically write `contents` to `path` (temp sibling file + rename), so a
 /// reader polling `path` never observes a partially written file.
 fn atomic_write(path: &Path, contents: &str) -> std::io::Result<()> {
@@ -118,14 +130,13 @@ async fn run_round(dir: PathBuf, seq: u64, prompt: String) -> Vec<BackendEvent> 
         }];
     }
 
-    // Signal the operator that round `seq` is waiting. One line, flushed, so a
-    // process watching our stdout sees it immediately.
-    {
-        use std::io::Write;
-        let mut out = std::io::stdout().lock();
-        let _ = writeln!(out, "AGENT_BRIDGE_AWAIT {seq}");
-        let _ = out.flush();
-    }
+    // Signal the operator that round `seq` is waiting. One line, flushed, to
+    // STDERR. This backend runs in-process inside `operant serve`, whose STDOUT
+    // is the NDJSON IPC channel (contracts/ipc.md section 0); a diagnostic on
+    // stdout would land as a non-JSON frame and the shell would drop it
+    // ("skipping unparseable frame from core"). Human-facing signals go to
+    // stderr so the IPC stream stays pure protocol.
+    emit_await_signal(std::io::stderr().lock(), seq);
 
     let deadline = std::time::Instant::now() + ROUND_TIMEOUT;
     loop {
@@ -215,6 +226,24 @@ mod tests {
         let v: serde_json::Value = serde_json::from_str(&request_json(7, "Goal: x")).unwrap();
         assert_eq!(v["seq"], 7);
         assert_eq!(v["prompt"], "Goal: x");
+    }
+
+    #[test]
+    fn await_signal_is_a_single_plain_line_not_json() {
+        // The operator cue goes to stderr (run_round passes stderr); it is the
+        // ONE diagnostic this backend emits. Capturing it here locks two facts:
+        // its exact wire form, and that it is NOT a JSON frame. So if it ever
+        // reaches stdout (the IPC channel), the shell's frame parser rejects it
+        // rather than misreading it as protocol. Guarding the format guards the
+        // channel: a plain line can only ever be dropped, never mis-parsed.
+        let mut buf: Vec<u8> = Vec::new();
+        emit_await_signal(&mut buf, 42);
+        let line = String::from_utf8(buf).unwrap();
+        assert_eq!(line, "AGENT_BRIDGE_AWAIT 42\n");
+        assert!(
+            serde_json::from_str::<serde_json::Value>(line.trim()).is_err(),
+            "the await cue must not be valid JSON, so it can never pass as an IPC frame"
+        );
     }
 
     #[test]

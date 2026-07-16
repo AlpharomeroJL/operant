@@ -37,8 +37,9 @@ so perception and input stay mock; the bridge protocol is identical.)
 For each planner turn `N` (a per-instance counter starting at 1):
 
 1. The backend writes `<dir>/req-<N>.json` (atomically: temp file + rename).
-2. The backend prints one line to STDOUT and flushes it:
-   `AGENT_BRIDGE_AWAIT <N>`. This is your cue that round `N` is waiting.
+2. The backend prints one line to STDERR and flushes it:
+   `AGENT_BRIDGE_AWAIT <N>`. This is your cue that round `N` is waiting. It is
+   stderr, not stdout, because in `operant serve` stdout is the IPC channel.
 3. You read `req-<N>.json`, decide the next action(s), and write
    `<dir>/resp-<N>.json`. **Write it atomically** (write a temp file, then
    rename it onto `resp-<N>.json`) so the backend never reads a half-written
