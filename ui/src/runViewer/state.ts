@@ -83,6 +83,21 @@ export interface RunViewerSnapshot {
    * docs/specs/design.md section 3). Null when there are no steps yet.
    */
   activeStepId: string | null;
+  /**
+   * GLASS.md GL5 (instrument readout): the number of model calls this run made,
+   * read from the run.completed telemetry the core measures (nonzero on explore,
+   * 0 on replay). Null until the run completes (or if the core did not report
+   * it): the readout then shows "-", never a fabricated 0, since a hardcoded
+   * zero is the same class of falsehood as a fake run (GLASS.md section 5).
+   */
+  modelCalls: number | null;
+  /**
+   * GLASS.md GL5: bytes over the network this run used, same source and same
+   * null-means-unavailable honesty rule as modelCalls. The core does not emit
+   * this field yet, so it stays null and the readout shows "-" (unavailable)
+   * rather than a fake 0 KB, until network_bytes rides run.completed.
+   */
+  networkBytes: number | null;
   showIntervene: boolean;
   pauseButtonLabel: string;
   canPause: boolean;
@@ -118,9 +133,19 @@ interface InternalState {
   steps: StepRow[];
   modelOn: boolean | null;
   selectedStepId: string | null;
+  modelCalls: number | null;
+  networkBytes: number | null;
 }
 
-const INITIAL_STATE: InternalState = { runId: null, runState: "idle", steps: [], modelOn: null, selectedStepId: null };
+const INITIAL_STATE: InternalState = {
+  runId: null,
+  runState: "idle",
+  steps: [],
+  modelOn: null,
+  selectedStepId: null,
+  modelCalls: null,
+  networkBytes: null,
+};
 
 /** Fields of a StepRow a bus event can set or update; `id` is fixed once the row exists. */
 type StepPatch = Partial<Omit<StepRow, "id">>;
@@ -160,6 +185,8 @@ function toSnapshot(s: InternalState): RunViewerSnapshot {
     runChip: s.modelOn === null ? null : s.modelOn ? "rec" : "exact",
     selectedStepId: s.selectedStepId,
     activeStepId,
+    modelCalls: s.modelCalls,
+    networkBytes: s.networkBytes,
     showIntervene: paused,
     pauseButtonLabel: paused ? runViewerStrings.resume : runViewerStrings.pause,
     canPause: s.runState === "running" || paused,
@@ -186,6 +213,11 @@ export function createRunViewer(bus: BusClient): RunViewer {
           modelOn: event.payload.mode === RUN_MODE_EXPLORE,
           // A fresh run starts on auto-follow, whatever the last run was scrubbed to.
           selectedStepId: null,
+          // GLASS.md GL5: a fresh run has no measured telemetry yet, so the
+          // readout shows "-" until this run's own run.completed reports it.
+          // Never carry the previous run's counts forward.
+          modelCalls: null,
+          networkBytes: null,
         };
         break;
       }
@@ -257,7 +289,21 @@ export function createRunViewer(bus: BusClient): RunViewer {
       }
       case "run.completed": {
         if (event.payload.run_id !== state.runId) return;
-        state = { ...state, runState: "done" };
+        // GLASS.md GL5 (instrument readout): model_calls (and, when the core
+        // starts emitting it, network_bytes) ride run.completed as REAL measured
+        // telemetry, nonzero on an explore run and 0 on a replay run. They are an
+        // append-only addition to the wire event (contracts/bus_events.md's
+        // append-only rule: new optional payload fields only); the typed mirror
+        // in ui/src/bus/types.ts is outside this lane's owned paths, so read them
+        // through the "a consumer ignores fields it does not know about" rule the
+        // bus contract already prescribes rather than widening RunCompletedPayload
+        // here. A non-number (absent field) stays null, so the readout shows "-"
+        // rather than a fabricated 0 (GLASS.md section 5: a hardcoded zero is
+        // banned as the same class of falsehood as a fake run).
+        const telemetry = event.payload as { model_calls?: unknown; network_bytes?: unknown };
+        const modelCalls = typeof telemetry.model_calls === "number" ? telemetry.model_calls : null;
+        const networkBytes = typeof telemetry.network_bytes === "number" ? telemetry.network_bytes : null;
+        state = { ...state, runState: "done", modelCalls, networkBytes };
         break;
       }
       default:

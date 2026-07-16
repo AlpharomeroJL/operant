@@ -13,11 +13,15 @@ import { fileURLToPath } from "node:url";
 import {
   DARK_COLORS,
   LIGHT_COLORS,
+  DARK_MATERIAL,
+  LIGHT_MATERIAL,
   SHADOW_ROLES,
   SPACE,
   RADIUS,
   FONT,
   MOTION,
+  MATERIAL,
+  MOTION_GLASS,
 } from "../src/theme/tokens.ts";
 
 const outPath = fileURLToPath(new URL("../src/styles/tokens.css", import.meta.url));
@@ -50,10 +54,28 @@ const COLOR_VARS = [
   ["scrim", "scrim"],
 ];
 
-function colorLines(colors, shadow) {
+// [cssVarSuffix, MaterialRoles field] pairs for GLASS.md section 2's per-theme
+// material colors (scrims, edges, glow). Registered alongside COLOR_VARS and
+// emitted by colorLines below, so each glass surface re-derives in every theme
+// block (dark :root, the prefers-color-scheme: light block, and both
+// data-theme overrides) exactly the way the color roles do. The
+// theme-invariant half of the scale (blur/saturate/shimmer) is emitted once on
+// :root by nonColorLines.
+const MATERIAL_VARS = [
+  ["scrim-weak", "scrimWeak"],
+  ["scrim-strong", "scrimStrong"],
+  ["edge-still", "edgeStill"],
+  ["edge-live", "edgeLive"],
+  ["glow-live", "glowLive"],
+];
+
+function colorLines(colors, shadow, material) {
   const lines = COLOR_VARS.map(([suffix, field]) => `  --op-color-${suffix}: ${colors[field]};`);
   lines.push(`  --op-shadow-popover: ${shadow.popover};`);
   lines.push(`  --op-shadow-modal: ${shadow.modal};`);
+  for (const [suffix, field] of MATERIAL_VARS) {
+    lines.push(`  --op-material-${suffix}: ${material[field]};`);
+  }
   return lines.join("\n");
 }
 
@@ -82,6 +104,15 @@ function nonColorLines() {
   lines.push(`  --op-motion-fast: ${MOTION.fast};`);
   lines.push(`  --op-motion-base: ${MOTION.standard};`);
   lines.push(`  --op-motion-easing: ${MOTION.easing};`);
+  lines.push("");
+  lines.push("  /* Material scale, theme-invariant half (GLASS.md section 2): glass blur/");
+  lines.push("     saturate radii and the one glass shimmer. Opt-in via the .op-glass*");
+  lines.push("     classes in base.css; no screen wears them yet. Never animate blur or");
+  lines.push("     saturate (GLASS.md sections 0, 6). */");
+  lines.push(`  --op-material-blur-panel: ${MATERIAL.blurPanel};`);
+  lines.push(`  --op-material-blur-overlay: ${MATERIAL.blurOverlay};`);
+  lines.push(`  --op-material-sat-panel: ${MATERIAL.satPanel};`);
+  lines.push(`  --op-motion-glass-shimmer: ${MOTION_GLASS.edgeShimmer};`);
   return lines.join("\n");
 }
 
@@ -104,24 +135,24 @@ const banner = `/*
 const css = `${banner}
 
 :root {
-${colorLines(DARK_COLORS, SHADOW_ROLES.dark)}
+${colorLines(DARK_COLORS, SHADOW_ROLES.dark, DARK_MATERIAL)}
 
 ${nonColorLines()}
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-${colorLines(LIGHT_COLORS, SHADOW_ROLES.light)}
+${colorLines(LIGHT_COLORS, SHADOW_ROLES.light, LIGHT_MATERIAL)}
   }
 }
 
 /* Explicit overrides win over the OS preference in either direction. */
 :root[data-theme="dark"] {
-${colorLines(DARK_COLORS, SHADOW_ROLES.dark)}
+${colorLines(DARK_COLORS, SHADOW_ROLES.dark, DARK_MATERIAL)}
 }
 
 :root[data-theme="light"] {
-${colorLines(LIGHT_COLORS, SHADOW_ROLES.light)}
+${colorLines(LIGHT_COLORS, SHADOW_ROLES.light, LIGHT_MATERIAL)}
 }
 `;
 

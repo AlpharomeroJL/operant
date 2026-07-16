@@ -39,6 +39,11 @@
   --op-color-scrim: rgba(20, 20, 25, 0.4);
   --op-shadow-popover: none;
   --op-shadow-modal: none;
+  --op-material-scrim-weak: rgba(23, 24, 28, 0.55);
+  --op-material-scrim-strong: rgba(23, 24, 28, 0.82);
+  --op-material-edge-still: rgba(42, 45, 52, 0.14);
+  --op-material-edge-live: rgba(232, 161, 60, 0.32);
+  --op-material-glow-live: rgba(232, 161, 60, 0.1);
 
   /* Spacing scale, 4px base (design.md section 2). */
   --op-space-1: 4px;
@@ -76,6 +81,15 @@
   --op-motion-fast: 100ms;
   --op-motion-base: 160ms;
   --op-motion-easing: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Material scale, theme-invariant half (GLASS.md section 2): glass blur/
+     saturate radii and the one glass shimmer. Opt-in via the .op-glass*
+     classes in base.css; no screen wears them yet. Never animate blur or
+     saturate (GLASS.md sections 0, 6). */
+  --op-material-blur-panel: 16px;
+  --op-material-blur-overlay: 40px;
+  --op-material-sat-panel: 140%;
+  --op-motion-glass-shimmer: 2400ms ease-in-out infinite;
 }
 
 @media (prefers-color-scheme: light) {
@@ -104,6 +118,11 @@
   --op-color-scrim: rgba(20, 20, 25, 0.4);
   --op-shadow-popover: 0 4px 16px rgba(20, 20, 25, 0.16);
   --op-shadow-modal: 0 12px 40px rgba(20, 20, 25, 0.24);
+  --op-material-scrim-weak: rgba(255, 255, 255, 0.55);
+  --op-material-scrim-strong: rgba(255, 255, 255, 0.82);
+  --op-material-edge-still: rgba(227, 227, 222, 0.14);
+  --op-material-edge-live: rgba(193, 122, 23, 0.32);
+  --op-material-glow-live: rgba(193, 122, 23, 0.1);
   }
 }
 
@@ -133,6 +152,11 @@
   --op-color-scrim: rgba(20, 20, 25, 0.4);
   --op-shadow-popover: none;
   --op-shadow-modal: none;
+  --op-material-scrim-weak: rgba(23, 24, 28, 0.55);
+  --op-material-scrim-strong: rgba(23, 24, 28, 0.82);
+  --op-material-edge-still: rgba(42, 45, 52, 0.14);
+  --op-material-edge-live: rgba(232, 161, 60, 0.32);
+  --op-material-glow-live: rgba(232, 161, 60, 0.1);
 }
 
 :root[data-theme="light"] {
@@ -160,4 +184,9 @@
   --op-color-scrim: rgba(20, 20, 25, 0.4);
   --op-shadow-popover: 0 4px 16px rgba(20, 20, 25, 0.16);
   --op-shadow-modal: 0 12px 40px rgba(20, 20, 25, 0.24);
+  --op-material-scrim-weak: rgba(255, 255, 255, 0.55);
+  --op-material-scrim-strong: rgba(255, 255, 255, 0.82);
+  --op-material-edge-still: rgba(227, 227, 222, 0.14);
+  --op-material-edge-live: rgba(193, 122, 23, 0.32);
+  --op-material-glow-live: rgba(193, 122, 23, 0.1);
 }

@@ -63,6 +63,7 @@ import { createTray } from "./tray/state.ts";
 import { mountTray } from "./tray/view.ts";
 import { createToasts } from "./toasts/state.ts";
 import { mountToast } from "./toasts/view.ts";
+import { mountKillSwitchOverlay } from "./safety/killOverlay.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
 import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
@@ -206,6 +207,9 @@ root.innerHTML = `
     <div class="op-modal-backdrop op-target-app-backdrop" id="op-target-app-backdrop" hidden>
       <div id="op-target-app-mount"></div>
     </div>
+    <div class="op-modal-backdrop op-kill-backdrop" id="op-kill-backdrop" hidden>
+      <div id="op-kill-mount"></div>
+    </div>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
       <h2 class="op-panel__title" id="op-advanced-heading"></h2>
       <div class="op-advanced-panel__grid">
@@ -279,6 +283,8 @@ const paletteBackdrop = byId<HTMLElement>("op-palette-backdrop");
 const paletteMount = byId<HTMLElement>("op-palette-mount");
 const targetAppBackdrop = byId<HTMLElement>("op-target-app-backdrop");
 const targetAppMount = byId<HTMLElement>("op-target-app-mount");
+const killBackdrop = byId<HTMLElement>("op-kill-backdrop");
+const killMount = byId<HTMLElement>("op-kill-mount");
 const tourMount = byId<HTMLElement>("op-tour-mount");
 
 appTitle.textContent = commonStrings.appName;
@@ -381,6 +387,18 @@ const settings = coreCall
 const panicClient = coreCall ? createRealPanicClient(coreCall, () => invoke("core_kill")) : undefined;
 const tray = createTray(bus, { registry, panicClient });
 const toasts = createToasts(bus);
+
+// GLASS.md GL3 (kill-switch overlay): SAFETY, never-cut. Mounted ONCE here,
+// hidden, so the panic path only ever TOGGLES its backdrop's hidden attribute
+// and the severing blur lands inside the same sub-100ms freeze budget the stop
+// itself meets (GLASS.md section 4, G3): never constructed on trigger. Revealed
+// synchronously at both panic triggers below (the tray panic row and the global
+// kill chord, so the reveal never waits on a bus round trip) AND off the core's
+// echoed killswitch.engaged, so a core-initiated guardian kill severs the
+// surface too; hidden again on the core's killswitch.released.
+const killOverlay = mountKillSwitchOverlay(killBackdrop, killMount);
+bus.subscribe("killswitch.engaged", () => killOverlay.reveal());
+bus.subscribe("killswitch.released", () => killOverlay.hide());
 
 // The command palette (docs/specs/design.md section 3, Palette): a Raycast-
 // grade floating overlay, opened by the global Ctrl+K/Cmd+K hotkey handled
@@ -1018,6 +1036,11 @@ function renderTrayPanel(): void {
       tray.closeMenu();
     },
     onPanic: () => {
+      // GLASS.md GL3: sever the surface first (a synchronous attribute toggle on
+      // the pre-mounted overlay), then run the two-path stop. Revealing before
+      // tray.panic() keeps the blur inside the freeze budget rather than waiting
+      // on the killswitch.engaged echo the subscription above also catches.
+      killOverlay.reveal();
       tray.panic();
       tray.closeMenu();
     },
@@ -1271,6 +1294,10 @@ document.addEventListener("keydown", (event) => {
   // outranks opening an overlay.
   if (formatChord(chordPartsFromEvent(event)) === settings.getSnapshot().state.killSwitchChord) {
     event.preventDefault();
+    // GLASS.md GL3: reveal the pre-mounted kill-switch overlay synchronously on
+    // the same keystroke that fires the stop, so the severing blur lands inside
+    // the freeze budget (never waits on the killswitch.engaged echo).
+    killOverlay.reveal();
     tray.panic();
     return;
   }

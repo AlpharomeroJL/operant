@@ -171,14 +171,54 @@ export interface DriftMountOptions {
   onDismiss?: () => void;
 }
 
+/**
+ * GLASS.md GL4 (drift patch panel) labels for the two-material grammar. Kept
+ * inline rather than in ui/src/render/strings.ts, which is outside this lane's
+ * owned paths. Clean default-mode copy: none of these words is a glossary
+ * internal term ("update" and "version" are plain user-facing English).
+ */
+const DRIFT_VERSION_LABELS = {
+  broken: "What's there now",
+  patch: "Proposed update",
+} as const;
+
+/**
+ * One half of the drift offer's two-material grammar (GLASS.md section 4, G4).
+ * The proposed patch (the thing the model produced) is live-edged glass, warm
+ * and inviting approval; the current/broken version (the thing being replaced)
+ * is still, faded glass, inert. Same op-glass / op-glass--live vocabulary the
+ * run viewer uses for explore vs replay (G2), so the two surfaces read as one
+ * material language across the app.
+ */
+function versionPanel(label: string, body: string, live: boolean): HTMLElement {
+  const variant = live ? "op-change-card__version--patch op-glass op-glass--live" : "op-change-card__version--broken op-glass";
+  const panel = el("div", `op-change-card__version ${variant}`);
+  panel.append(el("p", "op-change-card__version-label", label), el("p", "op-change-card__version-body", body));
+  return panel;
+}
+
 /** Mount a drift offer card (a plain heads-up plus a yes/no choice). */
 export function mountDriftCard(container: HTMLElement, offer: DriftOfferView, opts: DriftMountOptions = {}): HTMLElement {
   container.textContent = "";
   const card = el("section", "op-change-card");
   card.setAttribute("role", "alertdialog");
-  card.append(el("p", "op-change-card__headline", offer.headline));
-  card.append(el("p", "op-change-card__question", offer.question));
-  if (offer.preview) card.append(el("p", "op-change-card__preview", offer.preview));
+  // Name and describe the alertdialog off its own headline and question, so a
+  // screen-reader user is told what moved and what is being asked before the
+  // Update / Not now choice (an alertdialog needs an accessible name; axe
+  // aria-dialog-name).
+  const headline = el("p", "op-change-card__headline", offer.headline);
+  headline.id = "op-change-card-headline";
+  const question = el("p", "op-change-card__question", offer.question);
+  question.id = "op-change-card-question";
+  card.setAttribute("aria-labelledby", headline.id);
+  card.setAttribute("aria-describedby", question.id);
+  card.append(headline);
+  card.append(question);
+  // GL4 (GLASS.md section 4, G4): render the change in the two-material grammar.
+  // The current/broken version (offer.text) recedes in still glass; the proposed
+  // patch (offer.preview) sits in a live-edged container, inviting approval.
+  if (offer.text) card.append(versionPanel(DRIFT_VERSION_LABELS.broken, offer.text, false));
+  if (offer.preview) card.append(versionPanel(DRIFT_VERSION_LABELS.patch, offer.preview, true));
 
   const actions = el("div", "op-change-card__actions");
   const accept = el("button", "op-button op-button--primary", offer.accept);

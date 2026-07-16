@@ -1446,3 +1446,240 @@ input:disabled {
   font-size: var(--op-font-size-xs);
   color: var(--op-color-text-muted);
 }
+
+/* ==========================================================================
+   SEMANTIC GLASS MATERIAL (GLASS.md sections 2, 4, 6, 7).
+
+   GL1 FOUNDATION ONLY. The classes below define the glass surfaces and their
+   accessibility fallbacks, but nothing in the app wears them yet: the four
+   glass moments (GLASS.md section 4, command palette / run-viewer material
+   state / kill-switch overlay / drift patch) opt in during GL2 to GL5. Until
+   then every screen renders byte-identical to before this block existed, since
+   these are unused opt-in classes and a rule cannot change an element that does
+   not reference it. All color comes from the tokens.css material vars
+   (ui/src/theme/tokens.ts's MaterialRoles / MATERIAL / MOTION_GLASS); no raw
+   hex and no new hue (amber, the one signal color, stays the only identity).
+
+   Contrast rule (GLASS.md sections 2 and 7, non-negotiable): text on glass
+   NEVER sits on raw translucency. It sits on --op-material-scrim-strong (bg1 at
+   0.82 alpha), whose effective luminance over any app surface stays within a
+   hair of opaque bg1, a known value. That is what keeps H2's 3:1 status battery
+   and the axe color-contrast scans passing against a computed background rather
+   than a variable one. --op-material-scrim-weak (bg1 at 0.55) is a dimming veil
+   only, never a text surface on its own.
+
+   Performance (GLASS.md section 6): one blur radius per layer; backdrop-filter,
+   filter, and box-shadow are NEVER animated. The only glass animation is the
+   shimmer below, which rides a pre-composited ::after overlay's opacity.
+   ========================================================================== */
+
+/* A floating glass panel: the palette and cards (GLASS.md section 4, G1) and
+   the run viewer's base surface (G2). scrimStrong keeps text on a known
+   surface; blurPanel is the single blur radius for this layer; edgeStill is the
+   crisp, colorless replay/idle edge. position: relative anchors the shimmer
+   overlay a live panel adds. */
+.op-glass {
+  position: relative;
+  background: var(--op-material-scrim-strong);
+  backdrop-filter: blur(var(--op-material-blur-panel)) saturate(var(--op-material-sat-panel));
+  border: 1px solid var(--op-material-edge-still);
+}
+
+/* The kill-switch overlay (GLASS.md section 4, G3): the one heavier blur, which
+   physically severs the operator from the automation surface. The danger edge
+   and the pre-mount-and-reveal timing are GL3's job; GL1 carries only the blur
+   radius. */
+.op-glass--overlay {
+  backdrop-filter: blur(var(--op-material-blur-overlay)) saturate(var(--op-material-sat-panel));
+}
+
+/* Explore material (GLASS.md section 4, G2 explore, and G4's live patch): warm
+   and alive. A live signal edge plus one level of glow, no spread animation
+   (GLASS.md section 6). The shimmer is the ::after overlay below. */
+.op-glass--live {
+  border-color: var(--op-material-edge-live);
+  box-shadow: 0 0 0 1px var(--op-material-glow-live);
+}
+
+/* The shimmer overlay (GLASS.md sections 2, 6): animates OPACITY only, never
+   backdrop-filter, so the live edge breathes without re-rasterizing the blur.
+   Pre-composited on its own layer, pointer-transparent, inheriting the panel's
+   radius. */
+@keyframes op-glass-shimmer {
+  0%,
+  100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.op-glass--live::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px var(--op-material-edge-live);
+  animation: var(--op-motion-glass-shimmer) op-glass-shimmer;
+}
+
+/* a11y fallback 1 (GLASS.md section 7): prefers-reduced-transparency maps every
+   glass surface back to a solid bg1/bg2 surface with no blur. The live/still
+   state distinction survives entirely without translucency (still keeps the
+   neutral border, live keeps the amber one), which is the real test of whether
+   the material communicates state or just decorates. */
+@media (prefers-reduced-transparency: reduce) {
+  .op-glass {
+    background: var(--op-color-bg-elevated);
+    backdrop-filter: none;
+    border-color: var(--op-color-border);
+  }
+
+  .op-glass--overlay {
+    background: var(--op-color-bg-elevated);
+    backdrop-filter: none;
+  }
+
+  .op-glass--live {
+    border-color: var(--op-color-accent);
+    box-shadow: none;
+  }
+
+  .op-glass--live::after {
+    display: none;
+  }
+}
+
+/* a11y fallback 2 (GLASS.md section 7): prefers-reduced-motion turns the shimmer
+   off entirely, so the material states differ by edge and contrast only. The
+   global reduced-motion rule at the top of this file already zeroes every
+   animation-duration; this is the explicit, self-documenting form of that for
+   the glass shimmer, and it drops the overlay so no frozen half-lit frame
+   remains. */
+@media (prefers-reduced-motion: reduce) {
+  .op-glass--live::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* ==========================================================================
+   GL2 run-viewer instrument readout, GL3 kill-switch overlay (GLASS.md
+   sections 4 and 5). Appended per this file's append-only convention. All
+   color is a tokens.css var (raw-hex lint), amber stays the only identity hue,
+   and nothing below animates backdrop-filter/filter/box-shadow (GLASS.md
+   section 6; the Q2 structural-proxy harness greps for exactly that).
+   ========================================================================== */
+
+/* GL5 instrument readout (GLASS.md section 5): the honest telemetry line in the
+   flight recorder, MODEL CALLS <n> / NETWORK <n>, read from real run.completed
+   telemetry (ui/src/runViewer/state.ts). Tabular mono so the digits line up like
+   a real instrument (design.md section 2's Type: "Numeric and step data: IBM
+   Plex Mono, tabular figures ... for timers, counts"); a hardcoded zero is
+   banned, so a value the core has not measured shows "-", never a fake 0. */
+.op-run-viewer__readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-4);
+  margin: 0 0 var(--op-space-3);
+}
+
+.op-run-viewer__readout-metric {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--op-space-2);
+}
+
+.op-run-viewer__readout-label {
+  font-family: var(--op-font-family-mono);
+  font-size: var(--op-font-size-xs);
+  letter-spacing: 0.06em;
+  color: var(--op-color-text-muted);
+}
+
+.op-run-viewer__readout-value {
+  font-family: var(--op-font-family-mono);
+  font-size: var(--op-font-size-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--op-color-text);
+}
+
+/* GL3 kill-switch overlay (GLASS.md section 4, G3; SAFETY, never-cut). The one
+   heavier blur (op-glass--overlay, blurOverlay 40px) revealed on the panic chord
+   / tray panic by toggling the pre-mounted backdrop's hidden attribute
+   (ui/src/safety/killOverlay.ts, wired in ui/src/main.ts). The blur physically
+   severs the operator from the automation surface underneath; the danger edge
+   frames it. Above every other layer (palette/modal 30, toast 40) so nothing
+   under it stays readable. The reduced-transparency and reduced-motion fallbacks
+   the .op-glass* classes already carry apply here too: with transparency reduced
+   the overlay falls back to a solid bg1 surface, and the danger edge below (a
+   later rule, so it wins over that fallback's neutral border) keeps the severed
+   state legible entirely without translucency (GLASS.md section 7). */
+.op-kill-backdrop {
+  background: transparent;
+  z-index: 60;
+}
+
+.op-kill-overlay {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--op-space-3);
+  padding: var(--op-space-6);
+  border: 2px solid var(--op-color-danger);
+  border-radius: 0;
+  text-align: center;
+}
+
+.op-kill-overlay__title {
+  margin: 0;
+  font-size: var(--op-font-size-lg);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-danger);
+}
+
+.op-kill-overlay__body {
+  margin: 0;
+  max-width: 42ch;
+  color: var(--op-color-text);
+}
+
+/* GL4 drift patch panel (GLASS.md section 4, G4): the SAME material grammar as
+   the run viewer (G2), applied to the two halves of a screen-change offer. The
+   broken/current version recedes in a faded still-glass container (op-glass, no
+   glow, no motion); the proposed patch sits in a live-edged one
+   (op-glass--live), inviting approval. The thing the model produced is alive;
+   the thing being replaced is inert. The change card around them stays solid,
+   so these are the only blurred layer here (no stacked blur, GLASS.md section
+   6). The material carries the inert-vs-alive meaning; the modest opacity below
+   is only a secondary recession cue and keeps the being-replaced text legible.
+   Reduced-transparency/reduced-motion fall the panels back exactly as every
+   other .op-glass* surface does (GLASS.md section 7). */
+.op-change-card__version {
+  margin: 0 0 var(--op-space-3);
+  padding: var(--op-space-3);
+  border-radius: var(--op-radius-md);
+}
+
+.op-change-card__version--broken {
+  opacity: 0.72;
+}
+
+.op-change-card__version-label {
+  margin: 0 0 var(--op-space-1);
+  font-size: var(--op-font-size-xs);
+  font-weight: var(--op-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--op-color-text-muted);
+}
+
+.op-change-card__version-body {
+  margin: 0;
+  color: var(--op-color-text);
+}

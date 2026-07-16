@@ -122,7 +122,16 @@ export function mountPalette(container: HTMLElement, snapshot: PaletteSnapshot, 
   const captured = captureFocus(container);
   container.textContent = "";
 
-  const root = el("div", "op-palette-overlay");
+  // GLASS.md GL2 (G1, the Raycast read): the palette is the first glass moment.
+  // op-glass gives it blurPanel over the app content, the still colorless
+  // edgeStill, and scrimStrong behind the rows so text keeps a known, opaque
+  // background (GLASS.md sections 2, 4). It is a floating chrome surface, never
+  // model-live, so it stays on the still material (no op-glass--live). The
+  // .op-glass rule, defined after .op-palette-overlay in base.css, supplies the
+  // translucent surface and hairline edge; the overlay's own modal shadow and
+  // layout stay. Reduced-transparency falls it back to a solid panel
+  // automatically (GLASS.md section 7).
+  const root = el("div", "op-palette-overlay op-glass");
   root.setAttribute("role", "dialog");
   root.setAttribute("aria-modal", "true");
   root.setAttribute("aria-label", snapshot.overlayLabel);

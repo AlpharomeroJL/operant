@@ -44,11 +44,57 @@ export interface RunViewerMountOptions {
 
 const STEP_STATUS_LABEL: Record<StepStatus, string> = runViewerStrings.stepStatus;
 
+/**
+ * GLASS.md GL5 instrument-readout labels. Kept beside this view rather than in
+ * ui/src/strings/default.ts, which is outside this lane's owned paths. Every
+ * word is clean default-mode copy: model is the user-facing word here (the
+ * microcopy glossary maps the internal engine term to it), and network / calls
+ * / KB are not glossary-internal terms at all, so this stays out of Advanced
+ * mode.
+ */
+const READOUT = {
+  instrumentsLabel: "Run instruments",
+  modelCallsLabel: "MODEL CALLS",
+  networkLabel: "NETWORK",
+  networkUnit: "KB",
+  /** Shown when the core has not measured a value: never a fabricated 0 (GLASS.md section 5). */
+  unavailable: "-",
+} as const;
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);
   if (className) node.className = className;
   if (text !== undefined) node.textContent = text;
   return node;
+}
+
+/** One MODEL CALLS / NETWORK metric: a mono label and its tabular-figure value. */
+function readoutMetric(metric: string, label: string, value: string): HTMLElement {
+  const wrap = el("span", "op-run-viewer__readout-metric");
+  wrap.dataset.metric = metric;
+  wrap.append(el("span", "op-run-viewer__readout-label", label), el("span", "op-run-viewer__readout-value", value));
+  return wrap;
+}
+
+/**
+ * GLASS.md GL5 (the instrument readout, done honestly): MODEL CALLS <n> and
+ * NETWORK <n> KB in tabular mono. The value comes straight from the run.completed
+ * telemetry ./state.ts read off the bus event (nonzero on explore, 0 on replay);
+ * a value the core has not measured shows "-", never a fabricated 0, so the
+ * displayed count is only ever a measured one.
+ */
+function instrumentReadout(snapshot: RunViewerSnapshot): HTMLElement {
+  const readout = el("div", "op-run-viewer__readout");
+  readout.setAttribute("role", "group");
+  readout.setAttribute("aria-label", READOUT.instrumentsLabel);
+  const modelCalls = snapshot.modelCalls === null ? READOUT.unavailable : String(snapshot.modelCalls);
+  const network =
+    snapshot.networkBytes === null ? READOUT.unavailable : `${Math.round(snapshot.networkBytes / 1024)} ${READOUT.networkUnit}`;
+  readout.append(
+    readoutMetric("model-calls", READOUT.modelCallsLabel, modelCalls),
+    readoutMetric("network", READOUT.networkLabel, network),
+  );
+  return readout;
 }
 
 /** The amber REC chip while teaching, or the quiet gray no-AI chip for a saved-workflow run (design.md section 3); nothing before a run has started. */
@@ -190,7 +236,20 @@ export function mountRunViewer(container: HTMLElement, snapshot: RunViewerSnapsh
   const captured = captureFocus(container);
   container.textContent = "";
 
-  const root = el("section", "op-panel op-run-viewer");
+  // GLASS.md GL2 (the thesis made physical): the flight recorder is one of the
+  // four glass moments (GLASS.md section 4, G2), and its material follows the
+  // run's mode. Base surface is always glass (op-glass: blurPanel, edgeStill,
+  // scrimStrong behind rows). While the model is in the loop (explore/teach,
+  // modelOn true) it adds op-glass--live: the warm edgeLive edge, one level of
+  // glowLive, and the opacity shimmer. Replay (modelOn false) and idle
+  // (modelOn null) stay on the still, colorless, motionless op-glass surface, so
+  // explore and replay render provably different materials (the amber live glow
+  // is present in one and absent in the other, asserted by getComputedStyle in
+  // ./glassMaterial.test.ts). The explore->replay swap is the one orchestrated
+  // material change design.md allows; it rides only the class change here, never
+  // an animated backdrop-filter/box-shadow (GLASS.md section 6).
+  const live = snapshot.modelOn === true;
+  const root = el("section", `op-panel op-run-viewer op-glass${live ? " op-glass--live" : ""}`);
   root.setAttribute("aria-labelledby", "op-run-viewer-heading");
 
   // Heading plus the mode chip, top right (ui.md's "model ON/OFF indicator top
@@ -218,6 +277,15 @@ export function mountRunViewer(container: HTMLElement, snapshot: RunViewerSnapsh
   statusDot.setAttribute("aria-hidden", "true");
   status.append(statusDot, el("span", undefined, snapshot.runStateLabel));
   root.append(status);
+
+  // GLASS.md GL5: the instrument readout, shown once a run exists (modelOn is no
+  // longer null). MODEL CALLS reads the measured count off run.completed; it
+  // stays a dash until this run reports one, and the whole point is that a
+  // saved-workflow run reports 0 while a teach run reports a nonzero count, both
+  // from a real counter (CLAIMS.md now shows this claim in-app).
+  if (snapshot.modelOn !== null) {
+    root.append(instrumentReadout(snapshot));
+  }
 
   // H1: before any run has ever started this session -- not merely a lull
   // between steps, which "idle" alone (with zero steps) always exactly

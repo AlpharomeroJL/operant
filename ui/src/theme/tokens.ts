@@ -215,6 +215,59 @@ export const COLOR_ROLES: Record<ThemeName, ColorRoles> = {
   light: LIGHT_COLORS,
 };
 
+/**
+ * GLASS.md section 2's material scale (the per-theme half): the translucent
+ * surfaces and edges the four glass moments (GLASS.md section 4) paint with.
+ * These are NOT new identity colors. Every value is an alpha derivation of an
+ * existing palette token (bg1, hairline, or the one signal color), built with
+ * the same rgba-of-token idiom `scrim` and `textDisabled` already use above,
+ * so amber stays the only hue and no raw hex escapes this file. Per-theme
+ * because bg1/hairline/signal are per-theme; the theme-invariant
+ * blur/saturate/shimmer parts of the same scale live in MATERIAL and
+ * MOTION_GLASS near the bottom of this file.
+ *
+ * Contrast rule (GLASS.md sections 2 and 7, non-negotiable): text never sits
+ * on raw translucency. Text on glass sits on `scrimStrong` (bg1 at 0.82 alpha),
+ * whose effective luminance composited over any app surface stays within a hair
+ * of opaque bg1, a known value. That is what keeps H2's 3:1 status battery and
+ * the axe color-contrast scans passing against a computed background rather
+ * than a variable one. `scrimWeak` (bg1 at 0.55) is a dimming veil only; text
+ * sits on it solely with a solid scrim behind it. This scale is applied only
+ * via the opt-in `.op-glass*` classes in ui/src/styles/base.css, which nothing
+ * wears yet (GL1 is the foundation; GL2 to GL5 opt the four moments in).
+ */
+export interface MaterialRoles {
+  /** Dimming veil (bg1 at 0.55); a text surface only with a solid scrim behind it. */
+  scrimWeak: string;
+  /** The default text surface on glass (bg1 at 0.82); effectively opaque. */
+  scrimStrong: string;
+  /** Replay / idle edge (hairline at 0.14): crisp, colorless (GLASS.md section 4, G2 replay). */
+  edgeStill: string;
+  /** Explore edge (signal at 0.32): the warm refractive edge (GLASS.md section 4, G2 explore). */
+  edgeLive: string;
+  /** Explore glow (signal at 0.10): one level, no spread animation (GLASS.md section 6). */
+  glowLive: string;
+}
+
+function resolveMaterial(theme: ThemeName): MaterialRoles {
+  const p = PALETTES[theme];
+  return {
+    scrimWeak: withAlpha(p.bg1, 0.55),
+    scrimStrong: withAlpha(p.bg1, 0.82),
+    edgeStill: withAlpha(p.hairline, 0.14),
+    edgeLive: withAlpha(p.signal, 0.32),
+    glowLive: withAlpha(p.signal, 0.1),
+  };
+}
+
+export const DARK_MATERIAL: MaterialRoles = resolveMaterial("dark");
+export const LIGHT_MATERIAL: MaterialRoles = resolveMaterial("light");
+
+export const MATERIAL_ROLES: Record<ThemeName, MaterialRoles> = {
+  dark: DARK_MATERIAL,
+  light: LIGHT_MATERIAL,
+};
+
 /** design.md: "Shadows minimal, one level; the dark theme uses hairlines instead of shadows." */
 export interface ShadowRoles {
   popover: string;
@@ -293,4 +346,34 @@ export const MOTION = {
   fast: "100ms",
   standard: "160ms",
   easing: "cubic-bezier(0.2, 0, 0, 1)",
+} as const;
+
+/**
+ * GLASS.md section 2's material scale (the theme-invariant half): the glass
+ * blur radii and saturation. Invariant because they act on whatever content
+ * sits behind the glass, not on a palette color, so both themes share them.
+ * One blur radius per layer (GLASS.md section 6): floating panels (palette,
+ * cards, the run viewer) use blurPanel; the kill-switch overlay uses the
+ * heavier blurOverlay. Never animate blur or saturate (GLASS.md sections 0 and
+ * 6): animating either re-rasterizes the whole blurred region every frame and
+ * blows the Q2 budgets.
+ */
+export const MATERIAL = {
+  blurPanel: "16px",
+  blurOverlay: "40px",
+  satPanel: "140%",
+} as const;
+
+/**
+ * GLASS.md section 2's motionGlass: the single glass animation. It drives a
+ * pre-composited ::after overlay's OPACITY only (never backdrop-filter), so the
+ * explore material's live edge shimmers without re-rasterizing the blur
+ * (GLASS.md sections 2 and 6). prefers-reduced-motion turns it off entirely
+ * (GLASS.md section 7); the fallback lives in ui/src/styles/base.css, whose
+ * global reduced-motion rule already zeroes every animation-duration. Kept
+ * apart from MOTION (the app's standard 160ms interaction curve) because this
+ * is a continuous, glass-only loop, not an interaction transition.
+ */
+export const MOTION_GLASS = {
+  edgeShimmer: "2400ms ease-in-out infinite",
 } as const;
