@@ -42,3 +42,6 @@ e2e/soak/soak-report-*
 
 # auto-continue log
 campaign/auto-continue.log
+
+# Staged core sidecar externalBin (built by just stage-core, not committed)
+ui/src-tauri/binaries/

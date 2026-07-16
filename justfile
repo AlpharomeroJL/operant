@@ -100,7 +100,7 @@ sign *args:
 # updater artifacts; the scripted form of release/REPRODUCIBLE.md's
 # "one-command rebuild"), then sign it. Signing skips cleanly when no
 # certificate is configured, so this recipe is safe to run either way.
-package:
+package: stage-core
     cd ui; npm ci; cd src-tauri; cargo tauri build -b nsis --ci
     just sign
 
@@ -112,6 +112,20 @@ package:
 # dev-ipc-record) are NEVER passed here.
 build-release-core:
     cargo build -p operant-cli --release --features 'real-uia,real-input,real-transport'
+
+# Stage the shippable core next to the Tauri shell as the bundled externalBin
+# (tauri.conf bundle.externalBin "binaries/operant" resolves to
+# operant-<host-triple>.exe). The installed shell finds it beside its own exe
+# (ui/src-tauri/src/bridge/mod.rs resolve_core_bin), so the app runs standalone
+# with no OPERANT_CORE_BIN. binaries/ is a build artifact, gitignored.
+stage-core: build-release-core
+    #!/usr/bin/env bash
+    set -euo pipefail
+    tgt="${CARGO_TARGET_DIR:-target}"
+    triple="$(rustc -vV | sed -n 's/host: //p')"
+    mkdir -p ui/src-tauri/binaries
+    cp "$tgt/release/operant.exe" "ui/src-tauri/binaries/operant-$triple.exe"
+    echo "staged core -> ui/src-tauri/binaries/operant-$triple.exe"
 
 # Release gate (the structural "no mock ships as product" check): build the
 # release core, then inspect its OWN reported capabilities (get_capabilities,
