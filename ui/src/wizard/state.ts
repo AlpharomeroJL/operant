@@ -84,13 +84,15 @@ const SCHEDULE_OPTION_IDS: readonly ScheduleOptionId[] = [
 // wizard has no model picker (docs/specs/zero-code.md keeps first-run choice
 // minimal), so it writes a sensible default the shell/core may resolve or
 // override; a real model-selection surface is a later concern. The local path
-// points at the on-device endpoint the local-model sidecar serves; that
-// download plus VRAM/disk sidecar is a separate IPC surface whose live wiring
-// is a C2 follow-up.
+// points at the on-device endpoint the local-model sidecar serves: the ollama
+// base_url from the model-backend quirk table (contracts/model_backend.md),
+// which createRealBackendConfigurator sends as provider ollama for the truth
+// gate. That download plus VRAM/disk sidecar is a separate IPC surface whose
+// live wiring is a C2 follow-up.
 const PROVIDER_DEFAULTS: Record<BackendProvider, { model: string; endpoint?: string }> = {
   chatgpt: { model: "gpt-4o" },
   claude: { model: "claude-sonnet-5" },
-  local: { model: "llama3.1:8b", endpoint: "http://127.0.0.1:11434" },
+  local: { model: "llama3.1:8b", endpoint: "http://localhost:11434/v1" },
 };
 
 interface LocalState {

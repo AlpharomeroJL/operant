@@ -67,7 +67,7 @@ import { mountKillSwitchOverlay } from "./safety/killOverlay.ts";
 import { mountWorkflowView } from "./render/workflowView.ts";
 import { createWizard } from "./wizard/state.ts";
 import { mountWizard } from "./wizard/view.ts";
-import { createMockBackendConfigurator } from "./wizard/engine.ts";
+import { createMockBackendConfigurator, createRealBackendConfigurator } from "./wizard/engine.ts";
 import { tourStore } from "./tour/state.ts";
 import { mountTourCallout } from "./tour/view.ts";
 import { createDoctor } from "./doctor/state.ts";
@@ -457,11 +457,14 @@ function markWizardDone(): void {
     // Storage unavailable: the wizard just shows again next launch.
   }
 }
-// The engine-config seam (ui/src/wizard/engine.ts): a mocked configurator that
-// writes real config.changed onto the same bus a live core would echo on. Swap
-// this for a real invoke-backed configurator when the Tauri command bridge
-// lands, the same drop-in the mock bus client itself will get.
-const backendConfigurator = createMockBackendConfigurator(bus);
+// The engine-config seam (ui/src/wizard/engine.ts), THE ONE command layer again
+// (contracts/ipc.md section 5a): on the real core the wizard's engine choice
+// issues a real configure_backend over coreCall, so completing a setup path
+// stores model.provider/model/endpoint/api_key in Config and the core's
+// build_planner assembles a real HttpBackend, not a mock. In Demo the mock
+// stands in, writing the same config.changed onto the canned bus. Same
+// coreCall-or-mock split as every seam above.
+const backendConfigurator = coreCall ? createRealBackendConfigurator(coreCall) : createMockBackendConfigurator(bus);
 // B8's engine-config seam and B16's teach client are both injected here so the
 // wizard shares the one teach client the rest of the shell uses.
 const wizard = createWizard(bus, { backend: backendConfigurator, teachClient });

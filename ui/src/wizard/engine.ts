@@ -28,6 +28,7 @@
 // so a test can prove the webview does not keep or leak it.
 
 import type { BusClient } from "../bus/mockClient.ts";
+import type { CoreCall } from "../boot/realSeams.ts";
 
 /** Provider identifiers written to Config (the dotted `model.provider` key). */
 export type BackendProvider = "chatgpt" | "claude" | "local";
@@ -140,4 +141,74 @@ export function createMockBackendConfigurator(bus?: BusClient, opts: MockBackend
   }
 
   return { configureBackend, probeBackend, getConfigured: () => configured };
+}
+
+/**
+ * The wizard's engine choice mapped to the core provider id from the
+ * model-backend quirk table (contracts/model_backend.md: `openai`, `anthropic`,
+ * `ollama`, ...). The wizard speaks in product terms (the ChatGPT card, the
+ * Claude card, the on-device option); the core's configure_backend wants the
+ * quirk-table id. This is the one place that translation happens. The on-device
+ * choice maps to `ollama`, whose base_url the wizard passes as the endpoint and
+ * which needs no key.
+ */
+const CORE_PROVIDER_ID: Record<BackendProvider, string> = {
+  chatgpt: "openai",
+  claude: "anthropic",
+  local: "ollama",
+};
+
+/**
+ * The real, invoke-backed configurator: the wizard's engine choice becomes a
+ * real `configure_backend` command on the core over ui/src/boot/realSeams.ts's
+ * coreCall (B2's core_call), which stores model.provider/model/endpoint/api_key
+ * in Config so the core's build_planner assembles a real HttpBackend
+ * (contracts/ipc.md section 5a). This is the shipped path; only Demo keeps
+ * createMockBackendConfigurator. Same seam shape as every other createReal* in
+ * ui/src/boot/realSeams.ts.
+ *
+ * Provider translation (contracts/model_backend.md quirk table): the ChatGPT
+ * choice is provider `openai`, Claude is `anthropic`, the on-device choice is
+ * `ollama`.
+ *
+ * KEY SAFETY (same promise the mock makes): a raw access key rides `api_key`
+ * straight to the core for secure storage. It is NEVER held, logged, or echoed
+ * here; this configurator keeps no state at all.
+ */
+export function createRealBackendConfigurator(coreCall: CoreCall): BackendConfigurator {
+  async function configureBackend(args: ConfigureBackendArgs): Promise<void> {
+    const wire: Record<string, unknown> = { provider: CORE_PROVIDER_ID[args.provider], model: args.model };
+    // endpoint rides only when present (the on-device path); api_key rides only
+    // on the access-key path. Both stay off the wire otherwise so the core sees
+    // exactly the keys contracts/ipc.md section 5a names.
+    if (args.endpoint) wire.endpoint = args.endpoint;
+    if (args.apiKey && args.apiKey.trim().length > 0) wire.api_key = args.apiKey;
+    // configure_backend -> {ok:true}; the promise resolves once the core accepts
+    // the write (coreCall rejects on ok:false, so a failed write surfaces).
+    await coreCall("configure_backend", wire);
+  }
+
+  async function probeBackend(args: { provider: BackendProvider; model: string; endpoint?: string }): Promise<ProbeResult> {
+    // Honest by contract (the createRealScheduler philosophy): genuinely ask the
+    // core, never fake a green. probe_backend is NOT-YET-IMPLEMENTED
+    // (contracts/ipc.md section 5a), so a real core answers not_implemented,
+    // which arrives as a rejected core_call. Map the outcomes:
+    //   {reachable:true}  -> reachable
+    //   {reachable:false} -> unreachable
+    //   not_implemented   -> not_implemented (the honest "cannot check yet")
+    //   any other fault   -> unavailable
+    const wire: Record<string, unknown> = { provider: CORE_PROVIDER_ID[args.provider], model: args.model };
+    if (args.endpoint) wire.endpoint = args.endpoint;
+    try {
+      const res = await coreCall<{ reachable?: boolean; detail?: unknown }>("probe_backend", wire);
+      const detail = typeof res?.detail === "string" ? res.detail : "";
+      return res?.reachable === true ? { state: "reachable", detail } : { state: "unreachable", detail };
+    } catch (err) {
+      const code = err && typeof err === "object" && typeof (err as { code?: unknown }).code === "string" ? (err as { code: string }).code : "";
+      if (code === "not_implemented") return NOT_IMPLEMENTED_PROBE;
+      return { state: "unavailable", detail: NOT_IMPLEMENTED_PROBE.detail };
+    }
+  }
+
+  return { configureBackend, probeBackend };
 }
