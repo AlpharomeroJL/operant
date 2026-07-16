@@ -45,3 +45,6 @@ campaign/auto-continue.log
 
 # Staged core sidecar externalBin (built by just stage-core, not committed)
 ui/src-tauri/binaries/
+
+# Launch copy is handed to the human, never committed to the public repo
+LAUNCH.md
