@@ -38,12 +38,12 @@ pub fn capabilities() -> Value {
         // No vision grounder sidecar is linked into the core binary, so pixel
         // grounding is never available from the CLI core itself.
         "real_vision": false,
-        // The only compiled-in planner is the scripted mock unless the dev-only
-        // agent bridge is built in. A release build never enables it, so a
-        // shipped core reports true here; that is honest for the CLI core, whose
-        // real-model teaching path is wired by the shell at runtime, not by a
-        // compile feature (`contracts/ipc.md` section 3, mock_planner_only).
-        "mock_planner_only": !cfg!(feature = "dev-agent-bridge"),
+        // A shipped real-transport build drives a real model backend from
+        // config (serve.rs build_planner: bring your own backend, no mock in
+        // the execution path), so it reports false; the dev-only agent bridge
+        // is non-mock too. Only the headless default build, which the handshake
+        // fixture captures, is mock_planner_only (`contracts/ipc.md` section 3).
+        "mock_planner_only": !(cfg!(feature = "real-transport") || cfg!(feature = "dev-agent-bridge")),
         // The transport this core speaks over the sidecar stdio pipe.
         "transport_kind": "stdio",
         "version": VERSION,

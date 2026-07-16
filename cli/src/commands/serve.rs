@@ -607,7 +607,7 @@ impl Core {
             return Err(IpcError::conflict("a run is already active"));
         }
 
-        let planner = build_planner()?;
+        let planner = build_planner(&self.config)?;
         let perceiver = build_perceiver(&window_process)?;
 
         // The synthesizer is cfg-selected exactly as `cli/src/commands/run.rs`
@@ -781,6 +781,10 @@ impl Core {
             outcome: BusRunOutcome::Ok,
             steps,
             wall_ms: 0,
+            // Structural zero: a replay/dry run drives `operant_replay::Replayer`,
+            // which has no path to a model backend, so no model call is ever made.
+            // This is the "replay makes zero model calls" claim, made visible.
+            model_calls: 0,
         });
         self.recorder
             .end_run(&run_id, RunStatus::Completed)
@@ -1238,8 +1242,11 @@ fn capabilities() -> Value {
         "real_input": cfg!(feature = "real-input"),
         // No vision grounder sidecar is compiled into this binary.
         "real_vision": false,
-        // The only planner in a non-bridge build is the scripted mock.
-        "mock_planner_only": !cfg!(feature = "dev-agent-bridge"),
+        // A REAL planner is reachable when either a live model transport
+        // (`real-transport`, the shipped HTTP backend) or the dev agent bridge
+        // is linked; only a build with neither can plan solely with the scripted
+        // mock. A shipped `real-transport` core therefore reports false here.
+        "mock_planner_only": !(cfg!(feature = "real-transport") || cfg!(feature = "dev-agent-bridge")),
         "transport_kind": "stdio",
         "version": env!("CARGO_PKG_VERSION"),
         "git_sha": option_env!("OPERANT_GIT_SHA").unwrap_or("unknown")
@@ -1247,20 +1254,107 @@ fn capabilities() -> Value {
 }
 
 // ==========================================================================
-// Backend assembly (cfg), mirroring cli/src/commands/explore.rs exactly
+// Backend assembly (cfg). `build_perceiver` mirrors cli/src/commands/explore.rs
+// exactly; `build_planner` deliberately diverges (C1a): the shipped `serve` core
+// assembles a REAL model backend from config, where explore.rs's teach verb
+// still only offers the scripted mock / dev bridge.
 // ==========================================================================
 
-fn build_planner() -> std::result::Result<Box<dyn ModelBackend>, IpcError> {
+/// Assemble the explore planner backend for THIS build and configuration (C1a).
+/// The precedence is honest in every build; no mock ever plans in a shipped
+/// core:
+///
+///   1. `real-transport`: a REAL HTTP model backend built from the configured
+///      provider (chosen in Settings, stored by `configure_backend`) or from
+///      `OPERANT_LIVE_*` in the launch environment. This is the shipped path.
+///   2. `dev-agent-bridge` (dev only): the filesystem `AgentBridgeBackend`, an
+///      operator acting as the planner brain for a proof run.
+///   3. A `real-transport` build with nothing configured refuses honestly,
+///      rather than teaching against a mock.
+///   4. Only the headless test/default build (neither feature) uses the
+///      deterministic scripted mock.
+///
+/// The blocks are cfg-ordered so that, in every feature combination, the LAST
+/// compiled block diverges (returns) and any earlier block falls through: no
+/// combination "falls off the end", and no diverging block is followed by dead
+/// code, so no `#[cfg]` tail or `unreachable!` is needed.
+fn build_planner(config: &Config) -> std::result::Result<Box<dyn ModelBackend>, IpcError> {
+    // 1. A real HTTP model backend, only compiled when the reqwest transport is
+    // linked in. Falls through (does NOT diverge) when nothing is configured.
+    #[cfg(feature = "real-transport")]
+    {
+        use operant_orchestrator::backends::{
+            HttpBackend, LiveBackendConfig, LiveConfigError, ReqwestTransport, API_KEY_ENV,
+            BASE_URL_ENV, LIVE_BACKEND_ENV, MODEL_ENV, PROVIDER_ENV,
+        };
+
+        // Resolve OPERANT_LIVE_* from the configured backend first (what the
+        // user chose in Settings), falling back to the process environment so an
+        // OPERANT_LIVE_* launch also works. The gate variable reads as "set" iff
+        // a provider is configured; absent both, resolution is `NotEnabled` and
+        // we fall through to the next source.
+        let lookup = |key: &str| -> Option<String> {
+            let from_cfg = |k: &str| config.get(k).and_then(|v| v.as_str().map(str::to_string));
+            if key == LIVE_BACKEND_ENV {
+                if from_cfg("model.provider").is_some() {
+                    Some("1".to_string())
+                } else {
+                    std::env::var(key).ok()
+                }
+            } else if key == PROVIDER_ENV {
+                from_cfg("model.provider").or_else(|| std::env::var(key).ok())
+            } else if key == MODEL_ENV {
+                from_cfg("model.model").or_else(|| std::env::var(key).ok())
+            } else if key == BASE_URL_ENV {
+                from_cfg("model.endpoint").or_else(|| std::env::var(key).ok())
+            } else if key == API_KEY_ENV {
+                from_cfg("model.api_key").or_else(|| std::env::var(key).ok())
+            } else {
+                std::env::var(key).ok()
+            }
+        };
+
+        match LiveBackendConfig::from_lookup(lookup) {
+            Ok(live) => {
+                let transport = std::sync::Arc::new(ReqwestTransport::new());
+                let backend = HttpBackend::new(live.backend_config, transport).map_err(|e| {
+                    IpcError::invalid_args(format!("model backend is misconfigured: {e}"))
+                })?;
+                return Ok(Box::new(backend));
+            }
+            // Nothing configured here: fall through to the next source.
+            Err(LiveConfigError::NotEnabled) => {}
+            Err(e) => return Err(IpcError::invalid_args(format!("model backend: {e}"))),
+        }
+    }
+
+    // 2. The dev-only filesystem agent bridge (P0b proof harness). Never in a
+    // release build. Diverges.
     #[cfg(feature = "dev-agent-bridge")]
     {
         use operant_orchestrator::backends::AgentBridgeBackend;
+        let _ = config;
         let bridge = AgentBridgeBackend::from_env()
             .map_err(|e| IpcError::internal(format!("agent bridge: {e}")))?;
-        Ok(Box::new(bridge))
+        return Ok(Box::new(bridge));
     }
-    #[cfg(not(feature = "dev-agent-bridge"))]
+
+    // 3. A `real-transport` build that fell through arrived here with no backend
+    // configured: refuse honestly, never silently teach against a mock. Diverges.
+    #[cfg(all(feature = "real-transport", not(feature = "dev-agent-bridge")))]
     {
-        Ok(Box::new(crate::commands::explore::scripted_mock_planner()))
+        let _ = config;
+        return Err(IpcError::invalid_args(
+            "no model backend configured; choose one in Settings before teaching",
+        ));
+    }
+
+    // 4. The headless test/default build (neither feature): the deterministic
+    // scripted mock, the ONLY build permitted to plan with a mock. Diverges.
+    #[cfg(not(any(feature = "real-transport", feature = "dev-agent-bridge")))]
+    {
+        let _ = config;
+        return Ok(Box::new(crate::commands::explore::scripted_mock_planner()));
     }
 }
 
@@ -1463,10 +1557,15 @@ mod tests {
 
     /// The committed fixture session, framed per `contracts/ipc.md`. Its explore
     /// section is what `operant serve` reproduces byte-for-byte through the same
-    /// engine, so it is the conformance oracle for the `res`/`evt` shapes.
+    /// engine, so it is the conformance oracle for the `res`/`evt` shapes. Only
+    /// the mock-planner build reproduces it, so it and its helpers are compiled
+    /// with the same cfg as the fixture tests below (else they read as dead code
+    /// in a `real-transport`/`dev-agent-bridge` build).
+    #[cfg(not(any(feature = "real-transport", feature = "dev-agent-bridge")))]
     const SESSION: &str =
         include_str!("../../../contracts/fixtures/ipc/session-explore-compile-replay-undo.jsonl");
 
+    #[cfg(not(any(feature = "real-transport", feature = "dev-agent-bridge")))]
     fn fixture_lines() -> Vec<Value> {
         SESSION
             .lines()
@@ -1485,6 +1584,7 @@ mod tests {
     /// Recursively rewrite the single explore run id to `run_0` and zero the
     /// volatile `ms`/`wall_ms` timings, exactly as the fixture recorder
     /// normalizes, so a live capture is comparable to the committed fixture.
+    #[cfg(not(any(feature = "real-transport", feature = "dev-agent-bridge")))]
     fn normalize(v: &mut Value, run_id: &str) {
         match v {
             Value::String(s) => {
@@ -1510,6 +1610,12 @@ mod tests {
         }
     }
 
+    // The handshake fixture is a DEFAULT (mock) build capture and only
+    // reproduces in a build whose planner is the scripted mock. A
+    // `real-transport` or `dev-agent-bridge` build honestly reports
+    // `mock_planner_only: false`, so this fixture-conformance assertion is scoped
+    // to the mock-planner build it describes (the primary `cargo test` build).
+    #[cfg(not(any(feature = "real-transport", feature = "dev-agent-bridge")))]
     #[test]
     fn get_capabilities_matches_the_handshake_fixture() {
         let core = test_core();
@@ -1525,6 +1631,57 @@ mod tests {
         assert_eq!(result["real_input"], json!(false));
         assert_eq!(result["mock_planner_only"], json!(true));
         assert_eq!(result["transport_kind"], json!("stdio"));
+    }
+
+    #[test]
+    fn configure_backend_stores_the_model_keys() {
+        // The shipped real planner path (`build_planner` under `real-transport`)
+        // resolves its provider/model/endpoint/api_key from exactly these config
+        // keys, so `configure_backend` must persist all four; otherwise a live
+        // build would fall through to "no model backend configured" even after
+        // the user picked one in Settings.
+        let core = test_core();
+        core.dispatch(
+            "configure_backend",
+            &json!({
+                "provider": "ollama",
+                "model": "llama3.2",
+                "endpoint": "http://localhost:11434/v1",
+                "api_key": "sk-test-fake"
+            }),
+        )
+        .expect("configure_backend succeeds");
+        assert_eq!(core.config.get("model.provider"), Some(json!("ollama")));
+        assert_eq!(core.config.get("model.model"), Some(json!("llama3.2")));
+        assert_eq!(
+            core.config.get("model.endpoint"),
+            Some(json!("http://localhost:11434/v1"))
+        );
+        assert_eq!(core.config.get("model.api_key"), Some(json!("sk-test-fake")));
+    }
+
+    /// Proves C1a in a shipped-shaped build: with a provider configured, a
+    /// `real-transport` core assembles a REAL model backend, never the scripted
+    /// mock. `HttpBackend::new` validates the provider against the quirk table
+    /// and opens no socket, so this stays offline and deterministic. Only built
+    /// under `real-transport` (the default `cargo test` build has no real path
+    /// to exercise; its mock path is covered by the handshake fixture above).
+    #[cfg(feature = "real-transport")]
+    #[test]
+    fn build_planner_with_a_configured_provider_is_not_the_mock() {
+        let core = test_core();
+        core.dispatch(
+            "configure_backend",
+            &json!({ "provider": "ollama", "model": "llama3.2" }),
+        )
+        .expect("configure_backend succeeds");
+        let planner = build_planner(&core.config).expect("a real backend builds from config");
+        assert_eq!(
+            planner.id(),
+            "ollama",
+            "a configured real-transport build must plan with the live provider, not the mock"
+        );
+        assert_ne!(planner.id(), "mock_planner");
     }
 
     #[test]
@@ -1548,6 +1705,12 @@ mod tests {
         );
     }
 
+    // Drives the scripted mock planner through the recorded explore session, so
+    // it is valid only where `build_planner` yields that mock: a build with
+    // neither `real-transport` (which refuses to explore with no backend
+    // configured) nor `dev-agent-bridge` (which plans through the filesystem
+    // bridge). This is the primary `cargo test` build.
+    #[cfg(not(any(feature = "real-transport", feature = "dev-agent-bridge")))]
     #[test]
     fn start_explore_res_and_evt_frames_match_the_fixture() {
         let core = test_core();
@@ -1599,6 +1762,54 @@ mod tests {
             assert!(got["env"].is_object(), "carries a bus envelope");
             // Full byte-shape conformance against the committed capture.
             assert_eq!(got, want, "evt frame matches the fixture");
+        }
+    }
+
+    /// D5 honesty contract: a replay/dry run makes ZERO model calls, and that
+    /// zero is a visible value on `run.completed`, not merely an absent field.
+    /// `wrap_replay` drives `operant_replay::Replayer`, which constructs no
+    /// planner, so `model_calls` is a structural 0 for both replay and dry modes.
+    #[test]
+    fn replay_and_dry_run_completed_carry_zero_model_calls() {
+        let core = test_core();
+        // A minimal compiled workflow: no actions are needed to reach the
+        // `run.completed` the replay wrapper publishes.
+        let workflow: CompiledWorkflow = serde_json::from_value(json!({
+            "manifest": {
+                "name": "replay-zero-model-calls",
+                "version": "1.0.0",
+                "description": "",
+                "step_summary": [],
+                "inputs_schema": {},
+                "capabilities": { "risk_ceiling": "read" },
+                "dsl": { "path": "workflow.ts", "hash": "0" }
+            },
+            "actions": []
+        }))
+        .expect("minimal compiled workflow builds");
+        let report = operant_replay::ReplayReport {
+            steps_executed: 0,
+            pre: Vec::new(),
+            post: Vec::new(),
+        };
+
+        for mode in [RunMode::Replay, RunMode::Dry] {
+            let completed = core.bus.subscribe("run.completed");
+            core.wrap_replay(&workflow, &report, mode)
+                .expect("wrap_replay publishes a completed run");
+            let env = completed
+                .rx
+                .try_iter()
+                .last()
+                .expect("run.completed published");
+            let ev: RunCompleted =
+                serde_json::from_value(env.payload.clone()).expect("run.completed payload parses");
+            assert_eq!(
+                ev.model_calls, 0,
+                "a replay/dry run constructs no planner, so it makes zero model calls"
+            );
+            // The zero is a real value on the wire, not an omitted field.
+            assert_eq!(env.payload["model_calls"], json!(0));
         }
     }
 

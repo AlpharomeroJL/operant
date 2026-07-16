@@ -32,8 +32,10 @@ operant-gates.workspace = true
 # that pulls in the orchestrator; `run`/`dry-run` stay on operant-replay alone,
 # so replay's model-free crate graph (crates/replay's own guarantee and
 # scripts/check_airgap.mjs) is untouched. The orchestrator's own network
-# transport stays behind ITS `real-transport` feature, which this CLI never
-# enables.
+# transport stays behind ITS `real-transport` feature, which this CLI's own
+# `real-transport` feature now forwards (see below) so the shipped `serve` core
+# can assemble a live model backend for teach; `run`/`dry-run` link no transport
+# and stay model-free.
 operant-orchestrator.workspace = true
 # Perceiver backends. FixturePerceiver (always built, no `windows` dep) is the
 # default/mock perception source for `explore`; UiaPerceiver (behind this
@@ -66,13 +68,14 @@ tokio.workspace = true
 # links them and replay stays deterministic and model-free.
 real-uia = ["operant-perception-uia/real-uia"]
 real-input = ["operant-action/real-input"]
-# Reserved so the "real" build matrix is uniform with the crates that DO own a
-# network transport (operant-orchestrator's `real-transport`, reqwest, used by
-# teach). `operant run` has no model/network transport of its own and stays
-# deterministic and offline; this feature is intentionally inert here. It
-# exists so `--features real-uia,real-input,real-transport` builds the CLI
-# instead of failing on an unknown feature.
-real-transport = []
+# Forwards operant-orchestrator's `real-transport` feature (reqwest,
+# `ReqwestTransport`) so the shipped `serve` core can build a REAL HTTP model
+# backend for teach (`build_planner`, cli/src/commands/serve.rs) instead of the
+# scripted mock. `operant run`/`dry-run` still have no model/network transport
+# of their own and stay deterministic and offline (they never touch the
+# orchestrator). A release core is built `--features real-uia,real-input,
+# real-transport`, so this must be a real passthrough, not an empty stub.
+real-transport = ["operant-orchestrator/real-transport"]
 # P0b proof harness: makes `operant explore` assemble the filesystem
 # `AgentBridgeBackend` planner (operant-orchestrator's own `dev-agent-bridge`)
 # instead of the scripted `MockPlannerBackend`. Opt-in only, never in a release
