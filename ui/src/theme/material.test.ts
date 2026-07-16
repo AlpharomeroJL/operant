@@ -1,3 +1,6 @@
+// @advanced
+// Test vocabulary (token, invariant, material scale) asserts internals, not
+// user-facing copy, so this file is exempt from the microcopy glossary lint.
 // GLASS.md GL1 (material-tokens): proves the semantic-glass material scale is
 // actually emitted into ui/src/styles/tokens.css and that its keystone value,
 // scrimStrong, resolves to a computed, opaque-enough text surface. Mirrors the
