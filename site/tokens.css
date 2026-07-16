@@ -75,12 +75,12 @@
   --op-hairline: #e3e3de;
   --op-ink: #1b1c1e;
   --op-ink-secondary: #5c5f66;
-  --op-signal: #e8a13c;
+  --op-signal: #c17a17;
   --op-signal-hover: #f2b355;
   --op-on-signal-ink: #1a1204;
-  --op-success: #3fb27f;
+  --op-success: #379b6f;
   --op-danger: #e5484d;
-  --op-info: #5b8def;
+  --op-info: #5387ee;
   --op-ink-disabled: rgba(92, 95, 102, 0.45);
   }
 }
