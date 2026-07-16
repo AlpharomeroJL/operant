@@ -13,10 +13,7 @@ plain language, and pick which open app it should run in. A model works the task
 out live on your screen while you watch, and Operant freezes that successful run
 into a workflow it can repeat on its own, with no model and nothing sent anywhere.
 
-<!-- CAPTURE SLOT (V1 recapture pass): new home dashboard screenshot, not yet
-captured. Should show the "time saved this week" line, the recent-weeks
-sparkline, the upcoming scheduled runs, and the recent runs list. -->
-![Screenshot of the Operant home dashboard: a line reading how much time it saved this week, a small sparkline of the last few weeks, a list of upcoming scheduled runs, and a list of recent runs each with a status dot and a one-line result.](assets/hero-dashboard.png)
+![Animated walkthrough of the Operant setup wizard: the welcome screen, choosing to download a free local model with a live progress bar from 0 to done, a guided first task filling out a sample invoice step by step, and picking a schedule, ending with the wizard closed and the main Run screen visible.](assets/00-onboarding.gif)
 
 [Download the installer](https://github.com/AlpharomeroJL/operant/releases) | [Watch the 90-second demo](#watch-demo) | [Star the repo](https://github.com/AlpharomeroJL/operant) | [Browse the template gallery](https://github.com/AlpharomeroJL/operant-registry) | [See the cookbook](cookbook/README.md)
 
@@ -29,11 +26,7 @@ exactly.
 
 <a id="watch-demo"></a>
 
-<!-- CAPTURE SLOT (V1 recapture pass): not a new shot. Real footage for this
-exact moment already exists under a different filename elsewhere in assets/;
-copy or rename it to this filename rather than reshooting. See the M1 packet
-handoff notes for the source file. -->
-![Animated run viewer stepping through a live teaching run with the model indicator reading "Thinking live": steps to click Downloads, click Invoice.pdf, copy, and paste appear one at a time and turn green.](assets/feature-teach.gif)
+![Animated run viewer stepping through a live teaching run with the model indicator reading "Thinking live": steps to click Downloads, click Invoice.pdf, copy, and paste appear one at a time and turn green.](assets/02-explore.gif)
 
 ### Trust it
 
@@ -49,9 +42,7 @@ Run a saved task again with one click, any time. Running it on a schedule with n
 click at all is on the roadmap: the scheduler is built and tested, but starting a
 schedule from the app is not wired up yet (see [Known issues](docs/KNOWN_ISSUES.md)).
 
-<!-- CAPTURE SLOT (V1 recapture pass): not yet captured. Should show running a
-saved workflow with one click from the workflow library. -->
-![Animated demo of running a saved workflow with one click from the workflow library.](assets/feature-forget.gif)
+![Animated run viewer replaying the same copy-invoice-total task with the model indicator reading "Running from memory, no thinking needed": the same four steps as 02-explore.gif complete almost instantly, ending on Done.](assets/04-replay.gif)
 
 ## Get started
 
@@ -66,7 +57,7 @@ Building from source instead of installing: see [CONTRIBUTING.md](CONTRIBUTING.m
 ## How it works
 
 Everything below is for people who want the technical detail: the reasoning,
-the benchmark, the architecture, and how Operant compares to other projects.
+the architecture, and how Operant compares to other projects.
 
 The model is a compiler, not a runtime. Exploration should be probabilistic.
 Execution should not be. At 98 percent per-step model accuracy, a 40-step workflow
@@ -108,7 +99,7 @@ result, second run instant.
 ```text
 EXPLORE (probabilistic, model in loop)             REPLAY (deterministic, no model)
  perceive -> plan(LLM) -> gate -> act -> record     load workflow -> gate -> act -> gate ...
- slow, costly, supervised                           under 150ms/step, free, offline, audited
+ slow, costly, supervised                           fast, free, offline, audited
                     \                                 ^                    |
                      \        compile                /            drift?  v
                       +------------------------------+        re-ground one step (model)
@@ -119,32 +110,6 @@ EXPLORE (probabilistic, model in loop)             REPLAY (deterministic, no mod
 When a compiled step fails because the screen changed, Operant re-grounds that one
 step, proposes a patch diff, and waits for a human approval before merging a new
 version. The workflow heals. It never silently mutates.
-
-### The benchmark
-
-Across all three benchmark tasks, compiled replay succeeds 5 out of 5 runs with zero
-model calls. Re-inferring the same tasks at every step also succeeds 5 out of 5, but
-costs 15 to 25 model calls and 2700 to 4500 tokens per task. Full numbers, from
-[BENCHMARKS.md](BENCHMARKS.md), regenerated each release:
-
-| Task | Mode | Success | p50/step | p95/step | Model calls | Tokens |
-|---|---|---|---|---|---|---|
-| drift_repaired | replay | 5/5 | 0ms | 0ms | 0 | 0 |
-| drift_repaired | re-infer (mock) | 5/5 | 6ms | 6ms | 15 | 2700 |
-| notepad | replay | 5/5 | 1ms | 1ms | 0 | 0 |
-| notepad | re-infer (mock) | 5/5 | 7ms | 7ms | 25 | 4500 |
-| web | replay | 5/5 | 0ms | 0ms | 0 | 0 |
-| web | re-infer (mock) | 5/5 | 6ms | 6ms | 25 | 4500 |
-
-![Table image of the Operant benchmark headline from BENCHMARKS.md, comparing compiled replay (near-zero latency, zero model calls) against re-inferring every step (higher latency, dozens of model calls and tokens) across three tasks.](assets/07-bench.png)
-
-Replay wins at zero model calls by construction, not by configuration: the replay
-executor links against a backend-free crate, so a model call during replay is not a
-setting that could be flipped on by accident, it is a compile-time impossibility. The
-re-infer (mock) numbers reuse recorded latencies from the actual replay to simulate
-agent-at-every-step cost without hitting a real backend, stated plainly in
-BENCHMARKS.md's own methods section. Full methodology:
-[BENCHMARKS.md](BENCHMARKS.md) and [docs/specs/bench.md](docs/specs/bench.md).
 
 ### What a compiled workflow looks like
 

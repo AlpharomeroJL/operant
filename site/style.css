@@ -380,7 +380,7 @@ pre code {
   color: var(--text-secondary);
 }
 
-/* Tables: the benchmark, and the comparison grid. */
+/* Tables: the comparison grid. */
 .table-wrap {
   overflow-x: auto;
   margin: var(--op-space-4) 0;
@@ -413,15 +413,6 @@ tbody td {
 
 tbody tr:last-child td {
   border-bottom: none;
-}
-
-/* design.md section 2: "Numeric and step data: IBM Plex Mono, tabular
-   figures for timers, counts, and hashes." The benchmark table's cells are
-   exactly that. */
-.data-table tbody td {
-  font-family: var(--op-font-family-mono);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
 
 /* Guide pages (site/guides/*.html: untouched HTML, restyled by cascade) */
