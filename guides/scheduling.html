@@ -13,7 +13,6 @@
       <ul class="nav-links">
         <li><a href="../index.html#guides">Guides</a></li>
         <li><a href="../index.html#cookbook">Cookbook</a></li>
-        <li><a href="../index.html#benchmarks">Benchmarks</a></li>
         <li><a href="../index.html#architecture">Architecture</a></li>
       </ul>
     </nav>
@@ -22,12 +21,15 @@
   <main>
     <section class="guide-header">
       <h1>Scheduling Workflows</h1>
-      <p>Automate your workflows with schedules, file watches, and event triggers.</p>
+      <p>How the scheduler engine works, and what running on a schedule will look like once it is wired to the app.</p>
     </section>
 
     <section class="guide-content">
-      <h2>When Workflows Can Run By Themselves</h2>
-      <p>Once you have saved a workflow, you can set it up to run automatically on a schedule. Operant will do the task for you without you lifting a finger. Here are your options:</p>
+      <h2>What Is Wired Today</h2>
+      <p>Running a saved workflow again with one click is available now. Starting a schedule from the app is not wired up yet: the scheduler engine described below (cron times, file watches, window and email triggers) is built and tested, but the app cannot yet create a schedule for you. This guide describes what the engine already does and what setting a schedule will look like once it is connected. Nothing on this page runs on its own in this release.</p>
+
+      <h2>When Workflows Will Run By Themselves</h2>
+      <p>Once scheduling is connected to the app, a saved workflow will run automatically with no click from you. These are the trigger types the engine already supports:</p>
 
       <h2>Time-Based Scheduling (Every Day, Week, or Month)</h2>
       <p>You can set a workflow to run at a specific time:</p>

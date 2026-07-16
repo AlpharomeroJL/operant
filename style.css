@@ -1,29 +1,55 @@
-/* Operant Docs Site: Plain Static CSS */
+/* Operant docs site: hand-written stylesheet.
+ *
+ * Every color and size below traces back to ui/src/theme/tokens.ts (the
+ * single source of truth, docs/specs/design.md section 2, BINDING) through
+ * tokens.css, a generated file (scripts/build_site_tokens.mjs) imported
+ * immediately below. This file never repeats a literal hex: it only paints
+ * from --op-* custom properties, or from the semantic aliases just below
+ * that name what a color is FOR (--bg-primary, --text-secondary, ...)
+ * instead of what it IS.
+ *
+ * Those alias names are deliberately kept from the previous stylesheet:
+ * site/guides/*.html is untouched by this packet and one of its pages
+ * references --border-color directly in an inline style, so the alias has
+ * to keep resolving to something sensible. Re-pointing the alias at the new
+ * token, instead of renaming it, means every guide page picks up the new
+ * palette for free with zero HTML changes.
+ */
+
+@import url("tokens.css");
 
 :root {
-  /* Light mode (default) */
-  --bg-primary: #ffffff;
-  --bg-secondary: #f5f5f5;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666666;
-  --border-color: #e0e0e0;
-  --link-color: #0066cc;
-  --link-hover: #0052a3;
-  --accent-color: #0066cc;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark mode */
-    --bg-primary: #1a1a1a;
-    --bg-secondary: #2a2a2a;
-    --text-primary: #ffffff;
-    --text-secondary: #b0b0b0;
-    --border-color: #404040;
-    --link-color: #66b3ff;
-    --link-hover: #99ccff;
-    --accent-color: #66b3ff;
-  }
+  /* Semantic aliases over the generated --op-* tokens. Defined once,
+     unconditionally: --op-* itself already flips between dark (default) and
+     light (prefers-color-scheme) in tokens.css, and a var() reference here
+     resolves lazily wherever it is used, so these aliases follow that swap
+     automatically without repeating the media query. */
+  --bg-primary: var(--op-bg0);
+  --bg-secondary: var(--op-bg1);
+  --bg-elevated: var(--op-bg2);
+  --text-primary: var(--op-ink);
+  --text-secondary: var(--op-ink-secondary);
+  --text-disabled: var(--op-ink-disabled);
+  --border-color: var(--op-hairline);
+  /* The WCAG 1.4.11 boundary for interactive borders (hover/focus), same
+     derivation ui/src/theme/tokens.ts's ColorRoles.borderStrong documents:
+     the plain hairline is deliberately too quiet for this, and ink-secondary
+     already reads clearly as muted content, so it is reused rather than
+     inventing a new color. */
+  --border-strong: var(--op-ink-secondary);
+  /* Ordinary content links are chrome, not the product's identity color:
+     design.md section 2 reserves --op-signal for "recording, active state,
+     and the primary call to action" only, so nav links, footer links, and
+     inline prose links stay on the ink scale: quiet by default, brighter on
+     hover, the same "calm default" the design system gives Replay. */
+  --link-color: var(--op-ink-secondary);
+  --link-hover: var(--op-ink);
+  --accent-color: var(--op-signal);
+  --accent-ink: var(--op-on-signal-ink);
+  /* Kept off signal deliberately, same reasoning as the app's own focusRing
+     (ui/src/theme/tokens.ts): info is neutral and unclaimed by any other
+     role here, so keyboard focus does not spend the one warm accent. */
+  --focus-ring: var(--op-info);
 }
 
 * {
@@ -32,99 +58,37 @@
   box-sizing: border-box;
 }
 
-html, body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+/* font-size lives on body, not html: --op-font-size-* are all rem values
+   authored against a 16px root (ui/src/theme/tokens.ts's own comments say
+   so explicitly, e.g. "0.75rem, // 12px"), and rem always resolves against
+   the root element's font-size regardless of which element uses it. Setting
+   this on html itself would make html's own font-size resolve against the
+   default 16px once, then compound again for every other rem value on the
+   page, quietly shrinking the whole type scale. */
+html {
+  font-family: var(--op-font-family);
   background-color: var(--bg-primary);
   color: var(--text-primary);
-  line-height: 1.6;
-  transition: background-color 0.2s, color 0.2s;
 }
 
-/* Layout */
+body {
+  font-family: var(--op-font-family);
+  font-size: var(--op-font-size-base);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: var(--op-line-height-base);
+}
+
 body {
   display: flex;
   flex-direction: column;
   min-height: 100vh;
 }
 
-header {
-  background-color: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  padding: 1rem 0;
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-nav {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 0 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  text-decoration: none;
-}
-
-.nav-links {
-  display: flex;
-  list-style: none;
-  gap: 2rem;
-}
-
-.nav-links a {
-  color: var(--text-primary);
-  text-decoration: none;
-  font-size: 0.95rem;
-  transition: color 0.2s;
-}
-
-.nav-links a:hover {
-  color: var(--link-color);
-}
-
-main {
-  flex: 1;
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 2rem 1.5rem;
-  width: 100%;
-}
-
-/* Typography */
-h1 {
-  font-size: 2.5rem;
-  margin: 1.5rem 0 1rem 0;
-  color: var(--text-primary);
-}
-
-h2 {
-  font-size: 2rem;
-  margin: 1.5rem 0 0.75rem 0;
-  color: var(--text-primary);
-}
-
-h3 {
-  font-size: 1.5rem;
-  margin: 1.25rem 0 0.5rem 0;
-  color: var(--text-primary);
-}
-
-p {
-  margin: 0.75rem 0;
-  color: var(--text-secondary);
-}
-
 a {
   color: var(--link-color);
   text-decoration: none;
-  transition: color 0.2s;
+  transition: color var(--op-motion-standard) var(--op-motion-easing);
 }
 
 a:hover {
@@ -132,142 +96,383 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Content sections */
-.hero {
-  text-align: center;
-  padding: 2rem 0;
-  margin-bottom: 2rem;
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
-.tagline {
-  font-size: 1.25rem;
+section[id], h2[id], h3[id] {
+  /* The header is sticky; without this an anchor jump tucks the heading
+     right under it. */
+  scroll-margin-top: var(--op-space-5);
+}
+
+/* design.md section 2: "prefers-reduced-motion disables all nonessential
+   motion. Nothing animates on load." Transitions below are all hover/focus
+   feedback, never load-in motion, but they are still nonessential: kill
+   them outright under reduced motion rather than just shortening them. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Layout */
+header {
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  padding: var(--op-space-4) 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+nav {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--op-space-5);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.logo {
+  font-size: var(--op-font-size-md);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.logo:hover {
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  list-style: none;
+  gap: var(--op-space-5);
+}
+
+.nav-links a {
+  font-size: var(--op-font-size-sm);
+}
+
+main {
+  flex: 1;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--op-space-8) var(--op-space-5);
+  width: 100%;
+}
+
+main > section + section {
+  margin-top: var(--op-space-8);
+  padding-top: var(--op-space-8);
+  border-top: 1px solid var(--border-color);
+}
+
+/* Typography: design.md section 2's scale, verbatim, exported as
+   --op-font-size-* by scripts/build_site_tokens.mjs. */
+h1 {
+  font-size: var(--op-font-size-xl);
+  font-weight: var(--op-font-weight-semibold);
+  line-height: var(--op-line-height-tight);
+  color: var(--text-primary);
+  max-width: 18ch;
+}
+
+h2 {
+  font-size: var(--op-font-size-lg);
+  font-weight: var(--op-font-weight-semibold);
+  line-height: var(--op-line-height-tight);
+  color: var(--text-primary);
+  margin-bottom: var(--op-space-4);
+}
+
+h3 {
+  font-size: var(--op-font-size-md);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--text-primary);
+  margin: var(--op-space-6) 0 var(--op-space-3) 0;
+}
+
+h4 {
+  font-size: var(--op-font-size-base);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--text-primary);
+}
+
+p {
+  margin: var(--op-space-3) 0;
   color: var(--text-secondary);
-  margin: 1rem 0 2rem 0;
-  font-style: italic;
 }
 
+.fineprint {
+  font-size: var(--op-font-size-xs);
+  color: var(--text-secondary);
+}
+
+/* Hero */
+.eyebrow {
+  font-size: var(--op-font-size-xs);
+  font-weight: var(--op-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 0 0 var(--op-space-4) 0;
+}
+
+.hero h1 {
+  margin-bottom: var(--op-space-4);
+}
+
+.lede {
+  font-size: var(--op-font-size-md);
+  font-weight: var(--op-font-weight-medium);
+  color: var(--text-primary);
+  margin: 0 0 var(--op-space-3) 0;
+}
+
+.hero-desc {
+  max-width: 60ch;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-3);
+  margin-top: var(--op-space-5);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--op-space-2);
+  padding: var(--op-space-3) var(--op-space-5);
+  border-radius: var(--op-radius-pill);
+  font-size: var(--op-font-size-sm);
+  font-weight: var(--op-font-weight-medium);
+  border: 1px solid transparent;
+  transition: background-color var(--op-motion-standard) var(--op-motion-easing),
+    border-color var(--op-motion-standard) var(--op-motion-easing),
+    color var(--op-motion-standard) var(--op-motion-easing);
+}
+
+.btn:hover {
+  text-decoration: none;
+}
+
+/* The one warm accent on the page (design.md section 1): a light on an
+   instrument, spent here and nowhere else. */
+.btn-primary {
+  background-color: var(--op-signal);
+  color: var(--accent-ink);
+}
+
+.btn-primary:hover {
+  background-color: var(--op-signal-hover);
+  color: var(--accent-ink);
+}
+
+.btn-quiet {
+  background-color: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-color);
+}
+
+.btn-quiet:hover {
+  border-color: var(--border-strong);
+  background-color: var(--bg-elevated);
+}
+
+/* Cards and grids: feature cards and guide teasers share these. */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-  gap: 2rem;
-  margin: 2rem 0;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--op-space-4);
+  margin: var(--op-space-5) 0;
 }
 
 .card {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 1.5rem;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  border-radius: var(--op-radius-card);
+  padding: var(--op-space-5);
+  transition: border-color var(--op-motion-standard) var(--op-motion-easing),
+    background-color var(--op-motion-standard) var(--op-motion-easing);
 }
 
 .card:hover {
-  border-color: var(--link-color);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-color: var(--border-strong);
+  background-color: var(--bg-elevated);
 }
 
-.card h3 {
+.card h3, .card h4 {
   margin-top: 0;
-  color: var(--accent-color);
 }
 
 .card p {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: var(--op-font-size-sm);
 }
 
-.card a {
+.card > a {
   display: inline-block;
-  margin-top: 1rem;
-  font-weight: 500;
+  margin-top: var(--op-space-2);
+  font-size: var(--op-font-size-sm);
+  font-weight: var(--op-font-weight-medium);
 }
 
-/* Guides page */
-.guide-header {
-  margin-bottom: 2rem;
+.feature-kicker {
+  font-size: var(--op-font-size-xs);
+  font-weight: var(--op-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  margin: 0 0 var(--op-space-2) 0;
 }
 
-.guide-content {
-  background-color: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 2rem;
-  margin: 2rem 0;
+/* Quick start */
+.steps {
+  list-style: decimal;
+  margin: var(--op-space-4) 0 var(--op-space-4) 1.4em;
+  color: var(--text-primary);
 }
 
-/* Lists */
+.steps li {
+  font-size: var(--op-font-size-md);
+  margin: var(--op-space-2) 0;
+}
+
+/* Lists and inline code: shared with the untouched guide pages. */
 ul, ol {
-  margin: 1rem 0 1rem 2rem;
+  margin: var(--op-space-3) 0 var(--op-space-3) 1.4em;
   color: var(--text-secondary);
 }
 
 li {
-  margin: 0.5rem 0;
+  margin: var(--op-space-2) 0;
 }
 
-/* Code blocks */
 code {
-  background-color: var(--bg-secondary);
-  padding: 0.2em 0.4em;
-  border-radius: 3px;
-  font-family: "Courier New", monospace;
-  font-size: 0.9rem;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  font-family: var(--op-font-family-mono);
+  font-size: 0.9em;
+  padding: 0.15em 0.4em;
+  border-radius: var(--op-radius-control);
 }
 
 pre {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-elevated);
   border: 1px solid var(--border-color);
-  border-radius: 6px;
-  padding: 1rem;
+  border-radius: var(--op-radius-card);
+  padding: var(--op-space-4);
   overflow-x: auto;
-  margin: 1rem 0;
+  margin: var(--op-space-4) 0;
 }
 
 pre code {
   background-color: transparent;
   padding: 0;
+  font-size: var(--op-font-size-sm);
+  color: var(--text-secondary);
+}
+
+/* Tables: the comparison grid. */
+.table-wrap {
+  overflow-x: auto;
+  margin: var(--op-space-4) 0;
+  border: 1px solid var(--border-color);
+  border-radius: var(--op-radius-card);
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--op-font-size-sm);
+}
+
+th, td {
+  text-align: left;
+  padding: var(--op-space-3) var(--op-space-4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+thead th {
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  font-weight: var(--op-font-weight-semibold);
+  white-space: nowrap;
+}
+
+tbody td {
+  color: var(--text-secondary);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Guide pages (site/guides/*.html: untouched HTML, restyled by cascade) */
+.guide-header {
+  margin-bottom: var(--op-space-5);
+}
+
+.guide-content {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--op-radius-card);
+  padding: var(--op-space-6);
+  margin: var(--op-space-5) 0;
 }
 
 /* Footer */
 footer {
   background-color: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
-  padding: 2rem 1.5rem;
+  padding: var(--op-space-6) var(--op-space-5);
   text-align: center;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--op-font-size-sm);
   margin-top: auto;
 }
 
 footer a {
-  color: var(--link-color);
+  color: var(--text-secondary);
 }
 
 /* Responsive */
-@media (max-width: 768px) {
+@media (max-width: 640px) {
   h1 {
-    font-size: 1.75rem;
+    font-size: var(--op-font-size-lg);
+    max-width: none;
   }
 
   h2 {
-    font-size: 1.5rem;
-  }
-
-  h3 {
-    font-size: 1.25rem;
+    font-size: var(--op-font-size-md);
   }
 
   .nav-links {
-    gap: 1rem;
-    font-size: 0.9rem;
+    gap: var(--op-space-3);
   }
 
   main {
-    padding: 1rem;
+    padding: var(--op-space-6) var(--op-space-4);
+  }
+
+  main > section + section {
+    margin-top: var(--op-space-6);
+    padding-top: var(--op-space-6);
   }
 
   .grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
+  }
+
+  .cta-row {
+    flex-direction: column;
+    align-items: stretch;
   }
 }

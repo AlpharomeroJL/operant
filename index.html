@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Operant - Open Source Agentic Desktop Assistant</title>
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="Operant is a free, open source desktop app for Windows. Describe a task once and a model works it out on your screen; Operant freezes that run into a workflow it repeats on its own, with no model. No code. No cloud.">
+  <title>Operant - teach your computer once, it does it forever</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -13,7 +15,6 @@
       <ul class="nav-links">
         <li><a href="#guides">Guides</a></li>
         <li><a href="#cookbook">Cookbook</a></li>
-        <li><a href="#benchmarks">Benchmarks</a></li>
         <li><a href="#architecture">Architecture</a></li>
       </ul>
     </nav>
@@ -21,59 +22,141 @@
 
   <main>
     <section class="hero">
-      <h1>Operant</h1>
-      <p class="tagline">An open source, local-first agentic desktop assistant</p>
-      <p>Operant lets you teach workflows once, then replay them deterministically at zero inference cost. Build on accessibility trees and vision, with invariant gates and full audit trails.</p>
+      <p class="eyebrow">Free. Open source. Windows.</p>
+      <h1>Teach your computer once. It does it forever.</h1>
+      <p class="lede">No code. No cloud. Free.</p>
+      <p class="hero-desc">Operant is a free, open source desktop app for Windows. Describe a task once and pick which open app it runs in; a model works it out live on your screen, and Operant freezes that run into a workflow it repeats on its own, with no model and nothing sent anywhere.</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="https://github.com/AlpharomeroJL/operant/releases">Download the installer</a>
+        <a class="btn btn-quiet" href="https://github.com/AlpharomeroJL/operant">Star the repo</a>
+        <a class="btn btn-quiet" href="https://github.com/AlpharomeroJL/operant-registry">Browse the template gallery</a>
+      </div>
     </section>
 
-    <section id="guides">
-      <h2>Guides</h2>
-      <p>Learn how to install, use, and master Operant.</p>
+    <section aria-label="What Operant does">
+      <h2>What it does</h2>
       <div class="grid">
         <div class="card">
-          <h3>Installation</h3>
-          <p>Get Operant running on your machine with step-by-step instructions.</p>
-          <a href="guides/install.html">Read Guide</a>
+          <h3>Teach it</h3>
+          <p>Describe a task and pick the app it runs in. A model works it out on your desktop while you watch each step land, then Operant saves it as a workflow it can repeat exactly.</p>
         </div>
         <div class="card">
-          <h3>First Workflow</h3>
-          <p>Build your first compiled workflow in 15 minutes.</p>
-          <a href="guides/first-workflow.html">Read Guide</a>
+          <h3>Trust it</h3>
+          <p>A kill switch stops everything in under a tenth of a second, every run can be undone, and once it has learned a task it runs again on your own machine with nothing sent anywhere.</p>
         </div>
         <div class="card">
-          <h3>Scheduling</h3>
-          <p>Set up cron jobs and event-triggered automation.</p>
-          <a href="guides/scheduling.html">Read Guide</a>
-        </div>
-        <div class="card">
-          <h3>Privacy & Security</h3>
-          <p>Understand how Operant keeps your data local and secure.</p>
-          <a href="guides/privacy.html">Read Guide</a>
+          <h3>Forget it</h3>
+          <p>Run a saved task again with one click, any time. Running it on a schedule with no click at all is on the roadmap: the scheduler is built and tested, but starting a schedule from the app is not wired up yet.</p>
         </div>
       </div>
     </section>
 
-    <section id="cookbook">
-      <h2>Cookbook</h2>
-      <p>Real-world workflow examples and best practices.</p>
-      <p>Cookbook content coming soon.</p>
+    <section id="guides">
+      <h2>Get started</h2>
+      <ol class="steps">
+        <li>Download the installer.</li>
+        <li>Sign in, or pick a free engine.</li>
+        <li>Teach it your first task.</li>
+      </ol>
+      <p class="fineprint">Building from source instead of installing: see <a href="https://github.com/AlpharomeroJL/operant/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a> on GitHub.</p>
+
+      <h3>Guides</h3>
+      <div class="grid">
+        <div class="card">
+          <h4>Installation</h4>
+          <p>Get Operant running on your machine with step-by-step instructions.</p>
+          <a href="guides/install.html">Read the guide</a>
+        </div>
+        <div class="card">
+          <h4>First workflow</h4>
+          <p>Build your first taught workflow in about 15 minutes.</p>
+          <a href="guides/first-workflow.html">Read the guide</a>
+        </div>
+        <div class="card">
+          <h4>Scheduling</h4>
+          <p>Set up recurring runs and event-triggered automation.</p>
+          <a href="guides/scheduling.html">Read the guide</a>
+        </div>
+        <div class="card">
+          <h4>Privacy and security</h4>
+          <p>Understand how Operant keeps your data local and secure.</p>
+          <a href="guides/privacy.html">Read the guide</a>
+        </div>
+      </div>
     </section>
 
-    <section id="benchmarks">
-      <h2>Benchmarks</h2>
-      <p>Performance metrics: compiled replay latency and success rates.</p>
-      <p>Benchmark data coming soon.</p>
+    <section id="how-it-works" aria-label="How it works, technical detail">
+      <h2>How it works</h2>
+      <p>Everything below is for people who want the technical detail: the reasoning, the architecture, and how Operant compares to other projects.</p>
+      <p>The model is a compiler, not a runtime. Exploration should be probabilistic; execution should not be. At 98 percent per-step model accuracy, a 40-step workflow fails about 55 percent of the time in production: probabilistic execution does not survive multiplication. So Operant explores a task with a model once, or a few times with correction, then freezes the successful run into a typed, readable file guarded by invariant gates. Replay after that makes zero model calls and zero network calls, both asserted in CI, not just promised.</p>
+
+      <h3>Kill switch and undo</h3>
+      <p>Two things hold no matter what Operant is doing. One key stops everything, instantly: the kill switch runs at the action layer, below the planner, so no model decision can delay it, and CI holds the freeze under 100 ms. A full-screen overlay drops over the desktop inside that same budget, pre-built and hidden so revealing it is a single toggle that never waits on anything. Every run can be undone: write actions record an inverse before they run, so "Undo last run" is a real replay of real inverses, narrated in plain English. Anything without a safe inverse, like a sent email, is labeled irreversible before you run it, not after.</p>
+
+      <h3>Explore once, replay forever</h3>
+      <div class="table-wrap">
+        <pre><code>EXPLORE (probabilistic, model in loop)             REPLAY (deterministic, no model)
+ perceive -&gt; plan(LLM) -&gt; gate -&gt; act -&gt; record     load workflow -&gt; gate -&gt; act -&gt; gate ...
+ slow, costly, supervised                           fast, free, offline, audited
+                    \                                 ^                    |
+                     \        compile                /            drift?  v
+                      +------------------------------+        re-ground one step (model)
+                                                              -&gt; patch diff -&gt; human approve
+                                                              -&gt; versioned merge</code></pre>
+      </div>
+      <p>When a compiled step fails because the screen changed, Operant re-grounds that one step, proposes a patch diff, and waits for a human approval before merging a new version. The workflow heals. It never silently mutates. See the actual compiler output, unedited, in <code>contracts/fixtures/workflow_notepad/workflow.ts</code> on <a href="https://github.com/AlpharomeroJL/operant/blob/main/contracts/fixtures/workflow_notepad/workflow.ts">GitHub</a>.</p>
+
+      <h3 id="architecture">Architecture</h3>
+      <p>Two execution modes over one runtime:</p>
+      <ul>
+        <li><strong>Perception</strong>: Windows accessibility tree (UIA) first, CDP for browsers, OCR for PDFs and images, a vision-grounding fallback for anything else.</li>
+        <li><strong>Action</strong>: a typed, serializable Action IR for every step, with a risk class of read, write, or destructive.</li>
+        <li><strong>Compiler and drift repair</strong>: normalizes a recorded run, turns varying literals into typed inputs, scores selectors for stability, and emits a TypeScript file plus a signed manifest.</li>
+        <li><strong>Invariant gates</strong>: precondition, postcondition, and safety checks run in both explore and replay. Hard safety invariants live in the runtime, not in workflow files, and no workflow can turn them off.</li>
+        <li><strong>Safety and audit</strong>: capability grants per workflow, a dry-run mode with zero side effects, and a hash-chained append-only audit log with JSON and PDF export.</li>
+        <li><strong>Orchestrator and models</strong>: bring your own backend across local runners, API keys, and sign-in-with-subscription, or run fully offline. The app you download builds a real backend straight from your config; the scripted mock is a test fixture, never the execution path that ships.</li>
+        <li><strong>Voice</strong>: local speech in and out, lazy-loaded so it does not sit in memory until used.</li>
+        <li><strong>Shell UI</strong>: tray, global-hotkey command palette, a target-app picker so a taught task binds to the app you mean and not to Operant, and a run viewer with a model on/off indicator. During a run the viewer shows a live readout of the real model-call count, read from a measured counter, so replay's zero is a fact it shows you, not a label painted on. A plain-English workflow view has a code toggle for anyone who wants it. The flight recorder also shifts material with state, warm and alive while a model explores, still and sharp on model-free replay: honest look-and-feel, with fallbacks for reduced transparency and reduced motion.</li>
+      </ul>
+      <p class="fineprint">Full component specs and the data model: <a href="https://github.com/AlpharomeroJL/operant/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a> on GitHub.</p>
+
+      <h3 id="cookbook">Cookbook</h3>
+      <p>Real-world workflow examples and best practices live in the <a href="https://github.com/AlpharomeroJL/operant/blob/main/cookbook/README.md">cookbook</a> on GitHub.</p>
+
+      <h3>Registry, MCP, CLI, and SDK</h3>
+      <p><code>operant install &lt;name&gt;</code> reads a workflow manifest from a git-backed index, verifies its Ed25519 signature against a publisher key, and installs only after you approve the grants it needs, shown in plain language. The index is a local checkout today; fetching it over the network is not wired yet. MCP runs both directions: Operant serves every compiled workflow as an MCP tool, and it consumes external MCP servers as adapters your workflows can call. A TypeScript SDK sits on the same file format as the CLI: <code>operant run|compile|dry-run|list|install|bench|doctor|explain</code>.</p>
+      <p class="fineprint">Registry: <a href="https://github.com/AlpharomeroJL/operant-registry">github.com/AlpharomeroJL/operant-registry</a>.</p>
     </section>
 
-    <section id="architecture">
-      <h2>Architecture</h2>
-      <p>Deep dive into the system design: perception, action, compilation, and invariant gates.</p>
-      <p>Architecture documentation coming soon.</p>
+    <section aria-label="How Operant compares">
+      <h2>How Operant compares</h2>
+      <p>Checked against each project's own public documentation. "Not documented" means no public evidence either way was found, not a claim that the feature is absent.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th></th><th>Operant</th><th>Simular</th><th>UI-TARS Desktop</th><th>Open Interpreter</th><th>UFO</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Deterministic, model-free replay</td><td>Yes, CI-asserted</td><td>No, cloud execution</td><td>No, re-infers every step</td><td>No, re-infers every step</td><td>No, re-infers every step</td></tr>
+            <tr><td>Works fully offline after teaching</td><td>Yes</td><td>No</td><td>Partial</td><td>Partial</td><td>Partial</td></tr>
+            <tr><td>Self-heals on UI drift, human-approved</td><td>Yes</td><td>Not documented</td><td>Not documented</td><td>Not documented</td><td>Not documented</td></tr>
+            <tr><td>Full audit trail, hash-chained, exportable</td><td>Yes</td><td>Not documented</td><td>Not documented</td><td>Not documented</td><td>Not documented</td></tr>
+            <tr><td>No-code path for non-developers</td><td>Yes, wizard plus plain-English steps</td><td>Yes</td><td>No, developer tool</td><td>No, developer tool</td><td>No, research framework</td></tr>
+            <tr><td>One-click undo</td><td>Yes</td><td>Not documented</td><td>No</td><td>No</td><td>No</td></tr>
+            <tr><td>Kill switch under 100ms</td><td>Yes, latency-tested</td><td>Not documented</td><td>No</td><td>No</td><td>No</td></tr>
+            <tr><td>Price</td><td>Free, Apache 2.0</td><td>Paid, per-seat</td><td>Free, open source</td><td>Free, open source</td><td>Free, research license</td></tr>
+            <tr><td>Raw exploration-time model quality</td><td>Conceding: dedicated grounding teams are likely ahead here</td><td>n/a</td><td>n/a</td><td>n/a</td><td>n/a</td></tr>
+            <tr><td>Mobile device control</td><td>Conceding: not at v1.0.0</td><td>Not documented</td><td>No</td><td>No</td><td>No</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="fineprint">Last checked: 2026-07-11. Corrections are welcome as an issue on <a href="https://github.com/AlpharomeroJL/operant">GitHub</a>.</p>
     </section>
   </main>
 
   <footer>
-    <p>Operant is open source under the Apache 2.0 license. Built with local privacy in mind.</p>
+    <p>Operant is open source under the <a href="https://github.com/AlpharomeroJL/operant/blob/main/LICENSE">Apache 2.0 license</a>. Built with local privacy in mind.</p>
+    <p class="fineprint"><a href="https://github.com/AlpharomeroJL/operant">Repo</a> | <a href="https://github.com/AlpharomeroJL/operant/blob/main/CONTRIBUTING.md">Contributing</a> | <a href="https://github.com/AlpharomeroJL/operant/blob/main/SECURITY.md">Security policy</a> | <a href="https://github.com/AlpharomeroJL/operant-registry">Registry</a></p>
   </footer>
 </body>
 </html>
