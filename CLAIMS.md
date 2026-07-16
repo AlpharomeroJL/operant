@@ -31,7 +31,7 @@ proof. The contract is deliberately harsh:
 
 | # | Claim (quoted from published copy) | Where it is published | Verified citations (machine-checked) |
 |---|---|---|---|
-| 1 | "learns a task by watching you do it once, then does that task again on its own" | README.md:11; site/index.html:29 | `e2e/golden-path/tests/golden_path.rs::golden_path_explores_compiles_and_replays_with_zero_model_calls`, `crates/orchestrator/tests/explore_loop.rs::explore_loop_completes_a_scripted_notepad_task_recording_and_gating_every_step`, `crates/orchestrator/tests/watch_suggest.rs::accepting_a_suggestion_seeds_a_supervised_explore_run` |
+| 1 | "Describe a task once... a model works the task out live on your screen, and Operant freezes that run into a workflow it can repeat on its own" (shipped teach path is model-driven describe-it, not record-by-doing; the recorder that watches you is roadmap) | README.md:11,21; site/index.html:29,42 | `e2e/golden-path/tests/golden_path.rs::golden_path_explores_compiles_and_replays_with_zero_model_calls`, `crates/orchestrator/tests/explore_loop.rs::explore_loop_completes_a_scripted_notepad_task_recording_and_gating_every_step`, `docs/roadmap/demonstration-capture.md` |
 | 2 | "local speech in and out, lazy-loaded so it does not sit in memory until used" | README.md:248; site/index.html:138 | `sidecars/voice/test/roundtrip.test.js::text-mode round trip: STT -> intent -> TTS with the mock provider`, `crates/core/src/config.rs`, `docs/specs/voice.md` |
 | 3 | "Replay after that makes zero model calls and zero network calls, both asserted in CI, not just promised" | README.md:71; site/index.html:92 | `e2e/golden-path/tests/golden_path.rs::golden_path_explores_compiles_and_replays_with_zero_model_calls`, `crates/replay/tests/replay_notepad.rs::replay_performs_zero_network_operations`, `just check-airgap` |
 | 3b | "Deterministic, model-free replay: Yes, CI-asserted" | README.md:285; site/index.html:160 | `crates/replay/src/lib.rs::replay_crate_is_backend_free`, `crates/replay/tests/replay_notepad.rs::replay_reproduces_click_type_save_and_passes_postcondition` |
@@ -72,8 +72,13 @@ proof. The contract is deliberately harsh:
 | 38 | "No-code path for non-developers: Yes, wizard plus plain-English steps" (Setup never touches a terminal) | README.md:289; site/index.html:164; LAUNCH.md:116 | `ui/src/wizard/state.test.ts::BAR: a scripted wizard run reaches a working demo in default mode via the quiet demo link, with zero grants`, `ui/src/wizard/state.test.ts::welcome is the first screen, with real visible content, in default mode` |
 | 39 | "Operant also keeps score... the tray showing estimated time saved this week" | README.md:92; LAUNCH.md:297 | `crates/recorder/tests/metrics.rs::weekly_rollup_aggregates_multiple_workflows`, `ui/src/tray/state.test.ts::metrics.week.rolled updates the saved-time tooltip and raises a weekly digest notification`, `ui/src/dashboard/state.test.ts::hero line and sparkline render from the fixture metrics: design.md's own '3.2 hours this week' example` |
 | 40 | "run it again with one click" | README.md:44; site/index.html:50 | `ui/src/gallery/state.test.ts::a publisher already pinned installs ready to run, not preview-only`, `ui/src/tray/state.test.ts::quick runs rank saved workflows by frecency, highest first, capped at the top three` |
-| 41 | "Put it on a schedule... and it just happens without you" (scheduler engine; see Caveats on wiring) | README.md:44; site/index.html:50 | `crates/scheduler/src/lib.rs::file_watch_event_produces_replay_run_with_path_input`, `crates/scheduler/src/lib.rs::unattended_rejects_non_replay_mode`, `crates/scheduler/src/trigger.rs::cron_valid_expression` |
+| 41 | "the scheduler is built and tested, but starting a schedule from the app is not wired up yet" (engine proven; app wiring is an honest gap, see Caveats and KNOWN_ISSUES) | README.md:44; site/index.html:50 | `crates/scheduler/src/lib.rs::file_watch_event_produces_replay_run_with_path_input`, `crates/scheduler/src/lib.rs::unattended_rejects_non_replay_mode`, `crates/scheduler/src/trigger.rs::cron_valid_expression`, `ui/src/scheduler/commands.test.ts::upsert_trigger answers not_implemented: no trigger store is wired, so no schedule is created` |
 | 42 | "the engine can automate a live desktop... reliably and model-free (5/5)" (live-desktop proof) | docs/evidence/P0-live-engine.md | `docs/evidence/P0-live-engine.md`, `crates/replay/tests/live_reresolve.rs::wired_run_path_construction_reresolves_not_stale_coords` |
+| 43 | "pick which open app it should run in... a target-app picker so a taught task binds to the app you mean and not to Operant" (ADR 0003) | README.md:21,250; site/index.html:42,139 | `ui/src/palette/targetApp.test.ts::the default selection is the front-app row, which resolves to the topmost window (windows[0])`, `ui/src/palette/targetApp.test.ts::confirm() with the default selection hands back the goal and the topmost window's process, and closes`, `cli/src/commands/serve.rs::list_windows_returns_a_windows_array`, `docs/adr/0003-target-app-selection.md` |
+| 44 | "a live readout of the real model-call count, read from a measured counter, so replay's zero is a fact it can show you, not a label painted on" (MODEL CALLS readout; nonzero on explore proves it is measured) | README.md:250; site/index.html:139 | `ui/src/runViewer/instrumentReadout.test.ts::an explore run that made 3 model calls displays MODEL CALLS 3 (read from the event, not a constant)`, `ui/src/runViewer/instrumentReadout.test.ts::a replay run that made 0 model calls displays MODEL CALLS 0 (the honest zero, proven measured by the 3-vs-0 pair)`, `crates/orchestrator/tests/explore_loop.rs::explore_run_reports_a_real_nonzero_model_call_count_equal_to_rounds`, `crates/core/src/bus/events.rs::run_completed_model_calls_is_visible_and_additive` |
+| 45 | "The app you download builds a real backend straight from your config; the scripted mock is a test fixture, never the execution path that ships" | README.md:246; site/index.html:137 | `cli/src/commands/serve.rs::build_planner_with_a_configured_provider_is_not_the_mock`, `crates/orchestrator/src/backends/quirks.rs::table_covers_every_provider_docs_specs_backends_promises`, `crates/orchestrator/tests/backend_contract.rs::anthropic_dialect_round_trips_through_complete` |
+| 46 | "a full-screen overlay drops over the desktop inside that same budget: pre-built and hidden, so revealing it is a single toggle that never waits on anything being constructed" (kill-switch overlay) | README.md:79; site/index.html:95 | `ui/src/safety/killOverlay.test.ts::mounts pre-built but hidden: the panel exists in the DOM while the backdrop is still hidden`, `ui/src/safety/killOverlay.test.ts::the panic path reveals it by toggling the pre-mounted element's hidden attribute only (no construction)`, `ui/src/safety/killOverlay.accessibility.test.ts::the revealed kill-switch overlay has no axe violations` |
+| 47 | "The flight recorder shifts material with state, warm and alive while a model explores, still and sharp on model-free replay: honest look-and-feel, with fallbacks for reduced transparency and reduced motion" (GLASS.md; look-and-feel, not a capability claim) | README.md:250; site/index.html:139 | `ui/src/runViewer/glassMaterial.test.ts::explore and replay are PROVABLY different materials by getComputedStyle, not by eye (GLASS.md GL2 bar)`, `ui/src/runViewer/glassMaterial.test.ts::explore renders the LIVE material: op-glass--live, and the amber glow is present in the computed box-shadow`, `ui/src/styles/base.css`, `GLASS.md` |
 
 ## Unbacked - must delete or back before shipping
 
@@ -94,22 +99,53 @@ These claims are backed and stay in `## Backed claims`, but carry a nuance the
 copy team should know before the M2 copy pass. The gate does not fail on these;
 they are recorded here for honesty, not as red flags.
 
+- **Teach path is describe-it, not record-by-doing (row 1).** The shipped teach
+  path is model-driven: you describe a task in plain language, pick which open app
+  it targets (row 43), and a model drives a live explore run that figures it out on
+  your desktop; you then save it. The recorder that watches you perform a task by
+  hand does NOT exist; it is a labeled roadmap item
+  (`docs/roadmap/demonstration-capture.md`, marked "NOT BUILT"). The F2 copy pass
+  rewrote every "watch you do it once" / "show it by demonstration" line to the
+  describe-it truth. See the Deleted section below.
 - **Scheduling wiring (row 41).** The scheduler engine is genuinely tested
   (cron, file-watch, unattended replay-only, scope parallelism in
   `crates/scheduler`). But the shell's trigger commands currently answer
   `not_implemented`: see `ui/src/scheduler/commands.test.ts` ("upsert_trigger
   answers not_implemented") and the dashboard's honest "scheduling unavailable"
   path (`ui/src/dashboard/state.test.ts`). So "set a schedule from the app"
-  end to end is not wired yet. "Run it again with one click" (row 40) is fully
-  wired; the schedule half is engine-complete but not surfaced.
+  end to end is not wired yet, and row 41's published copy now says exactly that.
+  "Run it again with one click" (row 40) is fully wired; the schedule half is
+  engine-complete but not surfaced.
 - **Undo demo asset (rows 9 to 12).** The undo capability is backed by tests,
   but the README alt text for `assets/10-undo.gif` still says "Placeholder, not
   a real capture" and "this screen does not exist in ui/src yet". That alt text
   is stale: the undo view is tested in `ui/src/undo/view.test.ts`. The claim is
   fine; the capture asset and its caption are the TODO.
-- **Teach by voice (part of row 1 copy: "by demonstration or by voice").** Voice
-  speech in and out is backed by `sidecars/voice/test/roundtrip.test.js`
-  (STT -> intent -> TTS). A full end-to-end "workflow taught entirely by voice"
-  is not separately tested. The narrow published claim "local speech in and out"
-  (row 2) is fully backed; "teach by voice" leans on the same speech path plus
-  the explore control bus (`crates/orchestrator/src/explore/control.rs`).
+- **Voice is a capability, not a teach affordance (row 2).** Local speech in and
+  out is backed by `sidecars/voice/test/roundtrip.test.js` (STT -> intent -> TTS)
+  and stays as the Voice architecture bullet. A full end-to-end "workflow taught
+  entirely by voice" is not separately tested, so the F2 pass removed "by voice"
+  from every teach headline; only the narrow "local speech in and out" (row 2)
+  remains, and it is fully backed.
+
+## Deleted or softened in the F2 copy-truth pass
+
+Recorded per the header's "an unbacked claim is DELETED, never softened" rule (and
+its honest converse: an overstated-but-real claim is softened to the truth).
+
+- **Deleted: "by demonstration" / "watch you do it once" / "record me" as a
+  present-tense teach claim.** No recorder captures a hand-performed demonstration
+  today (`docs/roadmap/demonstration-capture.md` is marked NOT BUILT). Every such
+  line in README, site, and LAUNCH was rewritten to the model-driven describe-it
+  path.
+- **Deleted: "by voice" as a teach affordance.** A voice-taught workflow is not
+  separately proven. Kept only "local speech in and out" (row 2, backed).
+- **Softened: "Put it on a schedule and it just happens without you."** The
+  scheduler engine is tested but not wired to the app (row 41 caveat). Copy now
+  says the scheduler is built and tested but starting a schedule from the app is
+  not wired yet.
+- **Softened: `operant install` "fetches a workflow manifest from a git-backed
+  index."** Install resolves a manifest from a LOCAL registry index checkout
+  (`cli/src/commands/install.rs`); over-the-wire fetch is not wired. Copy now says
+  "reads... from a git-backed index" and flags the local-checkout gap. The signing,
+  verification, and dry-run-only refusal claims (row 31) are untouched and backed.

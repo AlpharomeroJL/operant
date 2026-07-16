@@ -8,8 +8,10 @@
 **Teach your computer once. It does it forever.**
 *No code. No cloud. Free.*
 
-Operant is a free, open source desktop app for Windows that learns a task by
-watching you do it once, then does that task again on its own.
+Operant is a free, open source desktop app for Windows. Describe a task once, in
+plain language, and pick which open app it should run in. A model works the task
+out live on your screen while you watch, and Operant freezes that successful run
+into a workflow it can repeat on its own, with no model and nothing sent anywhere.
 
 <!-- CAPTURE SLOT (V1 recapture pass): new home dashboard screenshot, not yet
 captured. Should show the "time saved this week" line, the recent-weeks
@@ -20,8 +22,10 @@ sparkline, the upcoming scheduled runs, and the recent runs list. -->
 
 ### Teach it
 
-Show it a task once, by demonstration or by voice, and it remembers exactly how
-to do it again.
+Describe a task in plain language and pick which open app it should run in. A
+model drives it live on your desktop while each step lands in the flight recorder
+in front of you. When the run works, Operant saves it as a workflow it can repeat
+exactly.
 
 <a id="watch-demo"></a>
 
@@ -41,13 +45,13 @@ machine with nothing sent anywhere.
 
 ### Forget it
 
-Put it on a schedule or run it again with one click, and it just happens
-without you.
+Run a saved task again with one click, any time. Running it on a schedule with no
+click at all is on the roadmap: the scheduler is built and tested, but starting a
+schedule from the app is not wired up yet (see [Known issues](docs/KNOWN_ISSUES.md)).
 
 <!-- CAPTURE SLOT (V1 recapture pass): not yet captured. Should show running a
-saved workflow with one click from the library, then setting that workflow to
-run automatically on a schedule. -->
-![Animated demo of running a saved workflow with one click from the workflow library, then setting that workflow to run automatically on a schedule.](assets/feature-forget.gif)
+saved workflow with one click from the workflow library. -->
+![Animated demo of running a saved workflow with one click from the workflow library.](assets/feature-forget.gif)
 
 ## Get started
 
@@ -78,7 +82,9 @@ Two things hold no matter what Operant is doing.
 
 **One key stops everything, instantly.** The kill switch runs at the action layer,
 below the planner, so no model decision can delay it. CI holds the freeze under
-100 ms.
+100 ms, and a full-screen overlay drops over the desktop inside that same budget:
+it is pre-built and hidden, so revealing it is a single toggle that never waits on
+anything being constructed.
 
 ![Animated kill switch demo: a run is mid-step (Click Downloads, Click Invoice.pdf) with the model indicator on, then the panic hotkey fires and the run freezes, the run viewer reads "Stopped, needs you", and the tray icon turns red with an "Operant stopped" notification.](assets/12-killswitch.gif)
 
@@ -244,22 +250,31 @@ Two execution modes over one runtime:
 - **Safety and audit**: capability grants per workflow, a dry-run mode with zero side
   effects, and a hash-chained append-only audit log with JSON and PDF export.
 - **Orchestrator and models**: bring your own backend across local runners, API keys,
-  and sign-in-with-subscription, or run fully offline.
+  and sign-in-with-subscription, or run fully offline. The app you download builds a
+  real backend straight from your config; the scripted mock is a test fixture, never
+  the execution path that ships.
 - **Voice**: local speech in and out, lazy-loaded so it does not sit in memory until
   used.
-- **Shell UI**: tray, global-hotkey command palette, run viewer with a model on/off
-  indicator, and a plain-English workflow view with a code toggle for anyone who
-  wants it.
+- **Shell UI**: tray, global-hotkey command palette, a target-app picker so a taught
+  task binds to the app you mean and not to Operant, and a run viewer with a model
+  on/off indicator. During a run the viewer shows a live readout of the real
+  model-call count, read from a measured counter, so replay's zero is a fact it can
+  show you, not a label painted on. A plain-English workflow view has a code toggle
+  for anyone who wants it. The flight recorder also shifts material with state, warm
+  and alive while a model explores, still and sharp on model-free replay: honest
+  look-and-feel, with fallbacks for reduced transparency and reduced motion.
 
 Full component specs and the data model: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Registry
 
-`operant install <name>` fetches a workflow manifest from a git-backed index,
+`operant install <name>` reads a workflow manifest from a git-backed index,
 verifies its Ed25519 signature against a publisher key, shows the grants it needs in
-plain language, and installs only after approval. Unsigned or unverified workflows
-still install, but run in dry-run only until you explicitly promote them after
-reading the steps.
+plain language, and installs only after approval. The index is a local checkout
+today; fetching it over the network is not wired yet (see
+[Known issues](docs/KNOWN_ISSUES.md)). Unsigned or unverified workflows still
+install, but run in dry-run only until you explicitly promote them after reading the
+steps.
 
 Registry: [github.com/AlpharomeroJL/operant-registry](https://github.com/AlpharomeroJL/operant-registry).
 

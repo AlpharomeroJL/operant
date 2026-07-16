@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="color-scheme" content="dark light">
-  <meta name="description" content="Operant is a free, open source desktop app for Windows that learns a task by watching you do it once, then does that task again on its own. No code. No cloud.">
+  <meta name="description" content="Operant is a free, open source desktop app for Windows. Describe a task once and a model works it out on your screen; Operant freezes that run into a workflow it repeats on its own, with no model. No code. No cloud.">
   <title>Operant - teach your computer once, it does it forever</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -26,7 +26,7 @@
       <p class="eyebrow">Free. Open source. Windows.</p>
       <h1>Teach your computer once. It does it forever.</h1>
       <p class="lede">No code. No cloud. Free.</p>
-      <p class="hero-desc">Operant is a free, open source desktop app for Windows that learns a task by watching you do it once, then does that task again on its own.</p>
+      <p class="hero-desc">Operant is a free, open source desktop app for Windows. Describe a task once and pick which open app it runs in; a model works it out live on your screen, and Operant freezes that run into a workflow it repeats on its own, with no model and nothing sent anywhere.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="https://github.com/AlpharomeroJL/operant/releases">Download the installer</a>
         <a class="btn btn-quiet" href="https://github.com/AlpharomeroJL/operant">Star the repo</a>
@@ -39,7 +39,7 @@
       <div class="grid">
         <div class="card">
           <h3>Teach it</h3>
-          <p>Show it a task once, by demonstration or by voice, and it remembers exactly how to do it again.</p>
+          <p>Describe a task and pick the app it runs in. A model works it out on your desktop while you watch each step land, then Operant saves it as a workflow it can repeat exactly.</p>
         </div>
         <div class="card">
           <h3>Trust it</h3>
@@ -47,7 +47,7 @@
         </div>
         <div class="card">
           <h3>Forget it</h3>
-          <p>Put it on a schedule or run it again with one click, and it just happens without you.</p>
+          <p>Run a saved task again with one click, any time. Running it on a schedule with no click at all is on the roadmap: the scheduler is built and tested, but starting a schedule from the app is not wired up yet.</p>
         </div>
       </div>
     </section>
@@ -92,7 +92,7 @@
       <p>The model is a compiler, not a runtime. Exploration should be probabilistic; execution should not be. At 98 percent per-step model accuracy, a 40-step workflow fails about 55 percent of the time in production: probabilistic execution does not survive multiplication. So Operant explores a task with a model once, or a few times with correction, then freezes the successful run into a typed, readable file guarded by invariant gates. Replay after that makes zero model calls and zero network calls, both asserted in CI, not just promised.</p>
 
       <h3>Kill switch and undo</h3>
-      <p>Two things hold no matter what Operant is doing. One key stops everything, instantly: the kill switch runs at the action layer, below the planner, so no model decision can delay it, and CI holds the freeze under 100 ms. Every run can be undone: write actions record an inverse before they run, so "Undo last run" is a real replay of real inverses, narrated in plain English. Anything without a safe inverse, like a sent email, is labeled irreversible before you run it, not after.</p>
+      <p>Two things hold no matter what Operant is doing. One key stops everything, instantly: the kill switch runs at the action layer, below the planner, so no model decision can delay it, and CI holds the freeze under 100 ms. A full-screen overlay drops over the desktop inside that same budget, pre-built and hidden so revealing it is a single toggle that never waits on anything. Every run can be undone: write actions record an inverse before they run, so "Undo last run" is a real replay of real inverses, narrated in plain English. Anything without a safe inverse, like a sent email, is labeled irreversible before you run it, not after.</p>
 
       <h3>Explore once, replay forever</h3>
       <div class="table-wrap">
@@ -134,9 +134,9 @@
         <li><strong>Compiler and drift repair</strong>: normalizes a recorded run, turns varying literals into typed inputs, scores selectors for stability, and emits a TypeScript file plus a signed manifest.</li>
         <li><strong>Invariant gates</strong>: precondition, postcondition, and safety checks run in both explore and replay. Hard safety invariants live in the runtime, not in workflow files, and no workflow can turn them off.</li>
         <li><strong>Safety and audit</strong>: capability grants per workflow, a dry-run mode with zero side effects, and a hash-chained append-only audit log with JSON and PDF export.</li>
-        <li><strong>Orchestrator and models</strong>: bring your own backend across local runners, API keys, and sign-in-with-subscription, or run fully offline.</li>
+        <li><strong>Orchestrator and models</strong>: bring your own backend across local runners, API keys, and sign-in-with-subscription, or run fully offline. The app you download builds a real backend straight from your config; the scripted mock is a test fixture, never the execution path that ships.</li>
         <li><strong>Voice</strong>: local speech in and out, lazy-loaded so it does not sit in memory until used.</li>
-        <li><strong>Shell UI</strong>: tray, global-hotkey command palette, run viewer with a model on/off indicator, and a plain-English workflow view with a code toggle for anyone who wants it.</li>
+        <li><strong>Shell UI</strong>: tray, global-hotkey command palette, a target-app picker so a taught task binds to the app you mean and not to Operant, and a run viewer with a model on/off indicator. During a run the viewer shows a live readout of the real model-call count, read from a measured counter, so replay's zero is a fact it shows you, not a label painted on. A plain-English workflow view has a code toggle for anyone who wants it. The flight recorder also shifts material with state, warm and alive while a model explores, still and sharp on model-free replay: honest look-and-feel, with fallbacks for reduced transparency and reduced motion.</li>
       </ul>
       <p class="fineprint">Full component specs and the data model: <a href="https://github.com/AlpharomeroJL/operant/blob/main/docs/ARCHITECTURE.md">docs/ARCHITECTURE.md</a> on GitHub.</p>
 
@@ -144,7 +144,7 @@
       <p>Real-world workflow examples and best practices live in the <a href="https://github.com/AlpharomeroJL/operant/blob/main/cookbook/README.md">cookbook</a> on GitHub.</p>
 
       <h3>Registry, MCP, CLI, and SDK</h3>
-      <p><code>operant install &lt;name&gt;</code> fetches a workflow manifest from a git-backed index, verifies its Ed25519 signature against a publisher key, and installs only after you approve the grants it needs, shown in plain language. MCP runs both directions: Operant serves every compiled workflow as an MCP tool, and it consumes external MCP servers as adapters your workflows can call. A TypeScript SDK sits on the same file format as the CLI: <code>operant run|compile|dry-run|list|install|bench|doctor|explain</code>.</p>
+      <p><code>operant install &lt;name&gt;</code> reads a workflow manifest from a git-backed index, verifies its Ed25519 signature against a publisher key, and installs only after you approve the grants it needs, shown in plain language. The index is a local checkout today; fetching it over the network is not wired yet. MCP runs both directions: Operant serves every compiled workflow as an MCP tool, and it consumes external MCP servers as adapters your workflows can call. A TypeScript SDK sits on the same file format as the CLI: <code>operant run|compile|dry-run|list|install|bench|doctor|explain</code>.</p>
       <p class="fineprint">Registry: <a href="https://github.com/AlpharomeroJL/operant-registry">github.com/AlpharomeroJL/operant-registry</a>.</p>
     </section>
 

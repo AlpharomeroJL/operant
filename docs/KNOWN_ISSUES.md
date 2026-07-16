@@ -55,6 +55,23 @@ As items are fixed they are struck from this list and noted in the changelog.
   part of release smoke-testing; the exact steps are in
   `release/nsis/VERIFY-UNINSTALL.md`.
 
+## Teaching
+
+- **You teach by describing a task, not by Operant recording you do it.** The
+  shipped way to teach is to type a goal in plain language, pick which open app it
+  should run in, and let a model work the task out on your desktop while you watch
+  each step land. When it works, you save it. A recorder that captures you
+  performing a task by hand ("show it by doing it once") is planned but not built:
+  it is a labeled roadmap item, and nothing in this release records a hand-performed
+  demonstration. Until it ships, every teach affordance is the describe-it path.
+
+- **Voice can talk and listen, but a fully voice-taught workflow is not proven
+  yet.** Local speech in and out works and is tested, so Operant can read steps
+  aloud and take spoken input. Teaching a complete workflow start to finish using
+  only your voice is not separately tested (it needs a real microphone and
+  speakers), so treat voice as an input and output channel, not a proven hands-free
+  teaching mode.
+
 ## Replay
 
 - **Live re-find is wired into the run path; the live-desktop confirmation is
@@ -78,3 +95,30 @@ As items are fixed they are struck from this list and noted in the changelog.
   reverse is labeled before you run it. But there is not yet a dedicated screen
   to preview and confirm undoing a whole run; it is driven from the run view. A
   dedicated screen is being added.
+
+## Scheduling
+
+- **You can rerun a saved task with one click, but you cannot yet start a
+  schedule from the app.** Running a saved task again on demand is fully wired.
+  The scheduler itself (cron times, file-watch triggers, unattended replay-only
+  runs) is built and tested in the engine, but the app's own trigger commands
+  currently answer "not implemented," so there is no button in the app that
+  creates a schedule end to end. Setting a task to run on its own is on the
+  roadmap; until then, treat scheduling as engine-ready but not app-wired.
+
+## Registry and model setup
+
+- **Installing a shared workflow reads from a local copy of the index, not over
+  the network yet.** `operant install <name>` verifies a workflow's Ed25519
+  signature against its publisher key and refuses tampered or wrongly-signed
+  workflows, and that whole path is tested. What it does not do yet is fetch the
+  index over the network: today it reads from a local checkout of the registry
+  (a clone of the operant-registry repository). Pulling the index over the wire
+  is not wired up yet.
+
+- **The setup wizard's "download a local model" step is a stand-in, not a real
+  download yet.** The wizard can walk you through picking a local model, but the
+  download it shows is a simulated placeholder rather than a real fetch of model
+  weights. Configuring a backend you already have (a local runner, an API key, or
+  signing in with a subscription) is real and works; the in-wizard model
+  download is not a real download yet.
