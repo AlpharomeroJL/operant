@@ -189,3 +189,17 @@ export const paletteStrings = {
   themeActionTitle: "Theme",
   settingsHint: "Open Settings",
 };
+
+// Target-app picker (ADR 0003, A1): the step after "Teach this" where the
+// person picks which open app to teach against, so a teach run never lands on
+// Operant itself (the foreground window while the palette is up). Plain,
+// verb-first copy; the front-app row is the pre-selected smart default.
+export const targetAppStrings = {
+  overlayLabel: "Choose an app to teach",
+  heading: "Pick the app to teach",
+  frontApp: "Use the app I have in front (not Operant)",
+  loading: "Looking for your open apps",
+  empty: "No other apps are open. Open the app you want to teach, then try again.",
+  confirmHint: "Enter to teach this app",
+  cancelHint: "Esc to go back",
+};

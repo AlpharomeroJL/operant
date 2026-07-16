@@ -164,3 +164,13 @@ export const paletteStrings = {
   themeActionTitle: "Tema",
   settingsHint: "Abrir configuración",
 };
+
+export const targetAppStrings = {
+  overlayLabel: "Elegir una app para enseñar",
+  heading: "Elige la app para enseñar",
+  frontApp: "Usar la app que tengo al frente (no Operant)",
+  loading: "Buscando tus apps abiertas",
+  empty: "No hay otras apps abiertas. Abre la app que quieres enseñar y vuelve a intentarlo.",
+  confirmHint: "Intro para enseñar esta app",
+  cancelHint: "Esc para volver",
+};

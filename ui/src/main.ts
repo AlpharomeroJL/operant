@@ -12,6 +12,8 @@ import { isGlobalPaletteHotkey } from "./palette/palette.ts";
 import { createMockCoreCommands, readForegroundWindowProcess } from "./bus/commands.ts";
 import { createPaletteController, type PaletteCommit } from "./palette/state.ts";
 import { mountPalette } from "./palette/view.ts";
+import { createTargetAppPicker, type TargetWindow } from "./palette/targetApp.ts";
+import { mountTargetAppPicker } from "./palette/targetAppView.ts";
 import { buildQuickActionEntries, buildSettingsEntries, PALETTE_ACTION_ID } from "./palette/quickActions.ts";
 import type { PaletteEntry } from "./palette/catalog.ts";
 import { createRunViewer } from "./runViewer/state.ts";
@@ -201,6 +203,9 @@ root.innerHTML = `
     <div class="op-modal-backdrop op-palette-backdrop" id="op-palette-backdrop" hidden>
       <div id="op-palette-mount"></div>
     </div>
+    <div class="op-modal-backdrop op-target-app-backdrop" id="op-target-app-backdrop" hidden>
+      <div id="op-target-app-mount"></div>
+    </div>
     <section class="op-advanced-panel" id="op-advanced-panel" hidden aria-labelledby="op-advanced-heading">
       <h2 class="op-panel__title" id="op-advanced-heading"></h2>
       <div class="op-advanced-panel__grid">
@@ -272,6 +277,8 @@ const undoMount = byId<HTMLElement>("op-undo-mount");
 const toastMount = byId<HTMLElement>("op-toast-mount");
 const paletteBackdrop = byId<HTMLElement>("op-palette-backdrop");
 const paletteMount = byId<HTMLElement>("op-palette-mount");
+const targetAppBackdrop = byId<HTMLElement>("op-target-app-backdrop");
+const targetAppMount = byId<HTMLElement>("op-target-app-mount");
 const tourMount = byId<HTMLElement>("op-tour-mount");
 
 appTitle.textContent = commonStrings.appName;
@@ -314,10 +321,12 @@ const connectedTools = createConnectedToolsStore();
 // saved workflow (the contract's start_replay, ui/src/boot/realSeams.ts fixes
 // the UI's old run_saved_workflow name), with list_workflows sourcing the
 // palette's saved-workflow rows. Real over the core, or the canned-bus mock in
-// Demo (so the flight recorder still fills). start_explore's foreground-window
-// context comes from readForegroundWindowProcess (dev/Demo uses a stub).
+// Demo (so the flight recorder still fills). start_explore's window_process is
+// the app the target-app picker resolved (ADR 0003, A1); in Demo, where
+// list_windows is unavailable and no picker runs, readForegroundWindowProcess
+// stays the fallback stub so the canned run still starts.
 const coreCommands = coreCall
-  ? createRealCoreCommands(coreCall, { registry, foregroundWindow: readForegroundWindowProcess })
+  ? createRealCoreCommands(coreCall, { registry })
   : createMockCoreCommands(bus, { registry, foregroundWindow: readForegroundWindowProcess });
 
 // B5's request/response bridge (list_workflows/start_replay/explain_workflow),
@@ -384,6 +393,14 @@ const toasts = createToasts(bus);
 // Library and the dashboard already share), quick actions, and settings
 // sections (ui/src/palette/quickActions.ts, both static).
 const paletteController = createPaletteController();
+
+// The target-app picker (ADR 0003, A1): the step between committing a "Teach
+// this" goal and starting the teach run, where the person chooses which open
+// app to teach against so the run never lands on Operant itself (the foreground
+// window while the palette is up). Only reached on the real core path, where
+// list_windows can enumerate the desktop; in Demo the teach starts straight
+// away against the stub foreground (see the teach branch of handlePaletteCommit).
+const targetAppPicker = createTargetAppPicker();
 
 function refreshPaletteEntries(): void {
   // Saved-workflow rows come from list_workflows (contracts/ipc.md section 5c),
@@ -770,20 +787,92 @@ function handlePaletteCommit(commit: PaletteCommit): void {
       showScreen("settings");
       return;
     case "teach": {
-      // The free-text-to-teach-run path, now the real start_explore command
-      // (contracts/ipc.md section 5b): the typed goal plus the foreground
-      // window as context, reached through the "Teach this" fallback row. In
-      // dev/Demo the mock streams the canned run and hands back a canceller;
-      // the real transport returns null and a stop is a separate command.
-      const stop = coreCommands.startExplore(row.subtitle ?? row.title);
-      if (stop) {
-        stopDemo?.();
-        stopDemo = stop;
+      // The free-text-to-teach path, reached through the "Teach this" fallback
+      // row. First choose which open app to teach against, so the run never
+      // targets Operant itself (ADR 0003, A1). On the real core, listWindows
+      // resolves the desktop's windows and the picker opens; in Demo/off-Tauri
+      // it returns null (unavailable), so the teach starts straight away against
+      // the stub foreground, exactly as before this step existed.
+      const goal = row.subtitle ?? row.title;
+      const windows = coreCommands.listWindows();
+      if (!windows) {
+        startTeach(goal);
+        return;
       }
-      showScreen("runs");
+      openTargetAppPicker(goal, windows);
       return;
     }
   }
+}
+
+/**
+ * Start the teach run for `goal` against `windowProcess` (the process the
+ * target-app picker resolved, or undefined in Demo where the mock falls back to
+ * its stub foreground). In dev/Demo startExplore streams the canned run and
+ * hands back a canceller kept as stopDemo; the real transport returns null and a
+ * stop is a separate command. Either way the flight recorder becomes the screen.
+ */
+function startTeach(goal: string, windowProcess?: string): void {
+  const stop = coreCommands.startExplore(goal, windowProcess);
+  if (stop) {
+    stopDemo?.();
+    stopDemo = stop;
+  }
+  showScreen("runs");
+}
+
+/**
+ * Open the target-app picker for `goal`, then fill it in once list_windows
+ * resolves. The guard on each async branch (still open, still the same goal)
+ * keeps a slow resolve from populating a picker the person already cancelled or
+ * reopened for a different goal. A rejected list (the command is not answerable)
+ * closes the picker rather than leaving it stuck on "loading".
+ */
+function openTargetAppPicker(goal: string, windows: Promise<TargetWindow[]>): void {
+  targetAppPicker.open(goal);
+  windows
+    .then((list) => {
+      const snap = targetAppPicker.getSnapshot();
+      if (snap.open && snap.goal === goal) targetAppPicker.setWindows(list);
+    })
+    .catch(() => {
+      const snap = targetAppPicker.getSnapshot();
+      if (snap.open && snap.goal === goal) targetAppPicker.close();
+    });
+}
+
+/** Confirm the picker: teach the goal against the chosen window's process. */
+function confirmTargetApp(rowId?: string): void {
+  const result = targetAppPicker.confirm(rowId);
+  if (!result) return;
+  startTeach(result.goal, result.windowProcess);
+}
+
+/**
+ * Cancel the picker back to the goal (design: "Escape cancels back to the
+ * goal"): close it and reopen the palette with the goal still typed, so the
+ * Teach this row is right there to try again or adjust.
+ */
+function cancelTargetApp(): void {
+  const goal = targetAppPicker.getSnapshot().goal;
+  targetAppPicker.close();
+  paletteController.open();
+  paletteController.setQuery(goal);
+}
+
+/**
+ * The target-app picker overlay, mounted unconditionally like the palette and
+ * grant prompt, with op-target-app-backdrop's own `hidden` attribute the only
+ * thing controlling visibility, the same mount-once pattern they use.
+ */
+function renderTargetAppPicker(): void {
+  const snapshot = targetAppPicker.getSnapshot();
+  targetAppBackdrop.hidden = !snapshot.open;
+  mountTargetAppPicker(targetAppMount, snapshot, {
+    onMoveSelection: (delta) => targetAppPicker.moveSelection(delta),
+    onConfirm: (rowId) => confirmTargetApp(rowId),
+    onCancel: () => cancelTargetApp(),
+  });
 }
 
 function renderLibraryPanel(): void {
@@ -1059,6 +1148,7 @@ toasts.subscribe(renderToastPanel);
 wizard.subscribe(renderWizardPanel);
 undoScreen.subscribe(renderUndoScreen);
 paletteController.subscribe(renderPalette);
+targetAppPicker.subscribe(renderTargetAppPicker);
 // H1: dismissing a tour callout both advances it and, for every step short
 // of "done" (all four of which share ui/src/main.ts's own Screen type,
 // ui/src/tour/state.ts's TourStep), switches to the screen that next
@@ -1117,6 +1207,7 @@ renderWizardPanel();
 renderUndoScreen();
 renderToastPanel();
 renderPalette();
+renderTargetAppPicker();
 
 // Stop, Pause, intervene, and filmstrip scrubbing are wired through
 // mountRunViewer's callbacks in renderRunViewer() above, not to static ids.
@@ -1135,7 +1226,7 @@ renderPalette();
  * backdrops rather than reach either sensibly.
  */
 function openPalette(): void {
-  if (!wizardBackdrop.hidden || !grantBackdrop.hidden) return;
+  if (!wizardBackdrop.hidden || !grantBackdrop.hidden || !targetAppBackdrop.hidden) return;
   paletteController.open();
 }
 
@@ -1145,6 +1236,13 @@ paletteBackdrop.addEventListener("click", (event) => {
   // not (the panel is a descendant of the backdrop, so every click inside
   // it also fires here unless this check narrows to the backdrop itself).
   if (event.target === paletteBackdrop) paletteController.close();
+});
+
+targetAppBackdrop.addEventListener("click", (event) => {
+  // A click on the dimmed backdrop cancels back to the goal, the same as
+  // Escape (the picker view's own keydown handles Escape); a click bubbling
+  // up from inside the panel is narrowed out, exactly like the palette above.
+  if (event.target === targetAppBackdrop) cancelTargetApp();
 });
 
 document.addEventListener("keydown", (event) => {

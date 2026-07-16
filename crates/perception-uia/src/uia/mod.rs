@@ -39,6 +39,7 @@ use crate::digest::compute_digest;
 use crate::resolve::resolve_in_snapshot;
 use crate::selectors::attach_selectors;
 use window::{deny_if_inaccessible, find_window_by_process};
+pub use window::{enumerate_windows, EnumeratedWindow};
 
 const POLL_INTERVAL_MS: u64 = 100;
 

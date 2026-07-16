@@ -40,6 +40,9 @@ pub use selectors::attach_selectors;
 #[cfg(feature = "real-uia")]
 pub use uia::UiaPerceiver;
 
+#[cfg(feature = "real-uia")]
+pub use uia::{enumerate_windows, EnumeratedWindow};
+
 /// Crate marker used by the workspace smoke test.
 pub const CRATE: &str = "operant-perception-uia";
 

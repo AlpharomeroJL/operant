@@ -241,7 +241,8 @@ loop is Phase 2 work in every case.
 
 | Command | Args | Result | Maps to | Status |
 |---|---|---|---|---|
-| `start_explore` | `{goal, window_process}` | `{run_id}` (canonical via `run.started`) | `operant_orchestrator::explore::ExploreLoop::run` (`crates/orchestrator/src/explore/mod.rs:144`), assembled by cfg as in `cli/src/commands/explore.rs` | Implemented (the loop). Command wrapper + backend selection is Phase 2. |
+| `list_windows` | `{}` | `{windows: [{process, title, id}]}`, z-ordered topmost first, Operant excluded | `operant_perception_uia::enumerate_windows` (`crates/perception-uia/src/uia/window.rs`) | Implemented (ADR 0003). Additive per section 9 rule 2. Without `real-uia` returns `{windows:[]}`. |
+| `start_explore` | `{goal, window_process, title_pattern?}` | `{run_id}` (canonical via `run.started`) | `operant_orchestrator::explore::ExploreLoop::run` (`crates/orchestrator/src/explore/mod.rs:144`), assembled by cfg as in `cli/src/commands/explore.rs` | Implemented (the loop). `window_process` is the picked target (ADR 0003). `title_pattern` is optional, reserved for same-process disambiguation, not yet consulted. |
 | `start_replay` | `{path, inputs?}` | `{run_id, steps_executed, pre, post}` | `operant_replay::Replayer::replay_compiled` (`crates/replay/src/lib.rs:163`), wrapped in synthetic `run.*` events per `docs/specs/ipc-bridge.md` section 3b | Implemented (the replayer). The run.* wrapper is Phase 2 and MUST NOT pull `operant-orchestrator` into the replay path. |
 | `dry_run` | `{path, inputs?}` | `{run_id, steps_executed, pre, post}` | `operant_replay::Replayer::with_mock` (mode `dry`, no real synth); see `crates/safety/src/dryrun.rs` | Implemented. |
 | `pause` | `{run_id?}` | `{ok:true}`; observable via `run.paused` | `bus.publish("run.control.pause", {})` (`crates/orchestrator/src/explore/control.rs`) | Implemented (BusControl honors it). |

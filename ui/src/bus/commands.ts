@@ -26,6 +26,7 @@ import type { BusClient } from "./mockClient.ts";
 import { simulateDemoRun } from "./mockClient.ts";
 import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY, type RunMode } from "./types.ts";
 import type { MockRegistry } from "../library/mockRegistry.ts";
+import type { TargetWindow } from "../palette/targetApp.ts";
 
 /** The four commands the palette issues (contracts/ipc.md section 5). */
 export type CoreCommandName = "start_explore" | "dry_run" | "run_saved_workflow" | "list_workflows";
@@ -64,13 +65,22 @@ export type ForegroundWindowProvider = () => string;
 export interface CoreCommands {
   /**
    * start_explore `{goal, window_process}`: the model-driven teach path. The
-   * foreground window process rides along as context. Returns a canceller for
-   * the dev/Demo canned stream, or null for a blank goal (and, on the real
-   * transport, once a run is stopped with the stop command rather than by
-   * cancelling local timers). ui/src/main.ts keeps whatever it returns as its
-   * stopDemo handle, exactly as it did for submitGoal.
+   * chosen target window's process rides along as context: main.ts passes the
+   * process the target-app picker resolved (ui/src/palette/targetApp.ts). When
+   * `windowProcess` is omitted the dev/Demo stub foreground stands in, so the
+   * canned run still starts. Returns a canceller for the dev/Demo canned stream,
+   * or null for a blank goal (and, on the real transport, once a run is stopped
+   * with the stop command rather than by cancelling local timers). ui/src/main.ts
+   * keeps whatever it returns as its stopDemo handle.
    */
-  startExplore(goal: string): (() => void) | null;
+  startExplore(goal: string, windowProcess?: string): (() => void) | null;
+  /**
+   * list_windows: the open windows a teach run may target, z-ordered topmost-
+   * first with Operant's own window excluded. Resolves the array the picker
+   * lists. Returns null when the command is unavailable (Demo/off-Tauri, no
+   * core), which is main.ts's signal to keep the stub-foreground teach path.
+   */
+  listWindows(): Promise<TargetWindow[]> | null;
   /** dry_run `{path}`: a deterministic, offline preview of a saved workflow. */
   dryRunWorkflow(name: string): void;
   /** run_saved_workflow `{path}`: replay a saved workflow for real (offline). */
@@ -122,10 +132,13 @@ export function createMockCoreCommands(bus: BusClient, opts: MockCoreCommandsOpt
     opts.onCommand?.(name, args);
   }
 
-  function startExplore(goal: string): (() => void) | null {
+  function startExplore(goal: string, windowProcess?: string): (() => void) | null {
     const trimmed = goal.trim();
     if (!trimmed) return null;
-    issue("start_explore", { goal: trimmed, window_process: foreground() });
+    // The picked target process when main.ts supplies one; otherwise the dev
+    // stub, so Demo (where list_windows is unavailable and no picker runs) keeps
+    // sending a well-formed window_process.
+    issue("start_explore", { goal: trimmed, window_process: windowProcess ?? foreground() });
     // dev/Demo: no core, so stream the canned teach run (the same one
     // simulateDemoRun always produced) into the flight recorder. On the real
     // transport the run streams back over the bus from the core instead.
@@ -147,6 +160,11 @@ export function createMockCoreCommands(bus: BusClient, opts: MockCoreCommandsOpt
 
   return {
     startExplore,
+    listWindows() {
+      // Demo/off-Tauri: there is no live desktop to enumerate, so the picker is
+      // unavailable and main.ts keeps the stub-foreground teach path.
+      return null;
+    },
     dryRunWorkflow(name) {
       replay(name, "dry_run", RUN_MODE_DRY);
     },

@@ -506,6 +506,7 @@ impl Core {
             "probe_backend" => Err(IpcError::not_implemented("probe_backend")),
 
             // 5b. Run control
+            "list_windows" => self.list_windows(),
             "start_explore" => self.start_explore(args),
             "start_replay" => self.start_replay(args),
             "dry_run" => self.dry_run(args),
@@ -570,6 +571,34 @@ impl Core {
     }
 
     // ---- 5b ----
+
+    /// `list_windows` (ADR 0003): the open top-level windows the core can
+    /// perceive, z-ordered topmost first, with Operant's own window excluded,
+    /// so the palette target picker binds a teach to the app the user means
+    /// rather than to Operant (the foreground window while the palette is
+    /// open). A build without `real-uia` has no live windows to offer and
+    /// returns an empty list; the UI then falls back to its switch-to-next path.
+    fn list_windows(&self) -> std::result::Result<Value, IpcError> {
+        #[cfg(feature = "real-uia")]
+        let windows: Vec<Value> = operant_perception_uia::enumerate_windows()
+            .into_iter()
+            .filter(|w| {
+                // Never offer Operant itself: excluding it is the whole point.
+                let p = w.process.to_ascii_lowercase();
+                !(p.contains("operant") || w.title == "Operant")
+            })
+            .map(|w| {
+                json!({
+                    "process": w.process,
+                    "title": w.title,
+                    "id": format!("{:#010x}", w.hwnd),
+                })
+            })
+            .collect();
+        #[cfg(not(feature = "real-uia"))]
+        let windows: Vec<Value> = Vec::new();
+        Ok(json!({ "windows": windows }))
+    }
 
     fn start_explore(&self, args: &Value) -> std::result::Result<Value, IpcError> {
         let goal = arg_str(args, "goal")?;
@@ -1485,6 +1514,27 @@ mod tests {
         assert_eq!(result["real_input"], json!(false));
         assert_eq!(result["mock_planner_only"], json!(true));
         assert_eq!(result["transport_kind"], json!("stdio"));
+    }
+
+    #[test]
+    fn list_windows_returns_a_windows_array() {
+        // The default (mock) build cargo test runs has no `real-uia`, so there
+        // are no live windows to enumerate: list_windows must still answer the
+        // contract shape (an object with a `windows` array, here empty) so the
+        // palette target picker falls back cleanly (ADR 0003).
+        let core = test_core();
+        let result = core
+            .dispatch("list_windows", &json!({}))
+            .expect("list_windows succeeds");
+        assert!(
+            result["windows"].is_array(),
+            "list_windows returns {{windows: [...]}}, got {result}"
+        );
+        assert_eq!(
+            result["windows"].as_array().unwrap().len(),
+            0,
+            "no real-uia in the test build means no windows to offer"
+        );
     }
 
     #[test]

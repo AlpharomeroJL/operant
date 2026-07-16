@@ -16,6 +16,7 @@ import { createMockBusClient } from "./mockClient.ts";
 import { RUN_MODE_EXPLORE, RUN_MODE_REPLAY, type BusEvent } from "./types.ts";
 import { createMockRegistry } from "../library/mockRegistry.ts";
 import { createMockCoreCommands, DEV_FOREGROUND_WINDOW, type CoreCommandName } from "./commands.ts";
+import { createTargetAppPicker } from "../palette/targetApp.ts";
 
 interface SeenCommand {
   name: CoreCommandName;
@@ -80,6 +81,56 @@ test("start_explore defaults window_process to the dev foreground stub when no p
   const stop = core.startExplore("do a thing");
   assert.ok(seen);
   assert.equal((seen as Record<string, unknown>).window_process, DEV_FOREGROUND_WINDOW);
+  stop?.();
+});
+
+test("startExplore carries an explicit target process as window_process, overriding the foreground stub", () => {
+  const bus = createMockBusClient();
+  const commands: SeenCommand[] = [];
+  const core = createMockCoreCommands(bus, {
+    foregroundWindow: () => "notepad.exe",
+    onCommand: (name, args) => commands.push({ name, args }),
+    stepDelayMs: 2,
+  });
+
+  // A2 target-app selection: the chosen window's process, not the foreground guess.
+  const stop = core.startExplore("copy the invoice total", "excel.exe");
+  assert.ok(stop);
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].name, "start_explore");
+  assert.deepEqual(commands[0].args, { goal: "copy the invoice total", window_process: "excel.exe" });
+  stop?.();
+});
+
+test("listWindows is unavailable in Demo (returns null), so main.ts keeps the stub-foreground teach path", () => {
+  const core = createMockCoreCommands(createMockBusClient(), {});
+  assert.equal(core.listWindows(), null);
+});
+
+test("the target-app picker's chosen process flows through to start_explore", () => {
+  const bus = createMockBusClient();
+  const commands: SeenCommand[] = [];
+  const core = createMockCoreCommands(bus, {
+    foregroundWindow: () => "operant-foreground",
+    onCommand: (name, args) => commands.push({ name, args }),
+    stepDelayMs: 1,
+  });
+
+  const picker = createTargetAppPicker();
+  picker.open("copy the invoice total");
+  picker.setWindows([
+    { process: "chrome.exe", title: "Quarterly report - Chrome", id: "win-1" },
+    { process: "notepad.exe", title: "notes.txt - Notepad", id: "win-2" },
+  ]);
+  picker.moveSelection(1); // front-app -> win-1 (chrome)
+  picker.moveSelection(1); // win-1 -> win-2 (notepad)
+  const result = picker.confirm();
+  assert.ok(result);
+
+  const stop = core.startExplore(result.goal, result.windowProcess);
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].name, "start_explore");
+  assert.deepEqual(commands[0].args, { goal: "copy the invoice total", window_process: "notepad.exe" });
   stop?.();
 });
 

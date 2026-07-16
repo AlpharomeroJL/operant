@@ -20,7 +20,7 @@ use windows::Win32::System::Threading::{
     PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetWindowTextLengthW, GetWindowThreadProcessId, IsWindowVisible,
+    EnumWindows, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsWindowVisible,
 };
 
 /// Find the first (topmost in z-order) visible, titled top-level window
@@ -42,6 +42,53 @@ pub fn find_window_by_process(process_name: &str) -> Result<HWND, PerceptionErro
         }
     }
     Err(PerceptionError::WindowNotFound(process_name.to_string()))
+}
+
+/// One visible top-level window, for the target picker (ADR 0003,
+/// `list_windows`). `hwnd` is the raw handle as a signed integer; the caller
+/// renders it as a hex id.
+#[derive(Debug, Clone)]
+pub struct EnumeratedWindow {
+    pub process: String,
+    pub title: String,
+    pub hwnd: isize,
+}
+
+/// Enumerate visible, titled top-level windows in z-order (topmost first),
+/// each with its owning process basename and title. Backs the `list_windows`
+/// command that populates the palette target picker so a teach binds to the
+/// app the user means rather than to Operant (the foreground window while the
+/// palette is open). A window whose owning process cannot be resolved is
+/// skipped, the same rule [`find_window_by_process`] applies.
+pub fn enumerate_windows() -> Vec<EnumeratedWindow> {
+    let mut candidates: Vec<HWND> = Vec::new();
+    unsafe {
+        let _ = EnumWindows(
+            Some(enum_proc),
+            LPARAM(std::ptr::addr_of_mut!(candidates) as isize),
+        );
+    }
+    candidates
+        .into_iter()
+        .filter_map(|hwnd| {
+            let process = process_image_name(hwnd)?;
+            Some(EnumeratedWindow {
+                process,
+                title: window_title_text(hwnd),
+                hwnd: hwnd.0 as isize,
+            })
+        })
+        .collect()
+}
+
+fn window_title_text(hwnd: HWND) -> String {
+    let len = unsafe { GetWindowTextLengthW(hwnd) };
+    if len <= 0 {
+        return String::new();
+    }
+    let mut buf = vec![0u16; (len + 1) as usize];
+    let copied = unsafe { GetWindowTextW(hwnd, &mut buf) };
+    String::from_utf16_lossy(&buf[..copied as usize])
 }
 
 unsafe extern "system" fn enum_proc(hwnd: HWND, lparam: LPARAM) -> BOOL {

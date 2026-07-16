@@ -23,8 +23,9 @@
 // wire.
 
 import type { CommandClient, CommandError, CommandResult } from "../bus/commandClient.ts";
-import type { CoreCommands, ForegroundWindowProvider, WorkflowSummary } from "../bus/commands.ts";
+import type { CoreCommands, WorkflowSummary } from "../bus/commands.ts";
 import type { MockRegistry } from "../library/mockRegistry.ts";
+import type { TargetWindow } from "../palette/targetApp.ts";
 import type {
   CompileRunOptions,
   CompiledWorkflow,
@@ -99,8 +100,6 @@ export function createRealCommandClient(coreCall: CoreCall): CommandClient {
 export interface RealCoreCommandsOptions {
   /** The shared registry (kept in sync with the core by B5's library list_workflows load); listWorkflows reads it, staying synchronous. */
   registry: MockRegistry;
-  /** Supplies start_explore's window_process; the real shell resolves the live foreground window. */
-  foregroundWindow: ForegroundWindowProvider;
 }
 
 /**
@@ -110,22 +109,32 @@ export interface RealCoreCommandsOptions {
  * itself, so these NEVER synthesize canned events (that is the mock's job).
  * listWorkflows reads the shared registry, so it stays synchronous like the
  * palette expects.
+ *
+ * start_explore's window_process is now the process the target-app picker
+ * resolved (ADR 0003, A1: ui/src/palette/targetApp.ts), passed in by main.ts,
+ * not a foreground-window guess. listWindows fetches the list that picker shows.
  */
 export function createRealCoreCommands(coreCall: CoreCall, opts: RealCoreCommandsOptions): CoreCommands {
-  const { registry, foregroundWindow } = opts;
+  const { registry } = opts;
   function pathOf(name: string): string | null {
     const record = registry.get(name);
     if (!record) return null;
     return record.path ?? record.manifest.dsl.path;
   }
   return {
-    startExplore(goal: string): (() => void) | null {
+    startExplore(goal: string, windowProcess?: string): (() => void) | null {
       const trimmed = goal.trim();
       if (!trimmed) return null;
-      void coreCall("start_explore", { goal: trimmed, window_process: foregroundWindow() });
+      void coreCall("start_explore", { goal: trimmed, window_process: windowProcess });
       // The run streams from the core over the bus; stopping is the `stop`
       // command (the run viewer's Stop button), not a local timer cancel.
       return null;
+    },
+    listWindows(): Promise<TargetWindow[]> {
+      // list_windows returns the open windows z-ordered topmost-first with
+      // Operant's own window already excluded (contracts/ipc.md); the picker
+      // pre-selects windows[0] as the app the person was last in.
+      return coreCall<{ windows?: TargetWindow[] }>("list_windows").then((res) => res?.windows ?? []);
     },
     dryRunWorkflow(name: string): void {
       const path = pathOf(name);

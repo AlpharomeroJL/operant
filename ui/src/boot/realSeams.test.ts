@@ -75,12 +75,11 @@ test("CoreCommands issues the CONTRACT command names: run a saved workflow -> st
   const registry = createMockRegistry();
   const name = registry.list()[0].manifest.name;
   const path = registry.get(name)!.manifest.dsl.path;
-  const core = createRealCoreCommands(makeCoreCall(spy.invoke), {
-    registry,
-    foregroundWindow: () => "notepad.exe",
-  });
+  const core = createRealCoreCommands(makeCoreCall(spy.invoke), { registry });
 
-  core.startExplore("copy the invoice total");
+  // ADR 0003, A1: window_process is the process the target-app picker resolved,
+  // passed in by main.ts, not a foreground-window guess.
+  core.startExplore("copy the invoice total", "notepad.exe");
   core.dryRunWorkflow(name);
   core.runSavedWorkflow(name);
 
@@ -97,8 +96,21 @@ test("CoreCommands issues the CONTRACT command names: run a saved workflow -> st
   assert.equal(rows[0].id, name);
 
   // A blank goal starts nothing.
-  core.startExplore("   ");
+  core.startExplore("   ", "notepad.exe");
   assert.equal(spy.calls.length, before, "a blank goal issues no start_explore");
+});
+
+test("CoreCommands.listWindows issues list_windows and unwraps the core's windows array", async () => {
+  const windows = [
+    { process: "chrome.exe", title: "Quarterly report - Chrome", id: "win-1" },
+    { process: "notepad.exe", title: "notes.txt - Notepad", id: "win-2" },
+  ];
+  const spy = spyInvoke(async (cmd) => (cmd === "core_call" ? { windows } : undefined));
+  const core = createRealCoreCommands(makeCoreCall(spy.invoke), { registry: createMockRegistry() });
+
+  const result = await core.listWindows();
+  assert.deepEqual(inner(spy.calls[0]), { cmd: "list_windows", args: {} });
+  assert.deepEqual(result, windows);
 });
 
 test("TeachClient issues start_explore and compile_run", () => {

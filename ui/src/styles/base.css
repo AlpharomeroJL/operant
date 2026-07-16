@@ -1360,3 +1360,89 @@ input:disabled {
 .op-tray__menu-item--panic {
   color: var(--op-color-danger);
 }
+
+/* Target-app picker (ADR 0003, A1): the step between the palette's Teach this
+   row and the teach run, where the person picks which real app to teach
+   against (never Operant itself). Same floating-panel-on-a-backdrop shape as
+   the palette overlay above; shares .op-modal-backdrop's centering and only
+   overrides vertical alignment, exactly the way .op-palette-backdrop does.
+   Appended at the end per this file's append-only convention. */
+.op-target-app-backdrop {
+  align-items: flex-start;
+}
+
+.op-target-app {
+  margin-top: 12vh;
+  width: min(600px, 90vw);
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  padding: var(--op-space-4);
+  border-radius: var(--op-radius-lg);
+  border: 1px solid var(--op-color-border);
+  background: var(--op-color-bg-elevated);
+  box-shadow: var(--op-shadow-modal);
+}
+
+.op-target-app__heading {
+  margin: 0 0 var(--op-space-3);
+  font-size: var(--op-font-size-lg);
+  font-weight: var(--op-font-weight-semibold);
+  color: var(--op-color-text);
+}
+
+.op-target-app__status {
+  margin: 0;
+  padding: var(--op-space-2) 0;
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
+.op-target-app__listbox {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--op-space-1);
+}
+
+.op-target-app__listbox:focus-visible {
+  outline: 2px solid var(--op-color-focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--op-radius-md);
+}
+
+.op-target-app__row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--op-space-2) var(--op-space-3);
+  border-radius: var(--op-radius-md);
+  cursor: pointer;
+}
+
+.op-target-app__row[data-selected="true"] {
+  background: var(--op-color-bg-sunken);
+}
+
+.op-target-app__row-title {
+  margin: 0;
+  font-size: var(--op-font-size-base);
+  color: var(--op-color-text);
+}
+
+.op-target-app__row-subtitle {
+  margin: 0;
+  font-size: var(--op-font-size-sm);
+  color: var(--op-color-text-muted);
+}
+
+.op-target-app__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--op-space-4);
+  margin-top: var(--op-space-3);
+  padding-top: var(--op-space-3);
+  border-top: 1px solid var(--op-color-border);
+  font-size: var(--op-font-size-xs);
+  color: var(--op-color-text-muted);
+}
